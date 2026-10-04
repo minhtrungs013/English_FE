@@ -6,13 +6,13 @@ import { useWB } from '../state/WordbookContext';
 import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/ui';
 
 export const TOPIC_LABEL: Record<Topic, string> = {
-  it: 'IT', interview: 'Interview', customer: 'Customer meetings', leader: 'Leader meetings', other: 'Other'
+  it: 'IT', interview: 'Interview', customer: 'Customer meetings', leader: 'Leader meetings', toeic: 'TOEIC', other: 'Other'
 };
-const TOPIC_TINT: Record<Topic, string> = { it: 't-blue', interview: 't-indigo', customer: 't-green', leader: 't-orange', other: 't-amber' };
+const TOPIC_TINT: Record<Topic, string> = { it: 't-blue', interview: 't-indigo', customer: 't-green', leader: 't-orange', toeic: 't-red', other: 't-amber' };
 const SOURCES: [LibraryQuery['source'] | '', string][] = [['', 'All'], ['builtin', 'Built-in'], ['community', 'Community'], ['me', 'Shared by me']];
 const PAGE_SIZE = 30;
 
-export const TopicBadge = ({ topic }: { topic: Topic }) => <span className={'badge ' + TOPIC_TINT[topic]}>{TOPIC_LABEL[topic]}</span>;
+export const TopicBadge = ({ topic }: { topic: Topic }) => <span className={'badge ' + (TOPIC_TINT[topic] ?? 't-amber')}>{TOPIC_LABEL[topic] ?? topic}</span>;
 
 function useAuthor() {
   const { s } = useWB();
@@ -145,11 +145,11 @@ export function Library() {
   const anyFilter = !!q || !!topic || !!level || !!source;
   const clear = () => { setQ(''); setTopic(''); setLevel(''); setSource(''); };
   const items = data?.items ?? [];
-  const topics: Topic[] = ['it', 'interview', 'customer', 'leader', 'other'];
+  const topics: Topic[] = ['it', 'interview', 'customer', 'leader', 'toeic', 'other'];
 
   return (
     <>
-      <PageHead title="Vocabulary Library" sub="Words for IT work, interviews and meetings — shared by everyone. Save the ones you want to learn.">
+      <PageHead title="Vocabulary Library" sub="Words for IT work, interviews, meetings and TOEIC — shared by everyone. Save the ones you want to learn.">
         <button className="btn btn-primary" onClick={a.goNew}><Icon name="plus" size="sm" />Add Your Own Word</button>
       </PageHead>
 
