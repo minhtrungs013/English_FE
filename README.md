@@ -8,11 +8,12 @@ It talks to the NestJS API in [English_BE](https://github.com/minhtrungs013/Engl
 
 ```bash
 npm install
-cp .env.example .env   # set VITE_API_URL if the API isn't on http://localhost:3000/api
+cp .env.example .env   # optional: only to use a local API instead of the Render server
 npm run dev            # http://localhost:5173
 ```
 
-Start the API first (`npm run start:dev` in English_BE).
+By default the app uses the API on Render (`https://english-be-ys8a.onrender.com/api`). The free plan sleeps
+after 15 minutes without traffic, so the first load can take up to a minute.
 
 ## Features
 

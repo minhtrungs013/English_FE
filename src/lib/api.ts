@@ -1,6 +1,7 @@
 import type { Category, Data, Progress, Rating, Settings, Word } from './data';
 
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000/api';
+/** Wordbook API. Defaults to the server on Render; set VITE_API_URL in .env to use another one (e.g. http://localhost:3000/api). */
+const BASE = (import.meta.env.VITE_API_URL as string | undefined) || 'https://english-be-ys8a.onrender.com/api';
 const TOKEN_KEY = 'wordbook:token';
 
 export class ApiError extends Error {
