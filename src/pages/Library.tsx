@@ -20,7 +20,7 @@ function useAuthor() {
 }
 
 /** The Save button / "In my words" state for one library word. */
-function SaveButton({ w, small }: { w: LibraryWord; small?: boolean }) {
+export function SaveButton({ w, small }: { w: LibraryWord; small?: boolean }) {
   const { s, a } = useWB();
   const [busy, setBusy] = useState(false);
   const mine = s.words.find((x) => x.word.toLowerCase() === w.word.toLowerCase());
@@ -102,10 +102,11 @@ function LibraryDetail({ w, onClose, onRemoved }: { w: LibraryWord; onClose: () 
 }
 
 export function Library() {
-  const { a } = useWB();
+  const { s, a } = useWB();
   const author = useAuthor();
-  const [q, setQ] = useState('');
-  const [query, setQuery] = useState('');
+  // Opened from the header search: start with that search.
+  const [q, setQ] = useState(s.libraryQ);
+  const [query, setQuery] = useState(s.libraryQ.trim());
   const [topic, setTopic] = useState<Topic | ''>('');
   const [level, setLevel] = useState('');
   const [source, setSource] = useState<LibraryQuery['source'] | ''>('');

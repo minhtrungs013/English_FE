@@ -38,6 +38,8 @@ interface UiState {
   form: FormData; editForm: FormData; formErr: string; aiBusy: boolean; aiStep: number;
   review: ReviewState | null; practice: PracticeState | null;
   modal: Modal | null; toast: Toast | null; chart: '7' | '30';
+  /** Search to start the Library page with (set by the header search). */
+  libraryQ: string;
 }
 export type State = Data & UiState;
 
@@ -58,7 +60,7 @@ function initialState(): State {
     route: 'dashboard', prevRoute: 'dashboard', sel: null, rail: false,
     filters: NO_FILTERS, menu: null, notif: false, account: false,
     form: emptyForm(), editForm: emptyForm(), formErr: '', aiBusy: false, aiStep: 0,
-    review: null, practice: null, modal: null, toast: null, chart: '7'
+    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: ''
   };
 }
 

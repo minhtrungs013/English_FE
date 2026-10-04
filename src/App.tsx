@@ -65,7 +65,7 @@ function Page() {
     );
   }
   switch (s.route) {
-    case 'library': return <Library />;
+    case 'library': return <Library key={s.libraryQ} />;
     case 'vocab': return <Vocabulary />;
     case 'new':
     case 'edit': return <VocabForm />;
