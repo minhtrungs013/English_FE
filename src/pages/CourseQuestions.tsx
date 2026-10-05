@@ -3,6 +3,7 @@ import { api, ApiError, type BankInput, type BankItem, type BankKind, type BankS
 import { Icon } from '../components/ui';
 import { errText } from './Courses';
 import { Prompt } from './CourseHomework';
+import { ImportQuestions } from './CourseImport';
 import { useWB } from '../state/WordbookContext';
 
 export const TENSES: Tense[] = ['present-simple', 'present-continuous', 'present-perfect', 'past-simple', 'past-continuous', 'future-simple', 'going-to'];
@@ -191,6 +192,7 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
   const [adding, setAdding] = useState<BankKind | null>(null);
   const [formErr, setFormErr] = useState('');
   const [showRejected, setShowRejected] = useState(false);
+  const [importing, setImporting] = useState(false);
   const words = (day.words ?? []).map((w) => w.word);
   const base = 'qb-' + day.day;
 
@@ -357,6 +359,11 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
       <div className="actions">
         <button id={base + '-add'} className="btn btn-secondary btn-sm" onClick={() => openForm('tense')} aria-expanded={adding === 'tense'}><Icon name="plus" size="sm" />Add question</button>
         <button className="btn btn-secondary btn-sm" onClick={() => openForm('recap')} aria-expanded={adding === 'recap'}><Icon name="pen" size="sm" />{hasRecap ? 'Rewrite recap' : 'Write recap'}</button>
+        <button id={base + '-import'} className="btn btn-secondary btn-sm" onClick={() => setImporting(true)} disabled={!words.length}
+          aria-haspopup="dialog" aria-describedby={!words.length ? base + '-imph' : undefined}>
+          <Icon name="upload" size="sm" />Import questions
+        </button>
+        {!words.length && <span className="hint" id={base + '-imph'}>Add words to this day first.</span>}
         {n.pending > 0 && (
           <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={approveAll} disabled={!!busy}>
             <Icon name="checkc" size="sm" />{busy === 'all' ? 'Approving…' : 'Approve all pending (' + n.pending + ')'}
@@ -369,6 +376,10 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
           <QuestionForm key={adding} kind={adding} words={words} busy={busy === 'new'} err={formErr} idBase={base + '-new'}
             onSave={saveNew} onCancel={() => { openForm(null); focusLater(base + '-add'); }} />
         </div>
+      )}
+      {importing && (
+        <ImportQuestions c={c} day={day.day} words={words} onImported={setItems}
+          onClose={() => { setImporting(false); focusLater(base + '-import'); }} />
       )}
 
       {failed ? (

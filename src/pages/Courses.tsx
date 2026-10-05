@@ -9,6 +9,81 @@ export function errText(e: unknown, fallback = 'Something went wrong.'): string 
   return e instanceof ApiError || e instanceof Error ? e.message || fallback : fallback;
 }
 
+/** Today in Vietnam time as 'YYYY-MM-DD' (course days turn over at midnight there). */
+export const vnToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+
+/** '2026-10-10' → '10 Oct 2026'. */
+export function fmtDate(d: string): string {
+  const [y, m, day] = d.split('-').map(Number);
+  if (!y || !m || !day) return d;
+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(Date.UTC(y, m - 1, day));
+}
+
+/** "Starts 10 Oct 2026" / "Starts today" / "Started 1 Oct 2026"; '' for self-paced courses. */
+export function startText(startDate: string): string {
+  if (!startDate) return '';
+  const today = vnToday();
+  return startDate === today ? 'Starts today' : (startDate > today ? 'Starts ' : 'Started ') + fmtDate(startDate);
+}
+
+/** Toast after joining: which day the learner starts on. */
+export function joinedText(c: CourseSummary): string {
+  const d = c.enrollment?.currentDay ?? 1;
+  return 'Joined “' + c.title + '”. ' + (d < 1 && c.startDate ? 'It starts on ' + fmtDate(c.startDate) + '.'
+    : d <= 1 ? 'Day 1 starts today.' : 'You start on day ' + Math.min(d, c.totalDays) + ' with everyone else.');
+}
+
+/** fixed = everyone's day 1 is `date`; otherwise each learner starts the day they join. */
+export interface StartPick { fixed: boolean; date: string }
+export const startPickOf = (startDate: string): StartPick => ({ fixed: !!startDate, date: startDate });
+/** The startDate to send, or an error message. */
+export function startDateOf(p: StartPick): { startDate: string } | { error: string } {
+  if (!p.fixed) return { startDate: '' };
+  return /^\d{4}-\d{2}-\d{2}$/.test(p.date) ? { startDate: p.date } : { error: 'Pick the start date, or let each learner start when they join.' };
+}
+
+/** "Each learner starts when they join" / "Everyone starts on <date>". */
+export function StartDatePicker({ value, onChange, idBase, note }: { value: StartPick; onChange: (p: StartPick) => void; idBase: string; note?: string }) {
+  const set = (p: Partial<StartPick>) => onChange({ ...value, ...p });
+  const today = vnToday();
+  const past = value.fixed && !!value.date && value.date < today;
+  return (
+    <fieldset className="startpick">
+      <legend className="label">Start date</legend>
+      <label className={'radio startopt' + (!value.fixed ? ' on' : '')}>
+        <input type="radio" name={idBase} checked={!value.fixed} onChange={() => set({ fixed: false })} aria-describedby={idBase + '-self'} />
+        <span className="startopt-t">
+          Each learner starts when they join
+          <span className="hint" id={idBase + '-self'}>Day 1 is the day someone joins, so everyone goes at their own pace.</span>
+        </span>
+      </label>
+      <label className={'radio startopt' + (value.fixed ? ' on' : '')}>
+        <input type="radio" name={idBase} checked={value.fixed} onChange={() => set({ fixed: true, date: value.date || today })} aria-describedby={idBase + '-fixed'} />
+        <span className="startopt-t">
+          Everyone starts on a set date
+          <span className="hint" id={idBase + '-fixed'}>
+            Everyone is on the same day. People who join later start on the course’s current day, and the days they missed count as late homework.
+          </span>
+        </span>
+      </label>
+      {value.fixed && (
+        <div className="field startdate">
+          <label className="label" htmlFor={idBase + '-date'}>Day 1 for everyone</label>
+          <input id={idBase + '-date'} type="date" className="input" value={value.date} required aria-describedby={idBase + '-dh'}
+            onChange={(e) => set({ date: e.target.value })} />
+          <span className="hint" id={idBase + '-dh'} aria-live="polite">
+            {!value.date ? 'Pick a date.'
+              : past ? 'This date is in the past, so days up to today open at once.'
+              : value.date === today ? 'Day 1 opens today.'
+              : 'Learners can join now; day 1 opens on ' + fmtDate(value.date) + '.'}
+          </span>
+        </div>
+      )}
+      {note && <span className="hint">{note}</span>}
+    </fieldset>
+  );
+}
+
 /** Copies a join code to the clipboard (with a toast either way). */
 export function useCopyCode() {
   const { a } = useWB();
@@ -41,7 +116,7 @@ export function JoinCode({ code }: { code: string }) {
 }
 
 /** A local modal: backdrop + Escape close it. */
-export function Dialog({ label, onClose, children, wide }: { label: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+export function Dialog({ label, onClose, children, wide, className }: { label: string; onClose: () => void; children: ReactNode; wide?: boolean; className?: string }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -50,7 +125,7 @@ export function Dialog({ label, onClose, children, wide }: { label: string; onCl
   return (
     <div className="overlay">
       <button className="backdrop" onClick={onClose} aria-label="Close" tabIndex={-1} />
-      <div className={'modal' + (wide ? ' libmodal' : '')} role="dialog" aria-modal="true" aria-label={label}>{children}</div>
+      <div className={'modal' + (wide ? ' libmodal' : '') + (className ? ' ' + className : '')} role="dialog" aria-modal="true" aria-label={label}>{children}</div>
     </div>
   );
 }
@@ -96,14 +171,17 @@ function CreateCourse({ onClose }: { onClose: () => void }) {
   const [description, setDescription] = useState('');
   const [wpd, setWpd] = useState(5);
   const [visibility, setVisibility] = useState<CourseSummary['visibility']>('private');
+  const [start, setStart] = useState<StartPick>({ fixed: false, date: '' });
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const create = async () => {
     if (busy) return;
     if (!title.trim()) { setErr('Please give the course a title.'); return; }
+    const sd = startDateOf(start);
+    if ('error' in sd) { setErr(sd.error); return; }
     setBusy(true);
     try {
-      const c = await api.createCourse({ title: title.trim(), description: description.trim(), wordsPerDay: wpd, visibility });
+      const c = await api.createCourse({ title: title.trim(), description: description.trim(), wordsPerDay: wpd, visibility, startDate: sd.startDate });
       a.showToast('Course “' + c.title + '” created. Now add words to each day.');
       a.openCourse(c.id, true);
     } catch (e) {
@@ -112,11 +190,11 @@ function CreateCourse({ onClose }: { onClose: () => void }) {
     }
   };
   return (
-    <Dialog label="New course" onClose={onClose}>
+    <Dialog label="New course" onClose={onClose} wide>
       <h2>New Course</h2>
       <div className="field">
         <label className="label" htmlFor="nc-title">Title <span className="req">*</span></label>
-        <input id="nc-title" className={'input' + (err ? ' err' : '')} placeholder="e.g. 30 days of IT English" value={title} maxLength={120} autoFocus
+        <input id="nc-title" className={'input' + (err && !title.trim() ? ' err' : '')} placeholder="e.g. 30 days of IT English" value={title} maxLength={120} autoFocus
           onChange={(e) => { setTitle(e.target.value); setErr(''); }}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void create(); } }} />
       </div>
@@ -133,7 +211,8 @@ function CreateCourse({ onClose }: { onClose: () => void }) {
         <VisibilityPicker value={visibility} onChange={setVisibility} />
         <span className="hint">{visibility === 'public' ? 'Anyone can find it in Explore. You can also share the join code.' : 'Only people with the join code can join.'}</span>
       </div>
-      {err && <span className="errtxt"><Icon name="alert" size="sm" />{err}</span>}
+      <StartDatePicker idBase="nc-start" value={start} onChange={(p) => { setStart(p); setErr(''); }} />
+      {err && <span className="errtxt" role="alert"><Icon name="alert" size="sm" />{err}</span>}
       <div className="mfoot">
         <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
         <button className="btn btn-primary" onClick={create} disabled={busy}>{busy ? 'Creating…' : 'Create & add words'}</button>
@@ -158,13 +237,16 @@ function CourseCard({ c, onJoin }: { c: CourseSummary; onJoin?: () => void }) {
         <span>by <b>{c.isOwner ? 'You' : c.ownerName}</b></span>
         <span><Icon name="layers" size="sm" />{c.readyDays}/{c.totalDays} days ready</span>
         <span><Icon name="users" size="sm" />{c.members} {c.members === 1 ? 'learner' : 'learners'}</span>
+        {c.startDate && <span><Icon name="calendar" size="sm" />{startText(c.startDate)}</span>}
       </div>
-      {e && (
+      {e && (e.currentDay < 1 ? (
+        <span className="sm" style={{ fontWeight: 700 }}>Not started yet — day 1 opens on {fmtDate(c.startDate)}</span>
+      ) : (
         <div className="stack" style={{ gap: 6 }}>
           <span className="sm" style={{ fontWeight: 700 }}>Day {Math.min(e.currentDay, c.totalDays)} of {c.totalDays} · {e.learned.length} learned</span>
           <span className="mini indigo" role="progressbar" aria-label="Days learned" aria-valuemin={0} aria-valuemax={c.totalDays} aria-valuenow={e.learned.length}><div style={{ width: pct + '%' }} /></span>
         </div>
-      )}
+      ))}
       <div className="ccard-foot">
         {c.isOwner && <button className="btn btn-secondary btn-sm" onClick={() => a.openCourse(c.id, true)}><Icon name="edit" size="sm" />Edit</button>}
         {onJoin
@@ -198,7 +280,7 @@ function JoinWithCode() {
     setBusy(true);
     try {
       const c = await api.joinCourseByCode(clean);
-      a.showToast('Joined “' + c.title + '”. Day 1 starts today.');
+      a.showToast(joinedText(c));
       a.openCourse(c.id);
     } catch (e) {
       a.showToast(errText(e, 'Couldn’t join with that code.'), 'bad');
@@ -240,8 +322,7 @@ export function Courses() {
 
   const join = async (c: CourseSummary) => {
     try {
-      await api.joinCourse(c.id);
-      a.showToast('Joined “' + c.title + '”. Day 1 starts today.');
+      a.showToast(joinedText(await api.joinCourse(c.id)));
       a.openCourse(c.id);
     } catch (e) {
       a.showToast(errText(e, 'Couldn’t join this course.'), 'bad');

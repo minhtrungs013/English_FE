@@ -3,7 +3,7 @@ import { api, type CourseDetail } from '../lib/api';
 import { useWB } from '../state/WordbookContext';
 import { Icon } from '../components/ui';
 import { CourseWordRow } from './Course';
-import { errText } from './Courses';
+import { errText, fmtDate, vnToday } from './Courses';
 import { HomeworkSection, lateDaysFor, penaltyFor } from './CourseHomework';
 import { CourseLearn } from './CourseLearn';
 import { WarmupSection } from './CourseWarmup';
@@ -14,6 +14,26 @@ type StepState = 'done' | 'active' | 'locked';
 type FocusTo = StepId | 'catchup' | 'empty' | 'next';
 
 const plural = (n: number, one: string, many = one + 's') => n + ' ' + (n === 1 ? one : many);
+
+/** In place of today's plan while the course's start date is still ahead (enrollment.currentDay is 0). */
+export function NotStarted({ c }: { c: CourseDetail }) {
+  const utc = (d: string) => Date.parse(d + 'T00:00:00Z');
+  const left = c.startDate ? Math.max(1, Math.round((utc(c.startDate) - utc(vnToday())) / 86400000)) : 0;
+  return (
+    <section className="card tsoon" aria-labelledby="tp-title">
+      <span className="tsoon-ic" aria-hidden="true"><Icon name="calendar" /></span>
+      <div className="stack" style={{ gap: 4, minWidth: 0 }}>
+        <h2 className="h2 tplan-t" id="tp-title" tabIndex={-1}>
+          This course starts on {c.startDate ? fmtDate(c.startDate) : 'its start date'} — come back then
+        </h2>
+        <span className="muted sm">
+          {c.startDate && (left === 1 ? 'Day 1 opens tomorrow. ' : 'Day 1 opens in ' + plural(left, 'day') + '. ')}
+          Everyone in “{c.title}” starts together, so nothing is open yet. Your plan for each day will appear here.
+        </span>
+      </div>
+    </section>
+  );
+}
 
 /**
  * An enrolled learner's guided day: catch up on late homework (a notice, doesn't block), review earlier days,

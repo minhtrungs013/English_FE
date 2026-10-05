@@ -5,7 +5,7 @@ import { useWB } from '../state/WordbookContext';
 import { EmptyState, Icon, LevelBadge, PageHead } from '../components/ui';
 import { TOPIC_LABEL } from './Library';
 import { BackToCourses, CourseLoading, useCourse } from './Course';
-import { ConfirmDialog, JoinCode, VisibilityPicker, WordsPerDayPicker, errText } from './Courses';
+import { ConfirmDialog, JoinCode, StartDatePicker, VisibilityPicker, WordsPerDayPicker, errText, startDateOf, startPickOf, startText, type StartPick } from './Courses';
 import { QuestionBank } from './CourseQuestions';
 
 const TOPICS: Topic[] = ['it', 'interview', 'customer', 'leader', 'toeic', 'other'];
@@ -22,14 +22,18 @@ function CourseSettings({ c, onSaved, onDelete }: { c: CourseDetail; onSaved: (c
   const [description, setDescription] = useState(c.description);
   const [wpd, setWpd] = useState(c.wordsPerDay);
   const [visibility, setVisibility] = useState(c.visibility);
+  const [start, setStart] = useState<StartPick>(() => startPickOf(c.startDate));
   const [busy, setBusy] = useState(false);
-  const dirty = title.trim() !== c.title || description.trim() !== c.description || wpd !== c.wordsPerDay || visibility !== c.visibility;
+  const sd = startDateOf(start);
+  const startChanged = 'error' in sd || sd.startDate !== c.startDate;
+  const dirty = title.trim() !== c.title || description.trim() !== c.description || wpd !== c.wordsPerDay || visibility !== c.visibility || startChanged;
   const fullest = Math.max(0, ...c.days.map((d) => d.count));
   const save = async () => {
     if (!title.trim()) { a.showToast('Please give the course a title.', 'bad'); return; }
+    if ('error' in sd) { a.showToast(sd.error, 'bad'); document.getElementById('ce-start-date')?.focus(); return; }
     setBusy(true);
     try {
-      const res = await api.updateCourse(c.id, { title: title.trim(), description: description.trim(), wordsPerDay: wpd, visibility });
+      const res = await api.updateCourse(c.id, { title: title.trim(), description: description.trim(), wordsPerDay: wpd, visibility, startDate: sd.startDate });
       onSaved(res);
       a.showToast('Course details saved.');
     } catch (e) {
@@ -61,6 +65,10 @@ function CourseSettings({ c, onSaved, onDelete }: { c: CourseDetail; onSaved: (c
           <span className="label" id="ce-wpd">Words per day</span>
           <WordsPerDayPicker id="ce-wpd" value={wpd} onChange={setWpd} />
           {wpd < fullest && <span className="errtxt"><Icon name="alert" size="sm" />Some days already have {fullest} words — remove words first.</span>}
+        </div>
+        <div className="field span2">
+          <StartDatePicker idBase="ce-start" value={start} onChange={setStart}
+            note={(c.startDate ? 'Now: ' + startText(c.startDate) + '. ' : '') + (c.members > 0 && startChanged ? 'Saving moves everyone already learning to the new day 1.' : '')} />
         </div>
       </div>
       <div className="rowb" style={{ flexWrap: 'wrap' }}>
@@ -311,11 +319,11 @@ export function CourseEdit() {
   return (
     <>
       <BackToCourses />
-      <PageHead title="Edit Course" sub={<>Plan what learners get each day of “{c.title}”. Changes to a day are saved right away.</>}>
+      <PageHead title="Edit Course" sub={<>Plan what learners get each day of “{c.title}”. Changes to a day are saved right away.{c.startDate ? ' ' + startText(c.startDate) + ' for everyone.' : ''}</>}>
         <button className="btn btn-secondary" onClick={() => a.openCourse(c.id)}><Icon name="eye" size="sm" />View as learner</button>
       </PageHead>
 
-      <CourseSettings key={c.title + c.description + c.wordsPerDay + c.visibility} c={c} onSaved={setC} onDelete={() => setDeleting(true)} />
+      <CourseSettings key={c.title + c.description + c.wordsPerDay + c.visibility + c.startDate} c={c} onSaved={setC} onDelete={() => setDeleting(true)} />
 
       <div className="card pad cdays">
         <div className="rowb" style={{ flexWrap: 'wrap' }}>

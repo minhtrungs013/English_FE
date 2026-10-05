@@ -3,11 +3,11 @@ import { api, type CourseDay, type CourseDetail, type CourseWord } from '../lib/
 import { speak } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/ui';
-import { ConfirmDialog, JoinCode, VisibilityBadge, errText } from './Courses';
+import { ConfirmDialog, JoinCode, VisibilityBadge, errText, fmtDate, joinedText, startText } from './Courses';
 import { HomeworkSection } from './CourseHomework';
 import { CourseLearn, SaveWordButton } from './CourseLearn';
 import { CourseLeaderboard } from './CourseLeaderboard';
-import { TodayPlan } from './CourseToday';
+import { NotStarted, TodayPlan } from './CourseToday';
 import { WarmupSection } from './CourseWarmup';
 
 type DayState = 'learned' | 'open' | 'locked' | 'empty';
@@ -93,6 +93,8 @@ export function CoursePage() {
 
   const e = c.enrollment;
   const current = e ? Math.min(e.currentDay, c.totalDays) : 0;
+  /** Enrolled, but the course's start date hasn't come yet: nothing is open (the owner can still preview the days). */
+  const notStarted = !!e && e.currentDay < 1;
   const pick = (day: number) => {
     // Today is done in the plan, not twice.
     if (e && day === current) {
@@ -118,7 +120,7 @@ export function CoursePage() {
       const res = await api.joinCourse(c.id);
       setC(res);
       setSel(null);
-      a.showToast('Joined “' + c.title + '”. Day 1 starts today.');
+      a.showToast(joinedText(res));
     } catch (err) {
       a.showToast(errText(err, 'Couldn’t join this course.'), 'bad');
     } finally {
@@ -248,13 +250,16 @@ export function CoursePage() {
         <span>by <b>{c.isOwner ? 'You' : c.ownerName}</b></span>
         <span><Icon name="layers" size="sm" />{c.wordsPerDay} words a day · {c.readyDays}/{c.totalDays} days ready</span>
         <span><Icon name="users" size="sm" />{c.members} {c.members === 1 ? 'learner' : 'learners'}</span>
+        {c.startDate && <span><Icon name="calendar" size="sm" />{startText(c.startDate)}</span>}
         <span>#{c.tag}</span>
         {c.isOwner && <VisibilityBadge v={c.visibility} />}
       </div>
 
       {(e || (c.isOwner && c.joinCode)) && (
         <div className="card cprog">
-          {e ? (
+          {notStarted ? (
+            <span className="muted sm" style={{ flex: 1, minWidth: 220 }}>You’re in. Day 1 opens on <b>{fmtDate(c.startDate)}</b>.</span>
+          ) : e ? (
             <div className="stack" style={{ gap: 8, flex: 1, minWidth: 220 }}>
               <div className="rowb">
                 <b>Day {current} of {c.totalDays}</b>
@@ -271,9 +276,10 @@ export function CoursePage() {
         </div>
       )}
 
-      {e && <TodayPlan c={c} setC={setC} reload={reload} onSubmitted={submitted} onOpenDay={pick} onShowBoard={showBoard} />}
+      {notStarted ? <NotStarted c={c} />
+        : e && <TodayPlan c={c} setC={setC} reload={reload} onSubmitted={submitted} onOpenDay={pick} onShowBoard={showBoard} />}
 
-      {e ? (
+      {notStarted && !c.isOwner ? null : e ? (
         <section className="csec tdays" aria-labelledby="tp-days">
           <h2 className="h2" id="tp-days">
             <button className="tdisc" aria-expanded={allOpen} aria-controls="tp-days-body" onClick={() => setAllOpen(!allOpen)}>
@@ -285,7 +291,7 @@ export function CoursePage() {
         </section>
       ) : days}
 
-      {(c.isOwner || e) && <CourseLeaderboard c={c} version={boardVersion} />}
+      {(c.isOwner || (e && !notStarted)) && <CourseLeaderboard c={c} version={boardVersion} />}
 
       {e && (
         <div style={{ marginTop: 28 }}>

@@ -75,12 +75,17 @@ export interface CourseWord {
   /** '' when the word isn't in the shared library (yet). */
   libraryId: string; source: 'library' | 'ai' | 'manual';
 }
-/** currentDay is 1..30: day 1 = the day they joined, +1 each day (Vietnam time). warmedUp: days whose review (warm-up) is done or skipped. */
+/**
+ * currentDay is 1..30: day 1 = the day they joined (or the course's start date), +1 each day (Vietnam time);
+ * 0 = the course hasn't started yet. warmedUp: days whose review (warm-up) is done or skipped.
+ */
 export type CourseEnrollment = { startDay: string; currentDay: number; learned: number[]; warmedUp: number[] } | null;
 export interface CourseSummary {
   id: string; title: string; description: string; ownerId: string; ownerName: string; isOwner: boolean;
   visibility: 'private' | 'public'; wordsPerDay: number; totalDays: number; tag: string;
   readyDays: number; members: number;
+  /** '' = self-paced (each learner's day 1 is the day they join) · 'YYYY-MM-DD' = day 1 for everyone. */
+  startDate: string;
   /** Only sent to the owner. */
   joinCode?: string;
   enrollment: CourseEnrollment;
@@ -96,7 +101,7 @@ export interface CourseDay {
 }
 export interface CourseDetail extends CourseSummary { days: CourseDay[] }
 export type CourseScope = 'joined' | 'mine' | 'public';
-export interface CourseInput { title: string; description?: string; wordsPerDay?: number; visibility?: 'private' | 'public' }
+export interface CourseInput { title: string; description?: string; wordsPerDay?: number; visibility?: 'private' | 'public'; startDate?: string }
 export interface CourseAiWord { source: 'library' | 'ai' | 'online'; word: CourseWord; quota: Quota }
 export interface CourseSaveResult { added: Word[]; skipped: string[]; tag: string }
 export interface CourseLearnResult extends CourseSaveResult { course: CourseDetail }
@@ -162,6 +167,13 @@ export interface BankInput { kind: BankKind; word?: string; tense?: string; prom
 export type BankPatch = Partial<Omit<BankInput, 'kind'>> & { status?: BankStatus };
 /** source 'template' = built-in questions, used when AI isn't available. items: the day's whole bank. */
 export interface BankGenerateResult { source: 'ai' | 'template'; added: number; quota: Quota; items: BankItem[] }
+/**
+ * One row of a question import (CSV columns or JSON keys). type: 'typed' | 'multi' · word: one of the day's words ·
+ * sentence: one "___" · multi: choice1..choice4 (or choices) · accept: "a|b" or a list · explain: Vietnamese.
+ */
+export type ImportRow = Record<string, unknown>;
+/** errors[].index points into the sent items; good rows are saved as approved. items: the day's whole bank. */
+export interface ImportResult { added: number; errors: { index: number; message: string }[]; items: BankItem[] }
 /** missed: times I got the word wrong in earlier homework. */
 export interface WarmupWord { word: string; ipa: string; vi: string; meaning: string; missed: number }
 /** Not graded, so the answers come with the questions. */
@@ -250,5 +262,8 @@ export const api = {
   addQuestion: (id: string, day: number, q: BankInput) => req<BankItem>('POST', '/courses/' + id + '/days/' + day + '/questions', q),
   updateQuestion: (id: string, qid: string, q: BankPatch) => req<BankItem>('PATCH', '/courses/' + id + '/questions/' + qid, q),
   setQuestionsStatus: (id: string, ids: string[], status: BankStatus) => req<{ updated: number }>('POST', '/courses/' + id + '/questions/status', { ids, status }),
-  deleteQuestion: (id: string, qid: string) => req<void>('DELETE', '/courses/' + id + '/questions/' + qid)
+  deleteQuestion: (id: string, qid: string) => req<void>('DELETE', '/courses/' + id + '/questions/' + qid),
+  /** Imports up to 100 rows; good ones are approved straight away, bad ones come back in errors. */
+  importQuestions: (id: string, day: number, items: ImportRow[]) =>
+    req<ImportResult>('POST', '/courses/' + id + '/days/' + day + '/questions/import', { items })
 };
