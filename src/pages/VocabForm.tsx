@@ -1,6 +1,24 @@
+import { useEffect, useState } from 'react';
+import { api, type LibraryWord } from '../lib/api';
 import { LEVELS, POS_LIST, type FormData } from '../lib/data';
 import { LOOKUP_STEPS, useWB } from '../state/WordbookContext';
-import { Dropdown, Icon, PageHead } from '../components/ui';
+import { Dropdown, Icon, LevelBadge, PageHead } from '../components/ui';
+import { TopicBadge } from './Library';
+
+/** While adding a word: the library's entry for exactly that word (if any), checked as you type. */
+function useLibraryMatch(word: string, enabled: boolean): LibraryWord | null {
+  const [match, setMatch] = useState<{ key: string; w: LibraryWord | null } | null>(null);
+  const key = word.trim().toLowerCase();
+  useEffect(() => {
+    if (!enabled || !key) return;
+    let alive = true;
+    const t = setTimeout(() => {
+      api.findInLibrary(key).then((r) => { if (alive) setMatch({ key, w: r.word }); }).catch(() => { /* offline: just don't suggest */ });
+    }, 400);
+    return () => { alive = false; clearTimeout(t); };
+  }, [key, enabled]);
+  return enabled && key && match?.key === key ? match.w : null;
+}
 
 function ChipInput({ id, field }: { id: string; field: 'syn' | 'ant' }) {
   const { s, a } = useWB();
@@ -31,6 +49,18 @@ function ChipInput({ id, field }: { id: string; field: 'syn' | 'ant' }) {
 export function VocabForm() {
   const { s, a } = useWB();
   const isEdit = s.route === 'edit';
+  const typed = (isEdit ? s.editForm : s.form).word.trim().toLowerCase();
+  const libMatch = useLibraryMatch(typed, !isEdit);
+  // Already in my words? (the server would also refuse it on save)
+  const mineMatch = !isEdit && typed ? s.words.find((w) => w.word.toLowerCase() === typed) : undefined;
+  const [usingLib, setUsingLib] = useState(false);
+  const useLibraryWord = async () => {
+    if (!libMatch || usingLib) return;
+    setUsingLib(true);
+    const w = await a.saveFromLibrary(libMatch);
+    setUsingLib(false);
+    if (w) { a.setF({ word: '' }); a.go('detail', { sel: w.id }); }
+  };
   const f = isEdit ? s.editForm : s.form;
   const text = (field: keyof FormData) => ({
     value: f[field] as string,
@@ -51,6 +81,23 @@ export function VocabForm() {
                 {...text('word')}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !(e.ctrlKey || e.metaKey)) { e.preventDefault(); a.generate(); } }} />
               {s.formErr && <span className="errtxt"><Icon name="alert" size="sm" />{s.formErr}</span>}
+              {mineMatch ? (
+                <div className="matchbox">
+                  <div className="matchhead"><Icon name="checkc" size="sm" />You already have “{mineMatch.word}” in your vocabulary.</div>
+                  <button className="btn btn-secondary btn-sm" onClick={() => a.go('detail', { sel: mineMatch.id })}>Open it<Icon name="right" size="sm" /></button>
+                </div>
+              ) : libMatch ? (
+                <div className="matchbox" role="status">
+                  <div className="matchhead"><Icon name="globe" size="sm" />“{libMatch.word}” is already in the library — save it instead of typing it again.</div>
+                  <div className="matchword">
+                    <b>{libMatch.word}</b> <span className="ipa">{libMatch.ipa}</span>
+                    <div className="vi">{libMatch.vi}</div>
+                    <div className="muted sm">{libMatch.meaning}</div>
+                    <div className="badges" style={{ marginTop: 6 }}><TopicBadge topic={libMatch.topic} /><LevelBadge level={libMatch.level} /></div>
+                  </div>
+                  <button className="btn btn-primary" onClick={useLibraryWord} disabled={usingLib}><Icon name="plus" size="sm" />{usingLib ? 'Saving…' : 'Save from library'}</button>
+                </div>
+              ) : null}
             </div>
             <div className="field" style={{ flexGrow: 0, justifyContent: 'flex-end' }}>
               <span className="label desk-only" style={{ visibility: 'hidden' }}>Auto</span>
@@ -151,7 +198,9 @@ export function VocabForm() {
           <button className="btn btn-secondary" onClick={a.formCancel}>Cancel</button>
           <div className="actions">
             <span className="hint kbdhint"><span className="kbd">Ctrl</span> + <span className="kbd">Enter</span> to save</span>
-            <button className="btn btn-primary" onClick={a.save} disabled={s.saving}><Icon name="check" size="sm" />{isEdit ? 'Save Changes' : 'Save Vocabulary'}</button>
+            {libMatch && !mineMatch
+              ? <button className="btn btn-primary" onClick={useLibraryWord} disabled={usingLib}><Icon name="plus" size="sm" />Save from library</button>
+              : <button className="btn btn-primary" onClick={a.save} disabled={s.saving}><Icon name="check" size="sm" />{isEdit ? 'Save Changes' : 'Save Vocabulary'}</button>}
           </div>
         </div>
       </div>
