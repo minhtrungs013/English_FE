@@ -56,11 +56,11 @@ export function CourseWordRow({ w, save }: { w: CourseWord; save?: { courseId: s
         <span className="ipa sm">{w.ipa}</span>
         <button className="iconbtn sm" onClick={() => speak(w.word)} aria-label={'Play pronunciation of ' + w.word} title="Play"><Icon name="volume" size="sm" /></button>
         <span className="badges" style={{ marginLeft: 'auto' }}>{w.pos && <PosBadge>{w.pos}</PosBadge>}<LevelBadge level={w.level} /></span>
-        {save && <SaveWordButton courseId={save.courseId} day={save.day} word={w.word} />}
       </div>
       {w.vi && <div className="vi">{w.vi}</div>}
       {w.meaning && <div className="muted sm">{w.meaning}</div>}
       {w.ex && <p className="quote cwex">“{w.ex}”</p>}
+      {save && <div className="cwfoot"><SaveWordButton courseId={save.courseId} day={save.day} word={w.word} /></div>}
     </div>
   );
 }

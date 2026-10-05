@@ -579,7 +579,8 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 .daygrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .dayt{min-height:64px;padding:10px}
 .dpanel{padding:18px 16px}
-.dfoot .btn{flex:1;white-space:normal;text-align:center}
+.dfoot{flex-wrap:wrap}
+.dfoot .btn{flex:1 1 auto;white-space:nowrap;text-align:center}
 .cset .rowb .btn{flex:1}
 .ewrow{flex-direction:column;align-items:stretch}
 .ewact{justify-content:space-between}
@@ -777,8 +778,9 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 @container (max-width: 760px){
 .tstep{gap:12px;padding:16px}
 .tmark{width:30px;height:30px;font-size:13px}
-.tact{flex-direction:column;align-items:stretch}
-.tact .btn{width:100%;white-space:normal}
+.tact{gap:8px}
+.tact .btn:not(.btn-sm){flex:1 1 100%;white-space:normal}
+.tact .btn-sm{padding-left:8px;padding-right:8px}
 .tcatch{padding:16px}
 .tcatch-head{gap:10px}
 .tcatch-ic{display:none}
@@ -806,7 +808,8 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 .lmeet-foot .linkbtn{margin-left:auto;min-height:36px}
 .lmeet-foot .linkbtn:disabled{opacity:.6;cursor:default}
 .lstreak{margin-left:2px;font-variant-numeric:tabular-nums}
-.cwsave{flex:none}
+.cwsave,.cwsaved{flex:none;align-self:flex-start}
+.cwfoot{display:flex;justify-content:flex-end;padding-top:4px}
 .cwsaved{flex:none;gap:4px;height:28px}
 .cwsaved:focus{outline:none}
 .cwsaved:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
