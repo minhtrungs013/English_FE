@@ -110,7 +110,8 @@ export function TodayPlan({ c, setC, reload, onSubmitted, onOpenDay, onShowBoard
     }
   };
   const learn = async () => {
-    const res = await a.learnCourseDay(c.id, today);
+    // Finishing doesn't save words: the learner saves the ones they want, word by word.
+    const res = await a.learnCourseDay(c.id, today, []);
     if (!res) return;
     setC(res);
     setOpen((o) => o.filter((x) => x !== 'learn'));
@@ -188,12 +189,12 @@ export function TodayPlan({ c, setC, reload, onSubmitted, onOpenDay, onShowBoard
       }
     } else if (id === 'learn') {
       sub = st === 'done'
-        ? plural(words.length, 'word') + ' saved to My Vocabulary with the tag #' + c.tag + '.'
-        : plural(words.length, 'new word') + ' today — meet them one by one, then practise until each one sticks.';
+        ? 'Done — ' + plural(words.length, 'word') + ' learned. Words you save go to My Vocabulary with the tag #' + c.tag + '.'
+        : plural(words.length, 'new word') + ' today — meet them one by one, then practise until each one sticks. Save the ones you want to keep.';
       if (isOpen) {
         body = learnView === 'list' ? (
           <>
-            <div className="cwlist tlist">{words.map((w, i) => <CourseWordRow key={w.word + i} w={w} />)}</div>
+            <div className="cwlist tlist">{words.map((w, i) => <CourseWordRow key={w.word + i} w={w} save={{ courseId: c.id, day: today }} />)}</div>
             <div className="dfoot">
               <button className="btn btn-ghost" onClick={() => collapse('learn')}>Hide words</button>
               <button className="btn btn-secondary" onClick={() => setLearnView('practice')}><Icon name="zap" size="sm" />Practise again</button>
@@ -201,7 +202,7 @@ export function TodayPlan({ c, setC, reload, onSubmitted, onOpenDay, onShowBoard
           </>
         ) : (
           <CourseLearn key={'cl' + today + learnView} c={c} day={today} words={words} learned={learned}
-            start={learnView === 'practice' ? 'practice' : 'meet'} onSave={learn} onClose={() => collapse('learn')} />
+            start={learnView === 'practice' ? 'practice' : 'meet'} onLearn={learn} onClose={() => collapse('learn')} />
         );
       } else if (st === 'active') {
         actions = <button className="btn btn-primary btn-lg" onClick={() => { setLearnView('flow'); expand('learn'); }}><Icon name="book" size="sm" />Start learning</button>;

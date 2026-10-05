@@ -98,7 +98,8 @@ export interface CourseDetail extends CourseSummary { days: CourseDay[] }
 export type CourseScope = 'joined' | 'mine' | 'public';
 export interface CourseInput { title: string; description?: string; wordsPerDay?: number; visibility?: 'private' | 'public' }
 export interface CourseAiWord { source: 'library' | 'ai' | 'online'; word: CourseWord; quota: Quota }
-export interface CourseLearnResult { added: Word[]; skipped: string[]; tag: string; course: CourseDetail }
+export interface CourseSaveResult { added: Word[]; skipped: string[]; tag: string }
+export interface CourseLearnResult extends CourseSaveResult { course: CourseDetail }
 
 /* ---------- homework & leaderboards ---------- */
 /**
@@ -220,8 +221,15 @@ export const api = {
   joinCourseByCode: (code: string) => req<CourseDetail>('POST', '/courses/join', { code }),
   joinCourse: (id: string) => req<CourseDetail>('POST', '/courses/' + id + '/join'),
   leaveCourse: (id: string) => req<void>('DELETE', '/courses/' + id + '/enrollment'),
-  /** Saves that day's words into my vocabulary (tagged with the course tag). */
-  learnCourseDay: (id: string, day: number) => req<CourseLearnResult>('POST', '/courses/' + id + '/days/' + day + '/learn'),
+  /**
+   * Marks the day learned. save: which of its words to also save into my vocabulary (tagged with the course tag) —
+   * [] saves none, omitted saves them all.
+   */
+  learnCourseDay: (id: string, day: number, save?: string[]) =>
+    req<CourseLearnResult>('POST', '/courses/' + id + '/days/' + day + '/learn', save ? { save } : {}),
+  /** Saves some of an open day's words into my vocabulary (tagged with the course tag); doesn't mark the day learned. */
+  saveCourseWords: (id: string, day: number, words: string[]) =>
+    req<CourseSaveResult>('POST', '/courses/' + id + '/days/' + day + '/words/save', { words }),
   /** Opening the homework starts its timer, so only call this when the learner starts (or reviews) it. */
   getHomework: (id: string, day: number) => req<Homework>('GET', '/courses/' + id + '/days/' + day + '/homework'),
   /** One answer per question, in order ('' for none). Each day can be handed in once. */

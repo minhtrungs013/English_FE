@@ -5,7 +5,7 @@ import { useWB } from '../state/WordbookContext';
 import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/ui';
 import { ConfirmDialog, JoinCode, VisibilityBadge, errText } from './Courses';
 import { HomeworkSection } from './CourseHomework';
-import { CourseLearn } from './CourseLearn';
+import { CourseLearn, SaveWordButton } from './CourseLearn';
 import { CourseLeaderboard } from './CourseLeaderboard';
 import { TodayPlan } from './CourseToday';
 import { WarmupSection } from './CourseWarmup';
@@ -47,7 +47,8 @@ export function useCourse(id: string) {
   return { c, setC, failed, reload: load };
 }
 
-export function CourseWordRow({ w }: { w: CourseWord }) {
+/** save: the course day the word belongs to, for its "Save to My Vocabulary" button (enrolled learners, open days). */
+export function CourseWordRow({ w, save }: { w: CourseWord; save?: { courseId: string; day: number } }) {
   return (
     <div className="cwrow">
       <div className="cwhead">
@@ -55,6 +56,7 @@ export function CourseWordRow({ w }: { w: CourseWord }) {
         <span className="ipa sm">{w.ipa}</span>
         <button className="iconbtn sm" onClick={() => speak(w.word)} aria-label={'Play pronunciation of ' + w.word} title="Play"><Icon name="volume" size="sm" /></button>
         <span className="badges" style={{ marginLeft: 'auto' }}>{w.pos && <PosBadge>{w.pos}</PosBadge>}<LevelBadge level={w.level} /></span>
+        {save && <SaveWordButton courseId={save.courseId} day={save.day} word={w.word} />}
       </div>
       {w.vi && <div className="vi">{w.vi}</div>}
       {w.meaning && <div className="muted sm">{w.meaning}</div>}
@@ -135,12 +137,15 @@ export function CoursePage() {
       setLeaving(false);
     }
   };
-  const learn = async (day: number) => {
+  /** Marks a day learned without saving its words (they're saved one by one). */
+  const learn = async (day: number): Promise<boolean> => {
     setBusy(true);
-    const res = await a.learnCourseDay(c.id, day);
+    const res = await a.learnCourseDay(c.id, day, []);
     if (res) setC(res);
     setBusy(false);
+    return !!res;
   };
+  const closePractice = () => { setPractising(false); window.setTimeout(() => document.getElementById('cl-practise')?.focus(), 0); };
 
   const selDay = sel !== null ? c.days.find((d) => d.day === sel) : undefined;
   const selState = selDay ? dayState(c, selDay) : undefined;
@@ -148,6 +153,8 @@ export function CoursePage() {
   const homeworkOpen = !!e && !!selDay?.words?.length && selDay.day <= current;
   // Day 1 has nothing earlier to warm up with.
   const warmupOpen = homeworkOpen && selDay!.day >= 2;
+  /** Enrolled learners can save the words of open days (today and earlier). */
+  const canSave = !!e && !!selDay && selDay.day <= current;
   const submitted = () => { void reload(); setBoardVersion((v) => v + 1); };
 
   const days = (
@@ -191,12 +198,12 @@ export function CoursePage() {
             </div>
             {practising ? (
               <CourseLearn key={'cl' + selDay.day} c={c} day={selDay.day} words={selDay.words} learned={selState === 'learned'}
-                onSave={e && selDay.day <= current ? () => learn(selDay.day) : undefined}
-                onClose={() => { setPractising(false); window.setTimeout(() => document.getElementById('cl-practise')?.focus(), 0); }} />
+                onLearn={canSave ? async () => { if (await learn(selDay.day)) closePractice(); } : undefined}
+                onClose={closePractice} />
             ) : (
             <>
             <div className="cwlist">
-              {selDay.words.map((w, i) => <CourseWordRow key={w.word + i} w={w} />)}
+              {selDay.words.map((w, i) => <CourseWordRow key={w.word + i} w={w} save={canSave ? { courseId: c.id, day: selDay.day } : undefined} />)}
             </div>
             <div className="dfoot">
               {selDay.words.length > 0 && (
@@ -207,12 +214,12 @@ export function CoursePage() {
               {!e ? (
                 <span className="hint">{c.isOwner ? 'This is a preview. Start learning the course to save words day by day.' : 'Join the course to save these words to My Vocabulary.'}</span>
               ) : selState === 'learned' ? (
-                <span className="hint">These words are in My Vocabulary with the tag #{c.tag}.</span>
+                <span className="hint">Learned. Words you save go to My Vocabulary with the tag #{c.tag}.</span>
               ) : selDay.day > current ? (
                 <span className="hint">This day opens on day {selDay.day}.</span>
               ) : (
                 <button className="btn btn-primary btn-lg" onClick={() => learn(selDay.day)} disabled={busy}>
-                  <Icon name="plus" size="sm" />{busy ? 'Saving…' : 'Save ' + selDay.words.length + (selDay.words.length === 1 ? ' word' : ' words') + ' to My Vocabulary'}
+                  <Icon name="check" size="sm" />{busy ? 'Marking…' : 'Mark day ' + selDay.day + ' as learned'}
                 </button>
               )}
             </div>

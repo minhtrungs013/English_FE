@@ -4,7 +4,7 @@ import {
   type Data, type FormData, type Rating, type Settings, type Word
 } from '../lib/data';
 import type { IconName } from '../lib/icons';
-import { api, ApiError, getToken, setToken, setUnauthorizedHandler, type AuthResponse, type CourseDetail, type LibraryWord, type Topic } from '../lib/api';
+import { api, ApiError, getToken, setToken, setUnauthorizedHandler, type AuthResponse, type CourseDetail, type CourseSaveResult, type LibraryWord, type Topic } from '../lib/api';
 import { stopSpeaking } from '../lib/speech';
 
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
@@ -516,10 +516,8 @@ function useWordbookState() {
   };
 
   /* ---------- courses ---------- */
-  /** Saves one course day's words into my vocabulary. Returns the updated course, or undefined on failure. */
-  const learnCourseDay = async (courseId: string, day: number): Promise<CourseDetail | undefined> => {
-    const res = await call(api.learnCourseDay(courseId, day));
-    if (!res) return undefined;
+  /** Adds course words the server saved to my vocabulary (and the course tag, if it's new). */
+  const mergeCourseWords = (res: CourseSaveResult) =>
     set((prev) => {
       const have = new Set(prev.words.map((w) => w.id));
       return {
@@ -527,11 +525,30 @@ function useWordbookState() {
         tags: !res.tag || prev.tags.includes(res.tag) ? prev.tags : [...prev.tags, res.tag]
       };
     });
+  /**
+   * Marks a course day learned. save: which of its words to also save into my vocabulary ([] = none, omitted = all).
+   * Returns the updated course, or undefined on failure.
+   */
+  const learnCourseDay = async (courseId: string, day: number, save?: string[]): Promise<CourseDetail | undefined> => {
+    const res = await call(api.learnCourseDay(courseId, day, save));
+    if (!res) return undefined;
+    mergeCourseWords(res);
     const n = res.added.length, k = res.skipped.length;
     showToast(n
       ? 'Saved ' + n + (n === 1 ? ' word' : ' words') + (k ? ' · ' + k + ' already in your words' : '')
-      : k ? 'All ' + k + (k === 1 ? ' word is' : ' words are') + ' already in your words.' : 'Day ' + day + ' done.');
+      : k ? 'All ' + k + (k === 1 ? ' word is' : ' words are') + ' already in your words.' : 'Day ' + day + ' learned.');
     return res.course;
+  };
+  /** Saves some of a course day's words into my vocabulary without marking the day learned. Returns false on failure. */
+  const saveCourseWords = async (courseId: string, day: number, words: string[]): Promise<boolean> => {
+    const res = await call(api.saveCourseWords(courseId, day, words));
+    if (!res) return false;
+    mergeCourseWords(res);
+    const n = res.added.length, k = res.skipped.length;
+    showToast(n === 1 && !k ? 'Saved “' + res.added[0].word + '” to My Vocabulary.'
+      : n ? 'Saved ' + n + (n === 1 ? ' word' : ' words') + ' to My Vocabulary' + (k ? ' · ' + k + ' already there.' : '.')
+        : k === 1 ? '“' + res.skipped[0] + '” is already in My Vocabulary.' : 'All ' + k + ' words are already in My Vocabulary.');
+    return true;
   };
   const openCourse = (id: string, edit = false) => go(edit ? 'courseEdit' : 'course', { courseId: id });
 
@@ -544,7 +561,7 @@ function useWordbookState() {
     startPractice, pUpdate, pPick, pCheck, pNext,
     setF, addChip, generate, save, openEdit, goNew, formCancel,
     askDeleteWord, confirmModal, submitModal, patchModal,
-    exportData, setSettings, setFilters, showWordsWith, reload: load, login, register, logout, saveFromLibrary, shareWord, learnCourseDay, openCourse,
+    exportData, setSettings, setFilters, showWordsWith, reload: load, login, register, logout, saveFromLibrary, shareWord, learnCourseDay, saveCourseWords, openCourse,
     clearFilters: () => set({ filters: NO_FILTERS }),
     setMenu: (menu: string | null) => set({ menu, notif: false, account: false }),
     closeMenus: () => set({ menu: null, notif: false, account: false }),

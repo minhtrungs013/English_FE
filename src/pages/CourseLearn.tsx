@@ -173,16 +173,64 @@ const newRun = (ctx: Ctx): Run => ({
 const isChoice = (k: Kind) => k === 'listen' || k === 'meaning';
 const isTyped = (k: Kind) => k === 'dictation' || k === 'fill' || k === 'recall';
 
+const wordKey = (word: string) => word.trim().toLowerCase();
+/** Whether a word is already in My Vocabulary (matched by word, ignoring case). */
+export function useSavedWords(): (word: string) => boolean {
+  const { s } = useWB();
+  const have = useMemo(() => new Set(s.words.map((w) => wordKey(w.word))), [s.words]);
+  return (word: string) => have.has(wordKey(word));
+}
+
+/**
+ * Saves one word of an open course day to My Vocabulary — or "Saved ✓" when it's already there.
+ * Saving keeps keyboard focus on the same spot (the "Saved" label).
+ */
+export function SaveWordButton({ courseId, day, word }: { courseId: string; day: number; word: string }) {
+  const { a } = useWB();
+  const isSaved = useSavedWords();
+  const saved = isSaved(word);
+  const [busy, setBusy] = useState(false);
+  const btn = useRef<HTMLButtonElement>(null);
+  const done = useRef<HTMLSpanElement>(null);
+  const refocus = useRef(false);
+  useEffect(() => {
+    if (saved && refocus.current) { refocus.current = false; done.current?.focus(); }
+  }, [saved]);
+
+  if (saved) {
+    return (
+      <span ref={done} tabIndex={-1} className="badge t-green cwsaved">
+        Saved <Icon name="check" size="sm" /><span className="c-sr">: {word} is in My Vocabulary</span>
+      </span>
+    );
+  }
+  const save = async () => {
+    refocus.current = document.activeElement === btn.current;
+    setBusy(true);
+    const ok = await a.saveCourseWords(courseId, day, [word]);
+    setBusy(false);
+    if (!ok) refocus.current = false;
+  };
+  return (
+    <button ref={btn} className="btn btn-secondary btn-sm cwsave" onClick={save} disabled={busy} aria-label={'Save ' + word + ' to My Vocabulary'}>
+      <Icon name="plus" size="sm" />{busy ? 'Saving…' : 'Save to My Vocabulary'}
+    </button>
+  );
+}
+
 /**
  * Learning a course day: meet the words one at a time, practise them until each is right in two different exercise
- * types, then a summary that saves the words (onSave) — or just "Done" when the day is already learned or can't be saved.
+ * types, then a summary. Saving words to My Vocabulary is up to the learner, word by word — it isn't needed to finish.
+ * onLearn: marks the day learned (saves no words); given only when the learner is enrolled and the day is open,
+ * which also shows the save buttons. Without it, or when the day is already learned, the summary just says "Done".
  * start: 'practice' skips meeting the words (practising again) · onClose: the learner is done with it.
  */
-export function CourseLearn({ c, day, words, learned, onSave, onClose, start = 'meet' }: {
+export function CourseLearn({ c, day, words, learned, onLearn, onClose, start = 'meet' }: {
   c: CourseDetail; day: number; words: CourseWord[]; learned: boolean;
-  onSave?: () => Promise<void>; onClose: () => void; start?: 'meet' | 'practice';
+  onLearn?: () => Promise<void>; onClose: () => void; start?: 'meet' | 'practice';
 }) {
-  const { s } = useWB();
+  const { s, a } = useWB();
+  const isSaved = useSavedWords();
   const speech = canSpeak();
 
   const ctx = useMemo<Ctx>(() => {
@@ -210,6 +258,7 @@ export function CourseLearn({ c, day, words, learned, onSave, onClose, start = '
   /** The checked answer of the current item (match: the round is complete). */
   const [checked, setChecked] = useState<{ given: string; ok: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savingAll, setSavingAll] = useState(false);
   const [live, setLive] = useState('');
   /** Match round: the selected tile, pairs found, mistakes per word, the last wrong pair (to shake). */
   const [sel, setSel] = useState<{ side: 'l' | 'r'; w: number } | null>(null);
@@ -226,8 +275,10 @@ export function CourseLearn({ c, day, words, learned, onSave, onClose, start = '
   const item: Item | undefined = phase === 'practice' ? run.queue[0] : undefined;
   const w = item ? W[item.ws[0]] : undefined;
   const total = run.done + run.queue.length;
-  const canSave = !!onSave && !learned;
+  const canSaveWords = !!onLearn;
+  const canFinish = !!onLearn && !learned;
   const hid = 'cl-' + day;
+  const listHead = useRef<HTMLHeadingElement>(null);
 
   /* ---------- meet ---------- */
   const mw = W[card];
@@ -377,16 +428,25 @@ export function CourseLearn({ c, day, words, learned, onSave, onClose, start = '
     else if (checked && ev.key === 'Enter' && tag !== 'BUTTON') { ev.preventDefault(); next(); }
   };
 
-  const save = async () => {
-    if (!onSave) return;
+  /** Marks the day learned without saving any words. */
+  const finish = async () => {
+    if (!onLearn) return;
     setSaving(true);
-    try { await onSave(); } finally { setSaving(false); }
+    try { await onLearn(); } finally { setSaving(false); }
   };
-  const saveBtn = (cls: string, text: string) => (
-    <button className={'btn ' + cls} onClick={save} disabled={saving}>
-      <Icon name="plus" size="sm" />{saving ? 'Saving…' : text}
+  const finishBtn = (cls: string) => (
+    <button className={'btn ' + cls} onClick={finish} disabled={saving}>
+      <Icon name="check" size="sm" />{saving ? 'Finishing…' : 'Finish'}
     </button>
   );
+  const unsaved = canSaveWords ? [...new Set(W.map((x) => x.word).filter((x) => !isSaved(x)))] : [];
+  const saveAll = async () => {
+    setSavingAll(true);
+    const ok = await a.saveCourseWords(c.id, day, unsaved);
+    setSavingAll(false);
+    // The button goes away once everything is saved: keep focus nearby.
+    if (ok) listHead.current?.focus();
+  };
 
   let body: ReactNode;
 
@@ -421,13 +481,14 @@ export function CourseLearn({ c, day, words, learned, onSave, onClose, start = '
               <button className="iconbtn sm" onClick={() => speak(mw.ex, 0.95)} aria-label="Play the example sentence" title="Play example"><Icon name="volume" size="sm" /></button>
             </div>
           )}
+          {canSaveWords && <SaveWordButton courseId={c.id} day={day} word={mw.word} />}
         </div>
         <div className="hwnav">
           <button className="btn btn-secondary" onClick={() => goCard(card - 1)} disabled={card === 0}><Icon name="left" size="sm" />Back</button>
           {lastCard ? (
             canPractise
               ? <button className="btn btn-primary" onClick={startPractice}><Icon name="zap" size="sm" />Start practice</button>
-              : canSave ? saveBtn('btn-primary', 'Save ' + plural(W.length, 'word') + ' to My Vocabulary')
+              : canFinish ? finishBtn('btn-primary')
                 : <button className="btn btn-primary" onClick={onClose}>Done</button>
           ) : (
             <button className="btn btn-primary" onClick={() => goCard(card + 1)}>Next<Icon name="right" size="sm" /></button>
@@ -435,8 +496,8 @@ export function CourseLearn({ c, day, words, learned, onSave, onClose, start = '
         </div>
         <div className="lmeet-foot">
           <span className="keyhint">Press <span className="kbd">←</span> <span className="kbd">→</span> to move between words</span>
-          {canSave && canPractise ? (
-            <button className="linkbtn" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Skip practice — save words'}</button>
+          {canFinish && canPractise ? (
+            <button className="linkbtn" onClick={finish} disabled={saving}>{saving ? 'Finishing…' : 'Skip practice'}</button>
           ) : (
             <button className="linkbtn" onClick={onClose}>Hide words</button>
           )}
@@ -605,9 +666,31 @@ export function CourseLearn({ c, day, words, learned, onSave, onClose, start = '
         ) : (
           <span className="sm hw-ok"><Icon name="checkc" size="sm" style={{ verticalAlign: '-3px' }} /> No retries needed — great job!</span>
         )}
+        {canSaveWords && (
+          <div className="stack" style={{ gap: 6 }}>
+            <h5 ref={listHead} tabIndex={-1} className="label lsave-t" id={hid + '-save'}>Save the words you want to keep</h5>
+            <ul className="lsave" aria-labelledby={hid + '-save'}>
+              {W.map((x, i) => (
+                <li key={x.word + i}>
+                  <span className="lsave-w">
+                    <b>{x.word}</b>
+                    {x.vi && <span className="muted sm" lang="vi">{x.vi}</span>}
+                  </span>
+                  <SaveWordButton courseId={c.id} day={day} word={x.word} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="dfoot">
           <button className="btn btn-secondary" onClick={startPractice}><Icon name="refresh" size="sm" />Practice again</button>
-          {canSave ? saveBtn('btn-primary btn-lg', 'Save ' + plural(W.length, 'word') + ' to My Vocabulary')
+          {unsaved.length > 0 && (
+            <button className="btn btn-secondary" onClick={saveAll} disabled={savingAll}>
+              <Icon name="plus" size="sm" />
+              {savingAll ? 'Saving…' : unsaved.length < W.length ? 'Save all remaining (' + unsaved.length + ')' : 'Save all ' + plural(unsaved.length, 'word')}
+            </button>
+          )}
+          {canFinish ? finishBtn('btn-primary btn-lg')
             : <button className="btn btn-primary" onClick={onClose}><Icon name="check" size="sm" />Done</button>}
         </div>
       </>
