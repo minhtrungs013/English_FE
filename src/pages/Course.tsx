@@ -4,6 +4,8 @@ import { speak } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/ui';
 import { ConfirmDialog, JoinCode, VisibilityBadge, errText } from './Courses';
+import { HomeworkSection } from './CourseHomework';
+import { CourseLeaderboard } from './CourseLeaderboard';
 
 type DayState = 'learned' | 'open' | 'locked' | 'empty';
 
@@ -64,6 +66,8 @@ export function CoursePage() {
   const [sel, setSel] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  /** Bumped after homework is handed in so the leaderboard reloads. */
+  const [boardVersion, setBoardVersion] = useState(0);
   const panel = useRef<HTMLDivElement>(null);
 
   // Start on today's day when it has words.
@@ -127,6 +131,8 @@ export function CoursePage() {
   const selDay = sel !== null ? c.days.find((d) => d.day === sel) : undefined;
   const selState = selDay ? dayState(c, selDay) : undefined;
   const learned = e?.learned.length ?? 0;
+  const homeworkOpen = !!e && !!selDay?.words?.length && selDay.day <= current;
+  const submitted = () => { void reload(); setBoardVersion((v) => v + 1); };
 
   return (
     <>
@@ -175,8 +181,9 @@ export function CoursePage() {
               <button
                 className={'dayt ' + st + (pending ? ' pending' : '') + (isToday ? ' today' : '') + (sel === d.day ? ' sel' : '')}
                 disabled={!can} onClick={() => pick(d.day)} aria-pressed={sel === d.day}
-                aria-label={'Day ' + d.day + ': ' + label}>
+                aria-label={'Day ' + d.day + ': ' + label + (d.myScore !== null ? ', homework score ' + d.myScore : '')}>
                 <span className="dayt-n">Day {d.day}</span>
+                {d.myScore !== null && <span className="dayt-score" title="Homework score">{d.myScore}</span>}
                 <span className="dayt-s">
                   {st === 'learned' && <Icon name="check" size="sm" />}
                   {st === 'locked' && <Icon name="lock" size="sm" />}
@@ -220,7 +227,10 @@ export function CoursePage() {
             {c.readyDays === 0 ? 'The owner hasn’t added any words yet. Check back soon.' : 'Choose an open day above to see its words.'}
           </p>
         )}
+        {homeworkOpen && <HomeworkSection key={selDay!.day} c={c} day={selDay!} onSubmitted={submitted} />}
       </div>
+
+      {(c.isOwner || e) && <CourseLeaderboard c={c} version={boardVersion} />}
 
       {e && (
         <div style={{ marginTop: 28 }}>

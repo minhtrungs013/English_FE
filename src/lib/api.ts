@@ -89,12 +89,53 @@ export interface CourseDay {
   day: number; count: number;
   /** null = locked for this learner (a future day). */
   words: CourseWord[] | null;
+  /** My final homework score for the day (0–100) once handed in; null otherwise or when not enrolled. */
+  myScore: number | null;
 }
 export interface CourseDetail extends CourseSummary { days: CourseDay[] }
 export type CourseScope = 'joined' | 'mine' | 'public';
 export interface CourseInput { title: string; description?: string; wordsPerDay?: number; visibility?: 'private' | 'public' }
 export interface CourseAiWord { source: 'library' | 'ai' | 'online'; word: CourseWord; quota: Quota }
 export interface CourseLearnResult { added: Word[]; skipped: string[]; tag: string; course: CourseDetail }
+
+/* ---------- homework & leaderboards ---------- */
+/**
+ * meaning: pick the Vietnamese meaning of the English prompt · word: pick the English word for the meaning ·
+ * type: type the word for the meaning · blank: type the word missing from the sentence ("_____").
+ */
+export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank';
+export interface HomeworkQuestion {
+  type: HomeworkType;
+  /** A word from an earlier day. */
+  review: boolean;
+  prompt: string; hint: string;
+  /** Four choices for meaning/word questions, empty for typed ones. */
+  choices: string[];
+}
+export interface HomeworkReview extends HomeworkQuestion { yourAnswer: string; answer: string; correct: boolean }
+export interface HomeworkResult {
+  /** Final score (raw × penalty), 0–100. */
+  score: number; raw: number; correct: number; total: number;
+  lateDays: number; penalty: number; durationMs: number; submittedAt: number | null;
+  review: HomeworkReview[];
+}
+export interface Homework {
+  day: number; total: number;
+  /** Days after the day opened for me; penalty = % of the score kept (100 on time, then 80, 60, 50). */
+  lateDays: number; penalty: number;
+  questions: HomeworkQuestion[];
+  /** Set once I've handed it in. */
+  submission: HomeworkResult | null;
+}
+export type BoardRow<T> = { rank: number; name: string; me: boolean } & T;
+/** rows: the top 50 · me: my row, even when it's outside the top · count: everyone on the board. */
+export interface Board<T> { rows: BoardRow<T>[]; me: BoardRow<T> | null; count: number }
+export interface Leaderboard {
+  day: number; maxDay: number; members: number;
+  dayBoard: Board<{ score: number; correct: number; total: number; lateDays: number; durationMs: number }>;
+  overall: Board<{ score: number; days: number }>;
+  streak: Board<{ streak: number; score: number }>;
+}
 
 export const api = {
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
@@ -147,5 +188,10 @@ export const api = {
   joinCourse: (id: string) => req<CourseDetail>('POST', '/courses/' + id + '/join'),
   leaveCourse: (id: string) => req<void>('DELETE', '/courses/' + id + '/enrollment'),
   /** Saves that day's words into my vocabulary (tagged with the course tag). */
-  learnCourseDay: (id: string, day: number) => req<CourseLearnResult>('POST', '/courses/' + id + '/days/' + day + '/learn')
+  learnCourseDay: (id: string, day: number) => req<CourseLearnResult>('POST', '/courses/' + id + '/days/' + day + '/learn'),
+  /** Opening the homework starts its timer, so only call this when the learner starts (or reviews) it. */
+  getHomework: (id: string, day: number) => req<Homework>('GET', '/courses/' + id + '/days/' + day + '/homework'),
+  /** One answer per question, in order ('' for none). Each day can be handed in once. */
+  submitHomework: (id: string, day: number, answers: string[]) => req<HomeworkResult>('POST', '/courses/' + id + '/days/' + day + '/homework', { answers }),
+  getLeaderboard: (id: string, day?: number) => req<Leaderboard>('GET', '/courses/' + id + '/leaderboard' + (day ? '?day=' + day : ''))
 };
