@@ -28,18 +28,34 @@ const plural = (n: number, one: string, many = one + 's') => n + ' ' + (n === 1 
 const lateText = (late: number, done: boolean) =>
   (done ? 'Handed in ' : 'Handing in ') + plural(late, 'day') + ' late — you’ll keep ' + penaltyFor(late) + '% of the score.';
 
-const ASK: Record<HomeworkQuestion['type'], string> = {
+export const ASK: Record<HomeworkQuestion['type'], string> = {
   meaning: 'What does this word mean?',
   word: 'Which word has this meaning?',
   type: 'Type the word for this meaning',
-  blank: 'Fill in the missing word'
+  blank: 'Fill in the missing word',
+  tense: 'Put the verb in the right tense',
+  tenseChoice: 'Choose the right verb form'
 };
 
-/** The prompt; for "blank" questions the gap is shown as a line (filled with `fill`, when given). */
-function Prompt({ q, fill }: { q: HomeworkQuestion; fill?: string }) {
-  if (q.type !== 'blank') return <>{q.prompt}</>;
-  const [before, ...rest] = q.prompt.split('_____');
-  return <>{before}<span className="blank">{fill || ' '}</span>{rest.join('_____')}</>;
+/** Questions whose prompt is a sentence with a gap ("_____" for blank, "___" for tense ones). */
+export const isSentence = (t: HomeworkQuestion['type']) => t === 'blank' || t === 'tense' || t === 'tenseChoice';
+
+/** The prompt; for sentence questions the gap is shown as a line (filled with `fill`, when given). */
+export function Prompt({ q, fill }: { q: Pick<HomeworkQuestion, 'type' | 'prompt'>; fill?: string }) {
+  const m = isSentence(q.type) ? /_{3,}/.exec(q.prompt) : null;
+  if (!m) return <>{q.prompt}</>;
+  return <>{q.prompt.slice(0, m.index)}<span className="blank">{fill || ' '}</span>{q.prompt.slice(m.index + m[0].length)}</>;
+}
+
+/** The tense and its Vietnamese explanation, shown once the answer is known. */
+export function TenseNote({ label, explain }: { label?: string; explain?: string }) {
+  if (!label && !explain) return null;
+  return (
+    <div className="tensenote">
+      {label && <span className="badge t-blue"><Icon name="clock" size="sm" />{label}</span>}
+      {explain && <span className="sm" lang="vi">{explain}</span>}
+    </div>
+  );
 }
 
 function Kicker({ q, children }: { q: HomeworkQuestion; children: ReactNode }) {
@@ -62,12 +78,13 @@ function HomeworkReviewList({ r }: { r: HomeworkResult }) {
               <span className="muted xs" style={{ fontWeight: 700 }}>{i + 1}. {ASK[q.type]}</span>
               {q.review && <span className="badge t-amber">Review</span>}
             </div>
-            <div className="hwrprompt"><Prompt q={q} fill={q.type === 'blank' ? q.answer : undefined} /></div>
+            <div className="hwrprompt"><Prompt q={q} fill={isSentence(q.type) ? q.answer : undefined} /></div>
             <div className="hwans">
               <span className="c-sr">{q.correct ? 'Correct.' : 'Wrong.'}</span>
               <span>Your answer: <b className={q.correct ? 'hw-ok' : 'hw-no'}>{q.yourAnswer || '(no answer)'}</b></span>
               {!q.correct && <span>Answer: <b className="hw-ok">{q.answer}</b></span>}
             </div>
+            <TenseNote label={q.tenseLabel} explain={q.explain} />
           </div>
         </li>
       ))}
@@ -223,7 +240,7 @@ export function HomeworkSection({ c, day, onSubmitted }: { c: CourseDetail; day:
         </div>
         <div key={i} className="hwq animA">
           <Kicker q={q}>Question {i + 1} of {n} · {ASK[q.type]}</Kicker>
-          <h4 ref={qHead} tabIndex={-1} className={'qtext hwprompt' + (q.type === 'blank' ? ' sentence' : '')} id={'hwq-' + day.day}>
+          <h4 ref={qHead} tabIndex={-1} className={'qtext hwprompt' + (isSentence(q.type) ? ' sentence' : '')} id={'hwq-' + day.day}>
             <Prompt q={q} fill={answer.trim()} />
           </h4>
           {q.hint && <div className="muted sm">Hint: {q.hint}</div>}

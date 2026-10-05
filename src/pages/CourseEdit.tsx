@@ -6,6 +6,7 @@ import { EmptyState, Icon, LevelBadge, PageHead } from '../components/ui';
 import { TOPIC_LABEL } from './Library';
 import { BackToCourses, CourseLoading, useCourse } from './Course';
 import { ConfirmDialog, JoinCode, VisibilityPicker, WordsPerDayPicker, errText } from './Courses';
+import { QuestionBank } from './CourseQuestions';
 
 const TOPICS: Topic[] = ['it', 'interview', 'customer', 'leader', 'toeic', 'other'];
 const SOURCE_LABEL: Record<CourseWord['source'], string> = { library: 'Library', ai: 'AI', manual: 'Manual' };
@@ -290,6 +291,8 @@ export function CourseEdit() {
     }
   };
   const addWord = (w: CourseWord) => saveDay([...words, w], 'Added “' + w.word + '” to day ' + d.day + '.');
+  const setBank = (n: number, bank: { pending: number; approved: number }) =>
+    setC((prev) => prev && { ...prev, days: prev.days.map((x) => (x.day === n ? { ...x, bank } : x)) });
   const removeWord = (i: number) => void saveDay(words.filter((_, j) => j !== i), 'Removed “' + words[i].word + '” from day ' + d.day + '.');
 
   const del = async () => {
@@ -320,13 +323,20 @@ export function CourseEdit() {
           <span className="muted sm">{c.readyDays} of {c.totalDays} days have words · up to {c.wordsPerDay} words a day</span>
         </div>
         <div className="daypick" role="group" aria-label="Choose a day">
-          {c.days.map((x) => (
-            <button key={x.day} className={'dp' + (x.day === d.day ? ' on' : '') + (x.count >= c.wordsPerDay ? ' full' : x.count === 0 ? ' none' : '')}
-              onClick={() => setDay(x.day)} aria-pressed={x.day === d.day} aria-label={'Day ' + x.day + ', ' + x.count + ' of ' + c.wordsPerDay + ' words'}>
-              <span className="dp-n">Day {x.day}</span>
-              <span className="dp-c">{x.count}/{c.wordsPerDay}</span>
-            </button>
-          ))}
+          {c.days.map((x) => {
+            const pending = x.bank?.pending ?? 0;
+            const approved = x.bank?.approved ?? 0;
+            const qLabel = (pending ? ', ' + pending + ' tense ' + (pending === 1 ? 'item' : 'items') + ' to review' : '') + (approved ? ', ' + approved + ' approved' : '');
+            return (
+              <button key={x.day} className={'dp' + (x.day === d.day ? ' on' : '') + (x.count >= c.wordsPerDay ? ' full' : x.count === 0 ? ' none' : '')}
+                onClick={() => setDay(x.day)} aria-pressed={x.day === d.day} aria-label={'Day ' + x.day + ', ' + x.count + ' of ' + c.wordsPerDay + ' words' + qLabel}>
+                <span className="dp-n">Day {x.day}</span>
+                <span className="dp-c">{x.count}/{c.wordsPerDay}</span>
+                {pending > 0 ? <span className="dp-q pending" aria-hidden="true" title={pending + ' to review'}>{pending}</span>
+                  : approved > 0 && <span className="dp-q" aria-hidden="true" title={approved + ' tense items approved'}><Icon name="check" size="sm" /></span>}
+              </button>
+            );
+          })}
         </div>
 
         <div className="dayedit">
@@ -358,6 +368,7 @@ export function CourseEdit() {
             <p className="muted sm" style={{ margin: 0 }}>No words for day {d.day} yet — learners will see “Coming soon”.</p>
           )}
           <AddWord key={d.day} words={words} full={full} saving={saving} quota={quota} setQuota={setQuota} onAdd={addWord} />
+          <QuestionBank key={'qb' + d.day} c={c} day={d} onCounts={setBank} />
         </div>
       </div>
 

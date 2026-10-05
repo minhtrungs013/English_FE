@@ -6,6 +6,7 @@ import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/
 import { ConfirmDialog, JoinCode, VisibilityBadge, errText } from './Courses';
 import { HomeworkSection } from './CourseHomework';
 import { CourseLeaderboard } from './CourseLeaderboard';
+import { WarmupSection } from './CourseWarmup';
 
 type DayState = 'learned' | 'open' | 'locked' | 'empty';
 
@@ -132,6 +133,8 @@ export function CoursePage() {
   const selState = selDay ? dayState(c, selDay) : undefined;
   const learned = e?.learned.length ?? 0;
   const homeworkOpen = !!e && !!selDay?.words?.length && selDay.day <= current;
+  // Day 1 has nothing earlier to warm up with.
+  const warmupOpen = homeworkOpen && selDay!.day >= 2;
   const submitted = () => { void reload(); setBoardVersion((v) => v + 1); };
 
   return (
@@ -196,6 +199,7 @@ export function CoursePage() {
       </div>
 
       <div ref={panel} style={{ scrollMarginTop: 84 }}>
+        {warmupOpen && <WarmupSection key={'wu' + selDay!.day} c={c} day={selDay!.day} />}
         {selDay && selDay.words ? (
           <div className="card dpanel" aria-live="polite">
             <div className="rowb" style={{ flexWrap: 'wrap' }}>

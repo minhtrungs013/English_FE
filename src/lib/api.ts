@@ -91,6 +91,8 @@ export interface CourseDay {
   words: CourseWord[] | null;
   /** My final homework score for the day (0–100) once handed in; null otherwise or when not enrolled. */
   myScore: number | null;
+  /** Question bank counts (recap included); only sent to the owner. */
+  bank?: { pending: number; approved: number };
 }
 export interface CourseDetail extends CourseSummary { days: CourseDay[] }
 export type CourseScope = 'joined' | 'mine' | 'public';
@@ -101,9 +103,10 @@ export interface CourseLearnResult { added: Word[]; skipped: string[]; tag: stri
 /* ---------- homework & leaderboards ---------- */
 /**
  * meaning: pick the Vietnamese meaning of the English prompt · word: pick the English word for the meaning ·
- * type: type the word for the meaning · blank: type the word missing from the sentence ("_____").
+ * type: type the word for the meaning · blank: type the word missing from the sentence ("_____") ·
+ * tense: type the verb in brackets in the right tense ("___ (deploy)") · tenseChoice: pick the right verb form.
  */
-export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank';
+export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice';
 export interface HomeworkQuestion {
   type: HomeworkType;
   /** A word from an earlier day. */
@@ -112,7 +115,11 @@ export interface HomeworkQuestion {
   /** Four choices for meaning/word questions, empty for typed ones. */
   choices: string[];
 }
-export interface HomeworkReview extends HomeworkQuestion { yourAnswer: string; answer: string; correct: boolean }
+export interface HomeworkReview extends HomeworkQuestion {
+  yourAnswer: string; answer: string; correct: boolean;
+  /** Tense questions only ('' otherwise); explain is in Vietnamese. */
+  tense?: string; tenseLabel?: string; explain?: string;
+}
 export interface HomeworkResult {
   /** Final score (raw × penalty), 0–100. */
   score: number; raw: number; correct: number; total: number;
@@ -136,6 +143,32 @@ export interface Leaderboard {
   overall: Board<{ score: number; days: number }>;
   streak: Board<{ streak: number; score: number }>;
 }
+
+/* ---------- tense question bank & warm-up ---------- */
+export type Tense = 'present-simple' | 'present-continuous' | 'present-perfect' | 'past-simple' | 'past-continuous' | 'future-simple' | 'going-to';
+/**
+ * tense: typed — the sentence has one "___" and the base verb in brackets ("Yesterday we ___ (deploy) the hotfix.") ·
+ * tenseChoice: the same with 4 choices · recap: a short story using earlier days' words (explain = its Vietnamese translation).
+ */
+export type BankKind = 'tense' | 'tenseChoice' | 'recap';
+export type BankStatus = 'pending' | 'approved' | 'rejected';
+export interface BankItem {
+  id: string; day: number; kind: BankKind; word: string; tense: Tense | ''; tenseLabel: string;
+  prompt: string; choices: string[]; answer: string; accept: string[]; explain: string;
+  source: 'ai' | 'template' | 'manual'; status: BankStatus;
+}
+export interface BankInput { kind: BankKind; word?: string; tense?: string; prompt: string; choices?: string[]; answer?: string; accept?: string[]; explain?: string }
+export type BankPatch = Partial<Omit<BankInput, 'kind'>> & { status?: BankStatus };
+/** source 'template' = built-in questions, used when AI isn't available. items: the day's whole bank. */
+export interface BankGenerateResult { source: 'ai' | 'template'; added: number; quota: Quota; items: BankItem[] }
+/** missed: times I got the word wrong in earlier homework. */
+export interface WarmupWord { word: string; ipa: string; vi: string; meaning: string; missed: number }
+/** Not graded, so the answers come with the questions. */
+export interface WarmupQuestion {
+  type: HomeworkType; word: string; prompt: string; hint: string; choices: string[];
+  answer: string; accept: string[]; tense: string; tenseLabel: string; explain: string;
+}
+export interface Warmup { day: number; recap: { text: string; vi: string } | null; words: WarmupWord[]; questions: WarmupQuestion[] }
 
 export const api = {
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
@@ -193,5 +226,18 @@ export const api = {
   getHomework: (id: string, day: number) => req<Homework>('GET', '/courses/' + id + '/days/' + day + '/homework'),
   /** One answer per question, in order ('' for none). Each day can be handed in once. */
   submitHomework: (id: string, day: number, answers: string[]) => req<HomeworkResult>('POST', '/courses/' + id + '/days/' + day + '/homework', { answers }),
-  getLeaderboard: (id: string, day?: number) => req<Leaderboard>('GET', '/courses/' + id + '/leaderboard' + (day ? '?day=' + day : ''))
+  getLeaderboard: (id: string, day?: number) => req<Leaderboard>('GET', '/courses/' + id + '/leaderboard' + (day ? '?day=' + day : '')),
+  /** Earlier words to practise (missed ones first) and the day's recap story. Not graded. */
+  getWarmup: (id: string, day: number) => req<Warmup>('GET', '/courses/' + id + '/days/' + day + '/warmup'),
+
+  /* Owner: the tense question bank. Homework uses approved items and is frozen once someone hands that day in. */
+  listQuestions: (id: string, day: number) => req<BankItem[]>('GET', '/courses/' + id + '/questions?day=' + day),
+  /** Adds pending questions (AI, or built-in templates when AI is unavailable). Can take a while. */
+  generateQuestions: (id: string, day: number, opts: { tenses?: Tense[]; perWord?: number }) =>
+    req<BankGenerateResult>('POST', '/courses/' + id + '/days/' + day + '/questions/generate', opts),
+  /** A question (or recap) written by hand; approved straight away. A new recap replaces the day's old one. */
+  addQuestion: (id: string, day: number, q: BankInput) => req<BankItem>('POST', '/courses/' + id + '/days/' + day + '/questions', q),
+  updateQuestion: (id: string, qid: string, q: BankPatch) => req<BankItem>('PATCH', '/courses/' + id + '/questions/' + qid, q),
+  setQuestionsStatus: (id: string, ids: string[], status: BankStatus) => req<{ updated: number }>('POST', '/courses/' + id + '/questions/status', { ids, status }),
+  deleteQuestion: (id: string, qid: string) => req<void>('DELETE', '/courses/' + id + '/questions/' + qid)
 };
