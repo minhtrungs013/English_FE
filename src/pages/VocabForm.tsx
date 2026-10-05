@@ -49,6 +49,7 @@ function ChipInput({ id, field }: { id: string; field: 'syn' | 'ant' }) {
 export function VocabForm() {
   const { s, a } = useWB();
   const isEdit = s.route === 'edit';
+  const autofillLeft = Math.max(0, s.autofill.limit - s.autofill.used);
   const typed = (isEdit ? s.editForm : s.form).word.trim().toLowerCase();
   const libMatch = useLibraryMatch(typed, !isEdit);
   // Already in my words? (the server would also refuse it on save)
@@ -101,8 +102,9 @@ export function VocabForm() {
             </div>
             <div className="field" style={{ flexGrow: 0, justifyContent: 'flex-end' }}>
               <span className="label desk-only" style={{ visibility: 'hidden' }}>Auto</span>
-              <button className="btn btn-primary btn-lg" style={{ minHeight: 60 }} onClick={a.generate} disabled={s.aiBusy}>
-                <Icon name="sparkle" />{s.aiBusy ? 'Looking up…' : 'Auto-fill details'}
+              <button className="btn btn-primary btn-lg" style={{ minHeight: 60 }} onClick={a.generate} disabled={s.aiBusy || autofillLeft <= 0}
+                title={autofillLeft <= 0 ? 'No auto-fills left today' : undefined}>
+                <Icon name="sparkle" />{s.aiBusy ? 'Looking up…' : autofillLeft <= 0 ? 'No auto-fills left' : 'Auto-fill details'}
               </button>
             </div>
           </div>
@@ -122,7 +124,9 @@ export function VocabForm() {
           ) : (
             <div className="hint" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Icon name="sparkle" size="sm" style={{ color: 'var(--primary)' }} />
-              Auto-fill is optional — every field below can be filled in or edited by hand.
+              {autofillLeft > 0
+                ? <>Auto-fill is optional — <b>{autofillLeft} of {s.autofill.limit}</b> left today. Every field below can be filled in or edited by hand.</>
+                : <>You’ve used today’s {s.autofill.limit} auto-fills — fill in the details by hand, or try again tomorrow.</>}
             </div>
           )}
 

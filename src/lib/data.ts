@@ -62,6 +62,8 @@ export interface Data {
   /** Lower-cased words of mine that are already in the shared library. */
   shared: string[];
   userId: string;
+  /** Today's auto-fill usage (each user has a small daily limit). */
+  autofill: { used: number; limit: number };
   settings: Settings;
   progress: Progress;
 }

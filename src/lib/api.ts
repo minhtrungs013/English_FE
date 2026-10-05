@@ -5,7 +5,8 @@ const BASE = (import.meta.env.VITE_API_URL as string | undefined) || 'https://en
 const TOKEN_KEY = 'wordbook:token';
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) { super(message); }
+  /** `body` is the server's JSON error, when there is one. */
+  constructor(message: string, readonly status: number, readonly body: Record<string, unknown> | null = null) { super(message); }
 }
 
 /* ---------- session token ---------- */
@@ -42,14 +43,16 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
     const msg = Array.isArray(m) ? m.join(' ') : m || 'Request failed (' + res.status + ')';
     // Only a rejected session logs out; a wrong password on login/change-password doesn't.
     if (res.status === 401 && sentToken && sentToken === token && !path.startsWith('/auth/change-password')) onUnauthorized?.(msg);
-    throw new ApiError(msg, res.status);
+    throw new ApiError(msg, res.status, json);
   }
   return json as T;
 }
 
 export type WordInput = Omit<Word, 'id' | 'status' | 'dueAt' | 'addedAt' | 'hist'>;
+export interface Quota { used: number; limit: number }
 export interface LookupResult {
-  source: 'collection' | 'builtin' | 'online';
+  quota?: Quota;
+  source: 'collection' | 'library' | 'builtin' | 'ai' | 'online';
   ipa?: string; pos?: string; meaning?: string; vi?: string; ex?: string; syn?: string[]; ant?: string[]; level?: Word['level'];
 }
 export interface User { id: string; name: string; email: string }

@@ -45,7 +45,7 @@ export type State = Data & UiState;
 
 const NO_FILTERS: Filters = { q: '', level: 'all', status: 'all', cat: 'all', tag: 'all' };
 const EMPTY_DATA: Data = {
-  words: [], cats: [], tags: [], shared: [], userId: '',
+  words: [], cats: [], tags: [], shared: [], userId: '', autofill: { used: 0, limit: 3 },
   settings: { name: '', email: '', goal: '20', dir: 'en-vi', autoplay: true, showEx: true, theme: 'light', accent: 'indigo', voice: '', rate: 0.9, pitch: 1 },
   progress: { streak: 0, lastStreakDay: '', reviewedDay: '', reviewedToday: 0 }
 };
@@ -77,7 +77,8 @@ function useWordbookState() {
     set({ status: 'loading', loadError: '' });
     try {
       const d = await api.bootstrap();
-      set({ ...d, status: 'ready' });
+      // An older server may not send autofill yet; keep the defaults then.
+      set({ ...d, autofill: d.autofill ?? EMPTY_DATA.autofill, status: 'ready' });
     } catch (e) {
       // A rejected session has already logged out (see setUnauthorizedHandler); keep the login screen.
       if (e instanceof ApiError && e.status === 401) return;
@@ -290,7 +291,12 @@ function useWordbookState() {
     let failed = '';
     try {
       data = await api.lookup(word);
+      if (data.quota) set({ autofill: data.quota });
     } catch (e) {
+      const quota = e instanceof ApiError ? (e.body?.quota as { used: number; limit: number } | undefined) : undefined;
+      if (quota) set({ autofill: quota });
+      // Daily limit reached (429): show the server's message and mark today's auto-fills as used up.
+      if (e instanceof ApiError && e.status === 429) set((prev) => ({ autofill: { ...prev.autofill, used: prev.autofill.limit } }));
       if (!(e instanceof ApiError && e.status === 404)) failed = errMsg(e);
     } finally {
       window.clearInterval(stepper);
