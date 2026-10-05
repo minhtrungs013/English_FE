@@ -6,6 +6,7 @@ import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/
 import { ConfirmDialog, JoinCode, VisibilityBadge, errText } from './Courses';
 import { HomeworkSection } from './CourseHomework';
 import { CourseLeaderboard } from './CourseLeaderboard';
+import { TodayPlan } from './CourseToday';
 import { WarmupSection } from './CourseWarmup';
 
 type DayState = 'learned' | 'open' | 'locked' | 'empty';
@@ -67,16 +68,11 @@ export function CoursePage() {
   const [sel, setSel] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  /** Enrolled learners get today's plan; the full list of days is folded away under it. */
+  const [allOpen, setAllOpen] = useState(false);
   /** Bumped after homework is handed in so the leaderboard reloads. */
   const [boardVersion, setBoardVersion] = useState(0);
   const panel = useRef<HTMLDivElement>(null);
-
-  // Start on today's day when it has words.
-  useEffect(() => {
-    if (!c || sel !== null) return;
-    const today = c.enrollment ? c.days.find((d) => d.day === c.enrollment!.currentDay) : undefined;
-    if (today && today.words && today.count > 0) setSel(today.day);
-  }, [c, sel]);
 
   if (failed) {
     return (
@@ -93,8 +89,21 @@ export function CoursePage() {
   const e = c.enrollment;
   const current = e ? Math.min(e.currentDay, c.totalDays) : 0;
   const pick = (day: number) => {
+    // Today is done in the plan, not twice.
+    if (e && day === current) {
+      const h = document.getElementById('tp-title');
+      h?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      h?.focus();
+      return;
+    }
+    setAllOpen(true);
     setSel(day);
     window.setTimeout(() => panel.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  };
+  const showBoard = () => {
+    const h = document.getElementById('lb-title');
+    h?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    h?.focus();
   };
 
   const join = async () => {
@@ -137,41 +146,8 @@ export function CoursePage() {
   const warmupOpen = homeworkOpen && selDay!.day >= 2;
   const submitted = () => { void reload(); setBoardVersion((v) => v + 1); };
 
-  return (
+  const days = (
     <>
-      <BackToCourses />
-      <PageHead title={c.title} sub={c.description || undefined}>
-        {c.isOwner && <button className="btn btn-secondary" onClick={() => a.openCourse(c.id, true)}><Icon name="edit" size="sm" />Edit course</button>}
-        {!e && <button className="btn btn-primary" onClick={join} disabled={busy}><Icon name="plus" size="sm" />{c.isOwner ? 'Learn this course' : 'Join course'}</button>}
-      </PageHead>
-
-      <div className="cmeta" style={{ marginTop: -14, marginBottom: 20 }}>
-        <span>by <b>{c.isOwner ? 'You' : c.ownerName}</b></span>
-        <span><Icon name="layers" size="sm" />{c.wordsPerDay} words a day · {c.readyDays}/{c.totalDays} days ready</span>
-        <span><Icon name="users" size="sm" />{c.members} {c.members === 1 ? 'learner' : 'learners'}</span>
-        <span>#{c.tag}</span>
-        {c.isOwner && <VisibilityBadge v={c.visibility} />}
-      </div>
-
-      {(e || (c.isOwner && c.joinCode)) && (
-        <div className="card cprog">
-          {e ? (
-            <div className="stack" style={{ gap: 8, flex: 1, minWidth: 220 }}>
-              <div className="rowb">
-                <b>Day {current} of {c.totalDays}</b>
-                <span className="muted sm">{learned} {learned === 1 ? 'day' : 'days'} learned</span>
-              </div>
-              <span className="mini indigo" role="progressbar" aria-label="Days learned" aria-valuemin={0} aria-valuemax={c.totalDays} aria-valuenow={learned}>
-                <div style={{ width: Math.round((learned / c.totalDays) * 100) + '%' }} />
-              </span>
-            </div>
-          ) : (
-            <span className="muted sm" style={{ flex: 1 }}>You own this course. Share the join code so others can learn it.</span>
-          )}
-          {c.isOwner && c.joinCode && <JoinCode code={c.joinCode} />}
-        </div>
-      )}
-
       <div className="daygrid" role="list" aria-label="Course days">
         {c.days.map((d) => {
           const st = dayState(c, d);
@@ -233,6 +209,57 @@ export function CoursePage() {
         )}
         {homeworkOpen && <HomeworkSection key={selDay!.day} c={c} day={selDay!} onSubmitted={submitted} />}
       </div>
+    </>
+  );
+
+  return (
+    <>
+      <BackToCourses />
+      <PageHead title={c.title} sub={c.description || undefined}>
+        {c.isOwner && <button className="btn btn-secondary" onClick={() => a.openCourse(c.id, true)}><Icon name="edit" size="sm" />Edit course</button>}
+        {!e && <button className="btn btn-primary" onClick={join} disabled={busy}><Icon name="plus" size="sm" />{c.isOwner ? 'Learn this course' : 'Join course'}</button>}
+      </PageHead>
+
+      <div className="cmeta" style={{ marginTop: -14, marginBottom: 20 }}>
+        <span>by <b>{c.isOwner ? 'You' : c.ownerName}</b></span>
+        <span><Icon name="layers" size="sm" />{c.wordsPerDay} words a day · {c.readyDays}/{c.totalDays} days ready</span>
+        <span><Icon name="users" size="sm" />{c.members} {c.members === 1 ? 'learner' : 'learners'}</span>
+        <span>#{c.tag}</span>
+        {c.isOwner && <VisibilityBadge v={c.visibility} />}
+      </div>
+
+      {(e || (c.isOwner && c.joinCode)) && (
+        <div className="card cprog">
+          {e ? (
+            <div className="stack" style={{ gap: 8, flex: 1, minWidth: 220 }}>
+              <div className="rowb">
+                <b>Day {current} of {c.totalDays}</b>
+                <span className="muted sm">{learned} {learned === 1 ? 'day' : 'days'} learned</span>
+              </div>
+              <span className="mini indigo" role="progressbar" aria-label="Days learned" aria-valuemin={0} aria-valuemax={c.totalDays} aria-valuenow={learned}>
+                <div style={{ width: Math.round((learned / c.totalDays) * 100) + '%' }} />
+              </span>
+            </div>
+          ) : (
+            <span className="muted sm" style={{ flex: 1 }}>You own this course. Share the join code so others can learn it.</span>
+          )}
+          {c.isOwner && c.joinCode && <JoinCode code={c.joinCode} />}
+        </div>
+      )}
+
+      {e && <TodayPlan c={c} setC={setC} reload={reload} onSubmitted={submitted} onOpenDay={pick} onShowBoard={showBoard} />}
+
+      {e ? (
+        <section className="csec tdays" aria-labelledby="tp-days">
+          <h2 className="h2" id="tp-days">
+            <button className="tdisc" aria-expanded={allOpen} aria-controls="tp-days-body" onClick={() => setAllOpen(!allOpen)}>
+              <Icon name="down" />All days
+              <span className="muted sm tdisc-n">{learned}/{c.totalDays} learned</span>
+            </button>
+          </h2>
+          <div id="tp-days-body" hidden={!allOpen}>{days}</div>
+        </section>
+      ) : days}
 
       {(c.isOwner || e) && <CourseLeaderboard c={c} version={boardVersion} />}
 

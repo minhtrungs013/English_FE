@@ -16,8 +16,14 @@ const isRight = (q: WarmupQuestion, given: string) => {
 
 type Phase = 'intro' | 'quiz' | 'done';
 
-/** Optional, ungraded practice before a day's new words: the recap story, earlier words (missed ones first) and quick questions. */
-export function WarmupSection({ c, day }: { c: CourseDetail; day: number }) {
+/**
+ * Optional, ungraded practice before a day's new words: the recap story, earlier words (missed ones first) and quick questions.
+ * embedded: shown inside a step of today's plan, which has its own heading · onDone: the practice was finished (or, with nothing
+ * to practise, the words were reviewed) · onClose: the learner is done with it (Done on the summary).
+ */
+export function WarmupSection({ c, day, embedded, onDone, onClose }: {
+  c: CourseDetail; day: number; embedded?: boolean; onDone?: (correct: number, total: number) => void; onClose?: () => void;
+}) {
   const [w, setW] = useState<Warmup | null>(null);
   const [failed, setFailed] = useState('');
   const [hidden, setHidden] = useState(false);
@@ -59,10 +65,12 @@ export function WarmupSection({ c, day }: { c: CourseDetail; day: number }) {
     setMarks((m) => [...m, isRight(q, given)]);
   };
   const next = () => {
-    if (i < n - 1) { setI(i + 1); setAnswer(''); }
-    else setPhase('done');
+    if (i < n - 1) { setI(i + 1); setAnswer(''); return; }
+    setPhase('done');
+    onDone?.(marks.filter(Boolean).length, n);
   };
   const finish = () => {
+    if (phase === 'done' && onClose) { onClose(); return; }
     setPhase('intro');
     window.setTimeout(() => startBtn.current?.focus(), 0);
   };
@@ -91,16 +99,25 @@ export function WarmupSection({ c, day }: { c: CourseDetail; day: number }) {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  if (hidden) return null;
+  // In today's plan there's always a way on, even when there's nothing to practise.
+  const nothing = (
+    <section className="wucard" aria-label="Warm-up">
+      <p className="muted sm" style={{ margin: 0 }}>There’s nothing to review from earlier days yet.</p>
+      <div className="dfoot">
+        <button className="btn btn-primary" onClick={() => { onDone?.(0, 0); onClose?.(); }}>Continue<Icon name="right" size="sm" /></button>
+      </div>
+    </section>
+  );
+  if (hidden) return embedded ? nothing : null;
   if (failed) {
     return (
-      <section className="card wucard" aria-label="Warm-up">
+      <section className={(embedded ? '' : 'card ') + 'wucard'} aria-label="Warm-up">
         <span className="errtxt" role="alert"><Icon name="alert" size="sm" />{failed} <button className="linkbtn" onClick={load}>Try again</button></span>
       </section>
     );
   }
   if (!w) return <div className="sk wucard" style={{ height: 120, borderRadius: 16 }} aria-busy="true" aria-label="Loading warm-up" />;
-  if (!w.recap && !w.words.length) return null;
+  if (!w.recap && !w.words.length) return embedded ? nothing : null;
 
   const hid = 'wu-' + day;
   const right = marks.filter(Boolean).length;
@@ -174,7 +191,7 @@ export function WarmupSection({ c, day }: { c: CourseDetail; day: number }) {
         <div className="hwresult">
           <h4 ref={doneHead} tabIndex={-1} className="qkicker" style={{ margin: 0 }}>Warm-up done<span className="c-sr">: {right} of {n} correct</span></h4>
           <div className="hwscore" aria-hidden="true"><b>{right}</b><span className="muted">/ {n} correct</span></div>
-          <span className="muted sm">{right === n ? 'All correct — you’re ready for today’s words.' : 'Nothing is saved — it’s just practice.'}</span>
+          <span className="muted sm">{right === n ? 'All correct — you’re ready for today’s words.' : embedded ? 'Review done — it doesn’t count toward your score.' : 'Nothing is saved — it’s just practice.'}</span>
         </div>
         {missedWords.length > 0 && (
           <div className="stack" style={{ gap: 6 }}>
@@ -184,7 +201,7 @@ export function WarmupSection({ c, day }: { c: CourseDetail; day: number }) {
         )}
         <div className="dfoot">
           <button className="btn btn-secondary" onClick={start}><Icon name="refresh" size="sm" />Practice again</button>
-          <button className="btn btn-primary" onClick={finish}>Done</button>
+          <button className="btn btn-primary" onClick={finish}>{embedded && onClose ? <>Continue<Icon name="right" size="sm" /></> : 'Done'}</button>
         </div>
       </>
     );
@@ -223,16 +240,21 @@ export function WarmupSection({ c, day }: { c: CourseDetail; day: number }) {
             </ul>
           </div>
         )}
-        {n > 0 && (
+        {n > 0 ? (
           <div className="dfoot">
             <span className="hint" style={{ marginRight: 'auto' }}>{n} quick {n === 1 ? 'question' : 'questions'} · instant feedback · nothing is saved</span>
-            <button ref={startBtn} className="btn btn-secondary" onClick={start}><Icon name="zap" size="sm" />Start warm-up</button>
+            <button ref={startBtn} className={'btn ' + (embedded ? 'btn-primary' : 'btn-secondary')} onClick={start}><Icon name="zap" size="sm" />Start warm-up</button>
+          </div>
+        ) : embedded && (
+          <div className="dfoot">
+            <button className="btn btn-primary" onClick={() => { onDone?.(0, 0); onClose?.(); }}><Icon name="check" size="sm" />Done reviewing</button>
           </div>
         )}
       </>
     );
   }
 
+  if (embedded) return <section className="wucard" aria-label="Warm-up">{body}</section>;
   return (
     <section className="card wucard" aria-labelledby={hid}>
       <div className="rowb" style={{ flexWrap: 'wrap' }}>

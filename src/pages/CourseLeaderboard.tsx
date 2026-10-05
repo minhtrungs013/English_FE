@@ -93,7 +93,7 @@ export function CourseLeaderboard({ c, version }: { c: CourseDetail; version: nu
   return (
     <section className="card lbcard" aria-labelledby="lb-title">
       <div className="rowb" style={{ flexWrap: 'wrap' }}>
-        <h2 className="h2 lbtitle" id="lb-title"><Icon name="trophy" />Leaderboard</h2>
+        <h2 className="h2 lbtitle" id="lb-title" tabIndex={-1}><Icon name="trophy" />Leaderboard</h2>
         {b && <span className="muted sm">{b.count} of {lb!.members} {lb!.members === 1 ? 'learner' : 'learners'}</span>}
       </div>
       <div className="lbtools">

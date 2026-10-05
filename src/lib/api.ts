@@ -75,8 +75,8 @@ export interface CourseWord {
   /** '' when the word isn't in the shared library (yet). */
   libraryId: string; source: 'library' | 'ai' | 'manual';
 }
-/** currentDay is 1..30: day 1 = the day they joined, +1 each day (Vietnam time). */
-export type CourseEnrollment = { startDay: string; currentDay: number; learned: number[] } | null;
+/** currentDay is 1..30: day 1 = the day they joined, +1 each day (Vietnam time). warmedUp: days whose review (warm-up) is done or skipped. */
+export type CourseEnrollment = { startDay: string; currentDay: number; learned: number[]; warmedUp: number[] } | null;
 export interface CourseSummary {
   id: string; title: string; description: string; ownerId: string; ownerName: string; isOwner: boolean;
   visibility: 'private' | 'public'; wordsPerDay: number; totalDays: number; tag: string;
@@ -229,6 +229,9 @@ export const api = {
   getLeaderboard: (id: string, day?: number) => req<Leaderboard>('GET', '/courses/' + id + '/leaderboard' + (day ? '?day=' + day : '')),
   /** Earlier words to practise (missed ones first) and the day's recap story. Not graded. */
   getWarmup: (id: string, day: number) => req<Warmup>('GET', '/courses/' + id + '/days/' + day + '/warmup'),
+  /** Marks the day's warm-up as done: after the practice (with its result) or when the learner skips it (no result). */
+  warmupDone: (id: string, day: number, correct?: number, total?: number) =>
+    req<{ warmedUp: number[] }>('POST', '/courses/' + id + '/days/' + day + '/warmup/done', correct !== undefined ? { correct, total } : {}),
 
   /* Owner: the tense question bank. Homework uses approved items and is frozen once someone hands that day in. */
   listQuestions: (id: string, day: number) => req<BankItem[]>('GET', '/courses/' + id + '/questions?day=' + day),

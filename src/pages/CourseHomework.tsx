@@ -116,8 +116,14 @@ function HomeworkResultView({ r, onClose }: { r: HomeworkResult; onClose: () => 
 
 type Phase = 'idle' | 'loading' | 'taking' | 'sending' | 'result';
 
-/** A day's homework for an enrolled learner: start → one question at a time → hand in → score and answers. */
-export function HomeworkSection({ c, day, onSubmitted }: { c: CourseDetail; day: CourseDay; onSubmitted: () => void }) {
+/**
+ * A day's homework for an enrolled learner: start → one question at a time → hand in → score and answers.
+ * embedded: shown inside a step of today's plan, which has its own heading; it opens straight away (the step's button was the
+ * "start") and onClose is called instead of going back to the start screen.
+ */
+export function HomeworkSection({ c, day, onSubmitted, embedded, onClose }: {
+  c: CourseDetail; day: CourseDay; onSubmitted: () => void; embedded?: boolean; onClose?: () => void;
+}) {
   const { a } = useWB();
   const [phase, setPhase] = useState<Phase>('idle');
   const [hw, setHw] = useState<Homework | null>(null);
@@ -129,6 +135,7 @@ export function HomeworkSection({ c, day, onSubmitted }: { c: CourseDetail; day:
   const qHead = useRef<HTMLHeadingElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const startBtn = useRef<HTMLButtonElement>(null);
+  const opened = useRef(false);
 
   const e = c.enrollment!;
   const late = lateDaysFor(e.startDay, day.day);
@@ -210,7 +217,16 @@ export function HomeworkSection({ c, day, onSubmitted }: { c: CourseDetail; day:
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  // Embedded: open once (the ref keeps StrictMode's second effect run from opening it twice).
+  useEffect(() => {
+    if (!embedded || opened.current) return;
+    opened.current = true;
+    void open();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const close = () => {
+    if (onClose) { onClose(); return; }
     setPhase('idle');
     window.setTimeout(() => startBtn.current?.focus(), 0);
   };
@@ -304,8 +320,8 @@ export function HomeworkSection({ c, day, onSubmitted }: { c: CourseDetail; day:
   }
 
   return (
-    <section className="card hwcard" aria-labelledby={'hw-' + day.day}>
-      {head}
+    <section className={(embedded ? '' : 'card ') + 'hwcard'} aria-labelledby={embedded ? undefined : 'hw-' + day.day} aria-label={embedded ? 'Day ' + day.day + ' homework' : undefined}>
+      {!embedded && head}
       {body}
       <div className="c-sr" aria-live="polite">{phase === 'result' && result ? 'Homework score ' + result.score + ' out of 100, ' + result.correct + ' of ' + result.total + ' correct.' : phase === 'sending' ? 'Handing in…' : ''}</div>
       {asking && (

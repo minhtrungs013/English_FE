@@ -737,3 +737,51 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 .wuform{flex-direction:column}
 .wucard .dfoot{flex-direction:column;align-items:stretch}
 }
+/* course: today's plan */
+.tplan{display:flex;flex-direction:column;gap:12px;margin-bottom:8px}
+.tplan-t{font-size:20px;outline:none}
+.lbtitle{outline:none}
+.tsteps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.tstep{display:flex;align-items:flex-start;gap:16px;padding:20px 22px}
+.tstep.is-active{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary),var(--shadow)}
+.tstep.is-locked{background:var(--surface2);box-shadow:none}
+.tstep.is-locked .tstep-t{color:var(--muted)}
+.tmark{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--surface2);color:var(--muted);font-weight:800;font-size:14px;font-variant-numeric:tabular-nums}
+.tstep.is-active .tmark{background:var(--primary);color:#fff}
+.tstep.is-done .tmark{background:var(--success-soft);color:var(--success)}
+.tstep.is-locked .tmark{background:var(--surface3)}
+.tstep.final.is-active{background:var(--success-soft);border-color:var(--success);box-shadow:0 0 0 1px var(--success)}
+.tstep.final.is-active .tmark{background:var(--success);color:#fff}
+.tbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:14px}
+.tstep-t{outline:none;border-radius:4px}
+.tstep-t:focus-visible,.tplan-t:focus-visible,.lbtitle:focus-visible{outline:2px solid var(--primary);outline-offset:4px}
+.tact{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tlock{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--muted)}
+.tscore{display:flex;align-items:baseline;gap:8px}
+.tscore b{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1.05;color:var(--success);font-variant-numeric:tabular-nums}
+.tlist{border-top:1px solid var(--border)}
+.tlist .cwrow:first-child{padding-top:14px}
+/* the warm-up / homework inside a step or the catch-up notice: no card of their own */
+.tbody .wucard,.tbody .hwcard,.tcatch .hwcard{margin:0;padding:0;border:none;border-radius:0;box-shadow:none;background:none}
+.tcatch{display:flex;flex-direction:column;gap:14px;padding:18px 22px;border-color:var(--warning);background:var(--warning-soft);box-shadow:none}
+.tcatch-head{display:flex;align-items:flex-start;gap:14px}
+.tcatch-ic{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--surface);color:var(--warning)}
+.tcatch-body{padding:16px 18px;border-radius:12px;background:var(--surface);border:1px solid var(--border)}
+.tcatch-body .note{background:var(--warning-soft)}
+.tdisc{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:0 4px;border:none;background:none;border-radius:10px;color:var(--text);font:inherit;font-size:17px;font-weight:800;cursor:pointer;text-align:left}
+.tdisc:hover{background:var(--surface2)}
+.tdisc .ic{transition:transform .15s;color:var(--muted)}
+.tdisc[aria-expanded=true] .ic{transform:rotate(180deg)}
+.tdisc-n{margin-left:auto;font-weight:600;padding-right:8px}
+.tdays #tp-days-body{margin-top:12px}
+@container (max-width: 760px){
+.tstep{gap:12px;padding:16px}
+.tmark{width:30px;height:30px;font-size:13px}
+.tact{flex-direction:column;align-items:stretch}
+.tact .btn{width:100%;white-space:normal}
+.tcatch{padding:16px}
+.tcatch-head{gap:10px}
+.tcatch-ic{display:none}
+.tcatch-body{padding:14px 12px}
+.tscore b{font-size:38px}
+}
