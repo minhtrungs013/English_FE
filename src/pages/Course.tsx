@@ -5,6 +5,7 @@ import { useWB } from '../state/WordbookContext';
 import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/ui';
 import { ConfirmDialog, JoinCode, VisibilityBadge, errText } from './Courses';
 import { HomeworkSection } from './CourseHomework';
+import { CourseLearn } from './CourseLearn';
 import { CourseLeaderboard } from './CourseLeaderboard';
 import { TodayPlan } from './CourseToday';
 import { WarmupSection } from './CourseWarmup';
@@ -70,6 +71,8 @@ export function CoursePage() {
   const [leaving, setLeaving] = useState(false);
   /** Enrolled learners get today's plan; the full list of days is folded away under it. */
   const [allOpen, setAllOpen] = useState(false);
+  /** The selected day is open in the meet → practise flow instead of the word list. */
+  const [practising, setPractising] = useState(false);
   /** Bumped after homework is handed in so the leaderboard reloads. */
   const [boardVersion, setBoardVersion] = useState(0);
   const panel = useRef<HTMLDivElement>(null);
@@ -98,6 +101,7 @@ export function CoursePage() {
     }
     setAllOpen(true);
     setSel(day);
+    setPractising(false);
     window.setTimeout(() => panel.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
   };
   const showBoard = () => {
@@ -177,7 +181,7 @@ export function CoursePage() {
       <div ref={panel} style={{ scrollMarginTop: 84 }}>
         {warmupOpen && <WarmupSection key={'wu' + selDay!.day} c={c} day={selDay!.day} />}
         {selDay && selDay.words ? (
-          <div className="card dpanel" aria-live="polite">
+          <div className="card dpanel" aria-live={practising ? undefined : 'polite'}>
             <div className="rowb" style={{ flexWrap: 'wrap' }}>
               <div>
                 <h2 className="h2">Day {selDay.day}</h2>
@@ -185,10 +189,21 @@ export function CoursePage() {
               </div>
               {selState === 'learned' && <span className="badge t-green"><Icon name="check" size="sm" />Learned</span>}
             </div>
+            {practising ? (
+              <CourseLearn key={'cl' + selDay.day} c={c} day={selDay.day} words={selDay.words} learned={selState === 'learned'}
+                onSave={e && selDay.day <= current ? () => learn(selDay.day) : undefined}
+                onClose={() => { setPractising(false); window.setTimeout(() => document.getElementById('cl-practise')?.focus(), 0); }} />
+            ) : (
+            <>
             <div className="cwlist">
               {selDay.words.map((w, i) => <CourseWordRow key={w.word + i} w={w} />)}
             </div>
             <div className="dfoot">
+              {selDay.words.length > 0 && (
+                <button id="cl-practise" className="btn btn-secondary" style={{ marginRight: 'auto' }} onClick={() => setPractising(true)}>
+                  <Icon name="zap" size="sm" />Practise these words
+                </button>
+              )}
               {!e ? (
                 <span className="hint">{c.isOwner ? 'This is a preview. Start learning the course to save words day by day.' : 'Join the course to save these words to My Vocabulary.'}</span>
               ) : selState === 'learned' ? (
@@ -201,6 +216,8 @@ export function CoursePage() {
                 </button>
               )}
             </div>
+            </>
+            )}
           </div>
         ) : (
           <p className="muted sm" style={{ marginTop: 16 }}>

@@ -5,6 +5,7 @@ import { Icon } from '../components/ui';
 import { CourseWordRow } from './Course';
 import { errText } from './Courses';
 import { HomeworkSection, lateDaysFor, penaltyFor } from './CourseHomework';
+import { CourseLearn } from './CourseLearn';
 import { WarmupSection } from './CourseWarmup';
 
 type StepId = 'review' | 'learn' | 'homework' | 'done';
@@ -33,7 +34,8 @@ export function TodayPlan({ c, setC, reload, onSubmitted, onOpenDay, onShowBoard
   const [catchOpen, setCatchOpen] = useState(false);
   /** The late day being done, kept while it's open (the list changes once it's handed in). */
   const [catchDay, setCatchDay] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
+  /** How the learn step is open: the meet → practise flow, practising again, or just the word list. */
+  const [learnView, setLearnView] = useState<'flow' | 'practice' | 'list'>('flow');
   const [skipping, setSkipping] = useState(false);
   const [live, setLive] = useState('');
   const [focusReq, setFocusReq] = useState<{ to: FocusTo; n: number } | null>(null);
@@ -108,9 +110,7 @@ export function TodayPlan({ c, setC, reload, onSubmitted, onOpenDay, onShowBoard
     }
   };
   const learn = async () => {
-    setSaving(true);
     const res = await a.learnCourseDay(c.id, today);
-    setSaving(false);
     if (!res) return;
     setC(res);
     setOpen((o) => o.filter((x) => x !== 'learn'));
@@ -189,25 +189,29 @@ export function TodayPlan({ c, setC, reload, onSubmitted, onOpenDay, onShowBoard
     } else if (id === 'learn') {
       sub = st === 'done'
         ? plural(words.length, 'word') + ' saved to My Vocabulary with the tag #' + c.tag + '.'
-        : plural(words.length, 'new word') + ' today.';
+        : plural(words.length, 'new word') + ' today — meet them one by one, then practise until each one sticks.';
       if (isOpen) {
-        body = (
+        body = learnView === 'list' ? (
           <>
             <div className="cwlist tlist">{words.map((w, i) => <CourseWordRow key={w.word + i} w={w} />)}</div>
             <div className="dfoot">
               <button className="btn btn-ghost" onClick={() => collapse('learn')}>Hide words</button>
-              {!learned && (
-                <button className="btn btn-primary btn-lg" onClick={learn} disabled={saving}>
-                  <Icon name="plus" size="sm" />{saving ? 'Saving…' : 'Save ' + plural(words.length, 'word') + ' to My Vocabulary'}
-                </button>
-              )}
+              <button className="btn btn-secondary" onClick={() => setLearnView('practice')}><Icon name="zap" size="sm" />Practise again</button>
             </div>
           </>
+        ) : (
+          <CourseLearn key={'cl' + today + learnView} c={c} day={today} words={words} learned={learned}
+            start={learnView === 'practice' ? 'practice' : 'meet'} onSave={learn} onClose={() => collapse('learn')} />
         );
       } else if (st === 'active') {
-        actions = <button className="btn btn-primary btn-lg" onClick={() => expand('learn')}><Icon name="book" size="sm" />Start learning</button>;
+        actions = <button className="btn btn-primary btn-lg" onClick={() => { setLearnView('flow'); expand('learn'); }}><Icon name="book" size="sm" />Start learning</button>;
       } else if (st === 'done') {
-        actions = <button className="btn btn-ghost btn-sm" onClick={() => expand('learn')}><Icon name="eye" size="sm" />See words</button>;
+        actions = (
+          <>
+            <button className="btn btn-ghost btn-sm" onClick={() => { setLearnView('practice'); expand('learn'); }}><Icon name="zap" size="sm" />Practise again</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => { setLearnView('list'); expand('learn'); }}><Icon name="eye" size="sm" />See words</button>
+          </>
+        );
       }
     } else if (id === 'homework') {
       sub = score !== null
