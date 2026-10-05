@@ -4,12 +4,12 @@ import {
   type Data, type FormData, type Rating, type Settings, type Word
 } from '../lib/data';
 import type { IconName } from '../lib/icons';
-import { api, ApiError, getToken, setToken, setUnauthorizedHandler, type AuthResponse, type LibraryWord, type Topic } from '../lib/api';
+import { api, ApiError, getToken, setToken, setUnauthorizedHandler, type AuthResponse, type CourseDetail, type LibraryWord, type Topic } from '../lib/api';
 import { stopSpeaking } from '../lib/speech';
 
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
 
-export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review';
+export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit';
 export type PracticeMode = 'mc' | 'fill' | 'trans' | 'listen';
 
 export interface ReviewState {
@@ -40,6 +40,8 @@ interface UiState {
   modal: Modal | null; toast: Toast | null; chart: '7' | '30';
   /** Search to start the Library page with (set by the header search). */
   libraryQ: string;
+  /** The course open on the 'course' / 'courseEdit' pages. */
+  courseId: string;
 }
 export type State = Data & UiState;
 
@@ -60,7 +62,7 @@ function initialState(): State {
     route: 'dashboard', prevRoute: 'dashboard', sel: null, rail: false,
     filters: NO_FILTERS, menu: null, notif: false, account: false,
     form: emptyForm(), editForm: emptyForm(), formErr: '', aiBusy: false, aiStep: 0,
-    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: ''
+    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: ''
   };
 }
 
@@ -513,6 +515,26 @@ function useWordbookState() {
     return true;
   };
 
+  /* ---------- courses ---------- */
+  /** Saves one course day's words into my vocabulary. Returns the updated course, or undefined on failure. */
+  const learnCourseDay = async (courseId: string, day: number): Promise<CourseDetail | undefined> => {
+    const res = await call(api.learnCourseDay(courseId, day));
+    if (!res) return undefined;
+    set((prev) => {
+      const have = new Set(prev.words.map((w) => w.id));
+      return {
+        words: [...res.added.filter((w) => !have.has(w.id)), ...prev.words],
+        tags: !res.tag || prev.tags.includes(res.tag) ? prev.tags : [...prev.tags, res.tag]
+      };
+    });
+    const n = res.added.length, k = res.skipped.length;
+    showToast(n
+      ? 'Saved ' + n + (n === 1 ? ' word' : ' words') + (k ? ' · ' + k + ' already in your words' : '')
+      : k ? 'All ' + k + (k === 1 ? ' word is' : ' words are') + ' already in your words.' : 'Day ' + day + ' done.');
+    return res.course;
+  };
+  const openCourse = (id: string, edit = false) => go(edit ? 'courseEdit' : 'course', { courseId: id });
+
   const setFilters = (patch: Partial<Filters>) => set((prev) => ({ filters: { ...prev.filters, ...patch } }));
   const showWordsWith = (patch: Partial<Filters>) => go('vocab', { filters: { ...NO_FILTERS, ...patch } });
 
@@ -522,7 +544,7 @@ function useWordbookState() {
     startPractice, pUpdate, pPick, pCheck, pNext,
     setF, addChip, generate, save, openEdit, goNew, formCancel,
     askDeleteWord, confirmModal, submitModal, patchModal,
-    exportData, setSettings, setFilters, showWordsWith, reload: load, login, register, logout, saveFromLibrary, shareWord,
+    exportData, setSettings, setFilters, showWordsWith, reload: load, login, register, logout, saveFromLibrary, shareWord, learnCourseDay, openCourse,
     clearFilters: () => set({ filters: NO_FILTERS }),
     setMenu: (menu: string | null) => set({ menu, notif: false, account: false }),
     closeMenus: () => set({ menu: null, notif: false, account: false }),

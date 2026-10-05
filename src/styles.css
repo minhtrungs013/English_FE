@@ -497,3 +497,96 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 .matchhead{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--primary-ink)}
 .matchword{padding:12px 14px;border-radius:10px;background:var(--surface);border:1px solid var(--border);width:100%}
 .matchword b{font-size:17px}
+/* courses */
+.c-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.cgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.ccard{padding:20px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.ccard-title{font-size:18px;letter-spacing:-.01em;line-height:1.3}
+.ccard-desc{margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ccard-foot{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:auto;padding-top:4px}
+.cmeta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;font-size:13.5px;color:var(--muted)}
+.cmeta > span{display:inline-flex;align-items:center;gap:6px}
+.cmeta b{color:var(--text)}
+.csec{margin-top:28px}
+.csec-empty{margin:0;padding:18px 20px;border:1px dashed var(--border);border-radius:14px}
+.joinbox{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px 20px;flex-wrap:wrap}
+.joinrow{display:flex;gap:8px}
+.joinbox + .empty,.joinbox + .cgrid{margin-top:20px}
+.codeinput{width:150px;text-transform:uppercase;letter-spacing:.18em;font-weight:700}
+.codebox{display:inline-flex;align-items:center;gap:10px;padding:4px 4px 4px 14px;border-radius:10px;background:var(--surface2)}
+.code{font-size:17px;letter-spacing:.16em;font-variant-numeric:tabular-nums}
+.visseg{align-self:flex-start}
+.visseg button{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 14px}
+.cprog{padding:18px 20px;display:flex;align-items:center;gap:14px 24px;flex-wrap:wrap;margin-bottom:20px}
+.daygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px}
+.dayt{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-height:72px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;text-align:left;font:inherit}
+.dayt:hover:not(:disabled){border-color:var(--primary)}
+.dayt:disabled{cursor:default}
+.dayt-n{font-weight:800;font-size:14.5px}
+.dayt-s{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;color:var(--muted)}
+.dayt.learned{background:var(--success-soft);border-color:transparent}
+.dayt.learned .dayt-s{color:var(--success)}
+.dayt.pending{border-color:var(--primary);background:var(--primary-soft)}
+.dayt.pending .dayt-s{color:var(--primary-ink)}
+.dayt.today{box-shadow:0 0 0 2px var(--primary)}
+.dayt.today .dayt-n{color:var(--primary-ink)}
+.dayt.locked{background:var(--surface2);color:var(--muted)}
+.dayt.empty{background:transparent;border-style:dashed;color:var(--faint)}
+.dayt.empty .dayt-s{color:var(--faint)}
+.dayt.sel{outline:2px solid var(--text);outline-offset:2px}
+.dpanel{margin-top:20px;padding:22px 24px;display:flex;flex-direction:column;gap:14px}
+.cwlist{display:flex;flex-direction:column}
+.cwrow{display:flex;flex-direction:column;gap:4px;padding:14px 0;border-top:1px solid var(--border)}
+.cwrow:first-child{border-top:none;padding-top:4px}
+.cwhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cwword{font-size:17px;font-weight:800}
+.cwex{font-size:14.5px;padding:10px 14px;margin-top:4px}
+.dfoot{display:flex;justify-content:flex-end;align-items:center;gap:12px;padding-top:14px;border-top:1px solid var(--border)}
+.cset{display:flex;flex-direction:column;gap:20px;margin-bottom:20px}
+.cdays{display:flex;flex-direction:column;gap:18px}
+.daypick{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px}
+.dp{display:flex;flex-direction:column;align-items:center;gap:1px;min-height:52px;padding:6px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font:inherit}
+.dp:hover{border-color:var(--primary)}
+.dp-n{font-size:13px;font-weight:800}
+.dp-c{font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.dp.full .dp-c{color:var(--success)}
+.dp.none{border-style:dashed}
+.dp.on{background:var(--primary);border-color:var(--primary);color:#fff}
+.dp.on .dp-c{color:#fff}
+.dayedit{display:flex;flex-direction:column;gap:14px;padding-top:18px;border-top:1px solid var(--border)}
+.ewlist{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:12px}
+.ewrow{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--border)}
+.ewrow:first-child{border-top:none}
+.ewmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ewact{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.libadd{display:flex;align-items:center;gap:6px}
+.libadd select.input{min-height:36px;width:auto;font-size:13.5px;border-radius:8px}
+.addbox{display:flex;flex-direction:column;gap:10px}
+.addfull{display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:12px;background:var(--surface2)}
+.sugg{border:1px solid var(--border);border-radius:12px;padding:6px;background:var(--surface)}
+.sugg .sd-btn:disabled{opacity:.6;cursor:default}
+.sugg .sd-btn:disabled:hover{background:none}
+.genrow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px;border-top:1px solid var(--border);margin-top:4px}
+.genbox{align-items:stretch}
+.genbox .actions{justify-content:flex-end}
+@container (max-width: 1120px){
+.cgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@container (max-width: 760px){
+.cgrid{grid-template-columns:minmax(0,1fr)}
+.joinbox{flex-direction:column;align-items:stretch}
+.joinrow .codeinput{flex:1;width:auto}
+.daygrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dayt{min-height:64px;padding:10px}
+.dpanel{padding:18px 16px}
+.dfoot .btn{flex:1;white-space:normal;text-align:center}
+.cset .rowb .btn{flex:1}
+.ewrow{flex-direction:column;align-items:stretch}
+.ewact{justify-content:space-between}
+.libadd{flex:1}
+.libadd select.input{flex:1;min-height:44px}
+.libadd .btn{min-height:44px}
+.daypick{grid-template-columns:repeat(5,minmax(0,1fr))}
+.dp{min-height:48px;padding:4px}
+.dp-n{font-size:12px}
+}

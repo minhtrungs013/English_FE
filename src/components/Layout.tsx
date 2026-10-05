@@ -12,6 +12,7 @@ function useInitial() {
 }
 
 const isVocabish = (r: Route) => r === 'vocab' || r === 'new' || r === 'detail' || r === 'edit';
+const isCoursish = (r: Route) => r === 'courses' || r === 'course' || r === 'courseEdit';
 
 export function Sidebar() {
   const { s, a } = useWB();
@@ -20,6 +21,7 @@ export function Sidebar() {
   const nav: { id: Route; label: string; icon: IconName; go: () => void; sub?: boolean }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: 'grid', go: () => a.go('dashboard') },
     { id: 'library', label: 'Library', icon: 'globe', go: () => a.go('library', { libraryQ: '' }) },
+    { id: 'courses', label: 'Courses', icon: 'cap', go: () => a.go('courses') },
     { id: 'vocab', label: 'My Vocabulary', icon: 'book', go: () => a.go('vocab') },
     { id: 'review', label: 'Review', icon: 'refresh', go: a.startDue, sub: due > 0 },
     { id: 'practice', label: 'Practice', icon: 'pen', go: () => a.go('practice') },
@@ -35,7 +37,7 @@ export function Sidebar() {
       <nav className="nav" aria-label="Main">
         {nav.map((n) => (
           <div key={n.id} style={{ display: 'contents' }}>
-            <button className={'navitem' + (n.id === s.route || (n.id === 'vocab' && isVocabish(s.route)) ? ' on' : '')} onClick={n.go} aria-label={n.label} title={n.label}>
+            <button className={'navitem' + (n.id === s.route || (n.id === 'vocab' && isVocabish(s.route)) || (n.id === 'courses' && isCoursish(s.route)) ? ' on' : '')} onClick={n.go} aria-label={n.label} title={n.label}>
               <Icon name={n.icon} />
               <span className="navlabel">{n.label}</span>
             </button>
@@ -201,6 +203,7 @@ export function Topbar() {
             </div>
             <div className="msep" />
             <button className="mitem mob-only" onClick={() => a.go('library', { libraryQ: '' })}><Icon name="globe" size="sm" />Library</button>
+            <button className="mitem mob-only" onClick={() => a.go('courses')}><Icon name="cap" size="sm" />Courses</button>
             <button className="mitem mob-only" onClick={() => a.go('categories')}><Icon name="folder" size="sm" />Categories</button>
             <button className="mitem mob-only" onClick={() => a.go('tags')}><Icon name="tag" size="sm" />Tags</button>
             <button className="mitem" onClick={() => a.go('settings')}><Icon name="sliders" size="sm" />Settings</button>

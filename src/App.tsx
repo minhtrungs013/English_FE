@@ -15,6 +15,9 @@ import { setVoicePrefs } from './lib/speech';
 import { EmptyState, Icon } from './components/ui';
 import { AuthPage } from './pages/Auth';
 import { Library } from './pages/Library';
+import { Courses } from './pages/Courses';
+import { CoursePage } from './pages/Course';
+import { CourseEdit } from './pages/CourseEdit';
 
 function useSystemDark() {
   const [dark, setDark] = useState(() => {
@@ -66,6 +69,9 @@ function Page() {
   }
   switch (s.route) {
     case 'library': return <Library key={s.libraryQ} />;
+    case 'courses': return <Courses />;
+    case 'course': return <CoursePage key={s.courseId} />;
+    case 'courseEdit': return <CourseEdit key={s.courseId} />;
     case 'vocab': return <Vocabulary />;
     case 'new':
     case 'edit': return <VocabForm />;
