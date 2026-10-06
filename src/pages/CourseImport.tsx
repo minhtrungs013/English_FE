@@ -29,7 +29,7 @@ function templateCsv(words: string[]): string {
   return '﻿' + lines.join('\r\n') + '\r\n';
 }
 
-function download(name: string, text: string, type: string) {
+export function download(name: string, text: string, type: string) {
   const url = URL.createObjectURL(new Blob([text], { type }));
   const link = document.createElement('a');
   link.href = url;

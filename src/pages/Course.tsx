@@ -7,6 +7,7 @@ import { ConfirmDialog, JoinCode, VisibilityBadge, errText, fmtDate, joinedText,
 import { HomeworkSection } from './CourseHomework';
 import { CourseLearn, SaveWordButton } from './CourseLearn';
 import { CourseLeaderboard } from './CourseLeaderboard';
+import { DayListening } from './CourseListening';
 import { NotStarted, TodayPlan } from './CourseToday';
 import { WarmupSection } from './CourseWarmup';
 
@@ -158,6 +159,8 @@ export function CoursePage() {
   /** Enrolled learners can save the words of open days (today and earlier). */
   const canSave = !!e && !!selDay && selDay.day <= current;
   const submitted = () => { void reload(); setBoardVersion((v) => v + 1); };
+  const setListened = (listened: number[]) =>
+    setC((prev) => (prev?.enrollment ? { ...prev, enrollment: { ...prev.enrollment, listened } } : prev));
 
   const days = (
     <>
@@ -233,6 +236,7 @@ export function CoursePage() {
             {c.readyDays === 0 ? 'The owner hasn’t added any words yet. Check back soon.' : 'Choose an open day above to see its words.'}
           </p>
         )}
+        {homeworkOpen && selDay!.day !== current && <DayListening key={'dl' + selDay!.day} c={c} day={selDay!.day} onListened={setListened} />}
         {homeworkOpen && <HomeworkSection key={selDay!.day} c={c} day={selDay!} onSubmitted={submitted} />}
       </div>
     </>

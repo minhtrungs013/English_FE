@@ -6,9 +6,10 @@ import { CourseWordRow } from './Course';
 import { errText, fmtDate, vnToday } from './Courses';
 import { HomeworkSection, lateDaysFor, penaltyFor } from './CourseHomework';
 import { CourseLearn } from './CourseLearn';
+import { ListeningPractice, parseDialogue, useListening } from './CourseListening';
 import { WarmupSection } from './CourseWarmup';
 
-type StepId = 'review' | 'learn' | 'homework' | 'done';
+type StepId = 'review' | 'learn' | 'listen' | 'homework' | 'done';
 type StepState = 'done' | 'active' | 'locked';
 /** Where focus goes next: a heading, or 'next' = the current step (resolved after the course reloads). */
 type FocusTo = StepId | 'catchup' | 'empty' | 'next';
@@ -37,7 +38,8 @@ export function NotStarted({ c }: { c: CourseDetail }) {
 
 /**
  * An enrolled learner's guided day: catch up on late homework (a notice, doesn't block), review earlier days,
- * learn today's words, homework, then "all done". Only the first unfinished step is active; later ones are locked.
+ * learn today's words, listening (when the day has a dialogue), homework, then "all done". Only the first unfinished
+ * step is active; later ones are locked.
  */
 export function TodayPlan({ c, setC, reload, onSubmitted, onOpenDay, onShowBoard }: {
   c: CourseDetail;
@@ -57,6 +59,7 @@ export function TodayPlan({ c, setC, reload, onSubmitted, onOpenDay, onShowBoard
   /** How the learn step is open: the meet → practise flow, practising again, or just the word list. */
   const [learnView, setLearnView] = useState<'flow' | 'practice' | 'list'>('flow');
   const [skipping, setSkipping] = useState(false);
+  const [skippingListen, setSkippingListen] = useState(false);
   const [live, setLive] = useState('');
   const [focusReq, setFocusReq] = useState<{ to: FocusTo; n: number } | null>(null);
   const heads = useRef<Partial<Record<FocusTo, HTMLHeadingElement | null>>>({});
@@ -68,6 +71,9 @@ export function TodayPlan({ c, setC, reload, onSubmitted, onOpenDay, onShowBoard
   const hasWords = words.length > 0;
   const warmed = (e.warmedUp ?? []).includes(today);
   const learned = e.learned.includes(today);
+  const listened = (e.listened ?? []).includes(today);
+  /** Today's dialogue: undefined while loading, null when there's none (then there's no listening step). */
+  const dialogue = useListening(c.id, hasWords ? today : null);
   const score = day?.myScore ?? null;
   // Day 1 has nothing earlier to review.
   const reviewable = today >= 2 && c.days.some((d) => d.day < today && d.count > 0);
@@ -75,13 +81,19 @@ export function TodayPlan({ c, setC, reload, onSubmitted, onOpenDay, onShowBoard
   const behind = c.days.filter((d) => d.day < today && !!d.words?.length && d.myScore === null);
   const last = today === c.totalDays;
 
-  const steps: StepId[] = [...(reviewable ? ['review' as const] : []), ...(hasWords ? ['learn' as const, 'homework' as const, 'done' as const] : [])];
-  const finished: Record<StepId, boolean> = { review: warmed, learn: learned, homework: score !== null, done: false };
+  const steps: StepId[] = [
+    ...(reviewable ? ['review' as const] : []),
+    ...(hasWords ? ['learn' as const, ...(dialogue ? ['listen' as const] : []), 'homework' as const, 'done' as const] : [])
+  ];
+  const finished: Record<StepId, boolean> = { review: warmed, learn: learned, listen: listened, homework: score !== null, done: false };
   const activeId = steps.find((id) => !finished[id]);
-  const stateOf = (id: StepId): StepState => (finished[id] ? 'done' : id === activeId ? 'active' : 'locked');
+  /** Homework waits until we know whether there's a listening step before it. */
+  const listenPending = hasWords && dialogue === undefined;
+  const stateOf = (id: StepId): StepState => (finished[id] ? 'done' : id === activeId && !(id === 'homework' && listenPending) ? 'active' : 'locked');
   const TITLE: Record<StepId, string> = {
     review: 'Review old lessons',
     learn: 'Learn today’s words',
+    listen: 'Listening',
     homework: 'Homework',
     done: last && activeId === 'done' ? 'Course complete' : 'Day ' + today + ' complete'
   };
@@ -127,6 +139,32 @@ export function TodayPlan({ c, setC, reload, onSubmitted, onOpenDay, onShowBoard
       a.showToast(errText(err, 'Couldn’t skip the review.'), 'bad');
     } finally {
       setSkipping(false);
+    }
+  };
+  const setListened = (listened: number[]) =>
+    setC((prev) => (prev?.enrollment ? { ...prev, enrollment: { ...prev.enrollment, listened } } : prev));
+  /** Finish on the listening summary: record the result and move on. */
+  const listenedDone = async (correct: number, total: number) => {
+    try {
+      setListened((await api.listeningDone(c.id, today, correct, total)).listened);
+      setOpen((o) => o.filter((x) => x !== 'listen'));
+      focus('next');
+      return true;
+    } catch (err) {
+      a.showToast(errText(err, 'Couldn’t save your listening.'), 'bad');
+      return false;
+    }
+  };
+  const skipListening = async () => {
+    setSkippingListen(true);
+    try {
+      setListened((await api.listeningDone(c.id, today)).listened);
+      setOpen((o) => o.filter((x) => x !== 'listen'));
+      focus('next');
+    } catch (err) {
+      a.showToast(errText(err, 'Couldn’t skip the listening.'), 'bad');
+    } finally {
+      setSkippingListen(false);
     }
   };
   const learn = async () => {
@@ -179,8 +217,13 @@ export function TodayPlan({ c, setC, reload, onSubmitted, onOpenDay, onShowBoard
   const lockText = (id: StepId) => {
     if (id === 'learn') return 'Unlocks after the review — or skip it';
     if (id === 'done') return 'Unlocks after homework';
+    if (id === 'homework' && listenPending && activeId === 'homework') return 'Checking for today’s listening…';
     const review = reviewable && !warmed;
-    return review && !learned ? 'Unlocks after the review and today’s words' : review ? 'Unlocks after the review' : 'Unlocks after you learn today’s words';
+    if (id === 'listen') return review && !learned ? 'Unlocks after the review and today’s words' : review ? 'Unlocks after the review' : 'Unlocks after you learn today’s words';
+    const todo = [review && 'the review', !learned && 'today’s words', !!dialogue && !listened && 'the listening'].filter(Boolean) as string[];
+    if (!todo.length) return 'Unlocks after the steps above';
+    const list = todo.length === 1 ? todo[0] : todo.slice(0, -1).join(', ') + ' and ' + todo[todo.length - 1];
+    return 'Unlocks after ' + list + (todo.length === 1 && todo[0] === 'the listening' ? ' — or skip it' : '');
   };
 
   const renderStep = (id: StepId, k: number) => {
@@ -234,6 +277,26 @@ export function TodayPlan({ c, setC, reload, onSubmitted, onOpenDay, onShowBoard
           </>
         );
       }
+    } else if (id === 'listen' && dialogue) {
+      const nb = parseDialogue(dialogue.lines).blanks.length;
+      const nq = dialogue.questions.length;
+      sub = st === 'done'
+        ? 'Done — “' + dialogue.title + '”. Practise it again any time.'
+        : 'Hear a short conversation with today’s words (“' + dialogue.title + '”), fill ' + plural(nb, 'blank') + (nq ? ' and answer ' + plural(nq, 'question') : '') + '.';
+      badge = <span className="badge t-blue" lang="vi">Luyện nghe</span>;
+      if (isOpen) {
+        body = <ListeningPractice key={'ls' + today} d={dialogue} day={today} onFinish={listenedDone} onClose={() => collapse('listen')} />;
+        if (!listened) actions = <button className="btn btn-ghost" onClick={skipListening} disabled={skippingListen}>{skippingListen ? 'Skipping…' : 'Skip listening'}</button>;
+      } else if (st === 'active') {
+        actions = (
+          <>
+            <button className="btn btn-primary btn-lg" onClick={() => expand('listen')}><Icon name="headphones" size="sm" />Start listening</button>
+            <button className="btn btn-ghost" onClick={skipListening} disabled={skippingListen}>{skippingListen ? 'Skipping…' : 'Skip listening'}</button>
+          </>
+        );
+      } else if (st === 'done') {
+        actions = <button className="btn btn-ghost btn-sm" onClick={() => expand('listen')}><Icon name="headphones" size="sm" />Practise again</button>;
+      }
     } else if (id === 'homework') {
       sub = score !== null
         ? 'Handed in — score ' + score + ' / 100.'
@@ -268,7 +331,7 @@ export function TodayPlan({ c, setC, reload, onSubmitted, onOpenDay, onShowBoard
             <div className="stack" style={{ gap: 2, minWidth: 0, flex: 1 }}>
               <h3 ref={(el) => { heads.current[id] = el; }} tabIndex={-1} className="h2 tstep-t" id={'tp-' + id}>
                 <span className="c-sr">Step {k + 1} of {steps.length}, {st === 'done' ? 'done' : st === 'active' ? 'current' : 'locked'}: </span>
-                {TITLE[id]}
+                {id === 'listen' && <span aria-hidden="true">🎧 </span>}{TITLE[id]}
               </h3>
               <span className="muted sm">{sub}</span>
             </div>

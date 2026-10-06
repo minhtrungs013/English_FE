@@ -4,6 +4,7 @@ import { Icon } from '../components/ui';
 import { errText } from './Courses';
 import { Prompt } from './CourseHomework';
 import { ImportQuestions } from './CourseImport';
+import { DialogueBank } from './CourseDialogue';
 import { useWB } from '../state/WordbookContext';
 
 export const TENSES: Tense[] = ['present-simple', 'present-continuous', 'present-perfect', 'past-simple', 'past-continuous', 'future-simple', 'going-to'];
@@ -16,7 +17,7 @@ export const TENSE_LABEL: Record<Tense, string> = {
   'future-simple': 'Future simple (will)',
   'going-to': 'Future (be going to)'
 };
-const KIND_LABEL: Record<BankKind, string> = { tense: 'Typed', tenseChoice: 'Multiple choice', recap: 'Recap story' };
+const KIND_LABEL: Record<BankKind, string> = { tense: 'Typed', tenseChoice: 'Multiple choice', recap: 'Recap story', dialogue: 'Listening dialogue' };
 const SOURCE_LABEL: Record<BankItem['source'], string> = { ai: 'AI', template: 'Template', manual: 'Manual' };
 const GROUPS: { status: BankStatus; title: string }[] = [
   { status: 'pending', title: 'Waiting for approval' },
@@ -164,7 +165,7 @@ function QuestionView({ q }: { q: BankItem }) {
   }
   return (
     <div className="stack" style={{ gap: 6 }}>
-      <div className="qbprompt"><Prompt q={{ type: q.kind, prompt: q.prompt }} fill={q.answer} /></div>
+      <div className="qbprompt"><Prompt q={{ type: q.kind as 'tense' | 'tenseChoice', prompt: q.prompt }} fill={q.answer} /></div>
       {q.kind === 'tenseChoice' ? (
         <ul className="qbchoices" aria-label="Choices">
           {q.choices.map((ch, k) => <li key={k} className={ch === q.answer ? 'ok' : ''}>{ch}{ch === q.answer && <span className="c-sr"> (answer)</span>}</li>)}
@@ -177,7 +178,10 @@ function QuestionView({ q }: { q: BankItem }) {
   );
 }
 
-/** The owner's bank of tense questions (and the recap story) for one day. Homework is made from approved items. */
+/**
+ * The owner's bank of tense questions (and the recap story) for one day — homework is made from approved items — and,
+ * under it, the day's listening dialogue (the same bank, kind 'dialogue').
+ */
 export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: CourseDay; onCounts: (day: number, bank: { pending: number; approved: number }) => void }) {
   const { a } = useWB();
   const [items, setItems] = useState<BankItem[] | null>(null);
@@ -249,8 +253,8 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
     }
   };
   const approveAll = async () => {
-    if (!items) return;
-    const ids = items.filter((q) => q.status === 'pending').map((q) => q.id);
+    if (!questions) return;
+    const ids = questions.filter((q) => q.status === 'pending').map((q) => q.id);
     setBusy('all');
     try {
       const r = await api.setQuestionsStatus(c.id, ids, 'approved');
@@ -312,11 +316,15 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
   const openForm = (k: BankKind | null, id = '') => { setFormErr(''); setAdding(k); setEditing(id); };
   const toggleTense = (t: Tense) => setTenses((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : TENSES.filter((x) => x === t || prev.includes(x))));
 
-  const n = items ? countsOf(items) : { pending: day.bank?.pending ?? 0, approved: day.bank?.approved ?? 0 };
-  const hasRecap = !!items?.some((q) => q.kind === 'recap' && q.status !== 'rejected');
+  /** Tense questions and the recap; dialogues have their own card. */
+  const questions = items ? items.filter((q) => q.kind !== 'dialogue') : null;
+  const dialogues = items ? items.filter((q) => q.kind === 'dialogue') : null;
+  const n = questions ? countsOf(questions) : { pending: day.bank?.pending ?? 0, approved: day.bank?.approved ?? 0 };
+  const hasRecap = !!questions?.some((q) => q.kind === 'recap' && q.status !== 'rejected');
   const left = quota ? Math.max(0, quota.limit - quota.used) : null;
 
   return (
+    <>
     <section className="qbank" aria-labelledby={base + '-h'}>
       <div className="rowb" style={{ flexWrap: 'wrap' }}>
         <h3 className="h2" id={base + '-h'} tabIndex={-1} style={{ outline: 'none' }}>Tense questions & recap</h3>
@@ -384,12 +392,12 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
 
       {failed ? (
         <span className="errtxt" role="alert"><Icon name="alert" size="sm" />{failed} <button className="linkbtn" onClick={load}>Try again</button></span>
-      ) : !items ? (
+      ) : !questions ? (
         <div className="sk" style={{ height: 90, borderRadius: 12 }} aria-busy="true" aria-label="Loading questions" />
-      ) : !items.length ? (
+      ) : !questions.length ? (
         <p className="muted sm" style={{ margin: 0 }}>No tense questions for day {day.day} yet. Generate some, or write your own.</p>
       ) : GROUPS.map(({ status, title }) => {
-        const list = items.filter((q) => q.status === status);
+        const list = questions.filter((q) => q.status === status);
         if (!list.length) return null;
         const hidden = status === 'rejected' && !showRejected;
         return (
@@ -433,5 +441,7 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
         );
       })}
     </section>
+    {!failed && <DialogueBank c={c} day={day} items={dialogues} setItems={setItems} reload={load} />}
+    </>
   );
 }

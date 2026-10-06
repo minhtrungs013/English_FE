@@ -77,9 +77,10 @@ export interface CourseWord {
 }
 /**
  * currentDay is 1..30: day 1 = the day they joined (or the course's start date), +1 each day (Vietnam time);
- * 0 = the course hasn't started yet. warmedUp: days whose review (warm-up) is done or skipped.
+ * 0 = the course hasn't started yet. warmedUp: days whose review (warm-up) is done or skipped ·
+ * listened: days whose listening practice is done or skipped.
  */
-export type CourseEnrollment = { startDay: string; currentDay: number; learned: number[]; warmedUp: number[] } | null;
+export type CourseEnrollment = { startDay: string; currentDay: number; learned: number[]; warmedUp: number[]; listened: number[] } | null;
 export interface CourseSummary {
   id: string; title: string; description: string; ownerId: string; ownerName: string; isOwner: boolean;
   visibility: 'private' | 'public'; wordsPerDay: number; totalDays: number; tag: string;
@@ -154,17 +155,20 @@ export interface Leaderboard {
 export type Tense = 'present-simple' | 'present-continuous' | 'present-perfect' | 'past-simple' | 'past-continuous' | 'future-simple' | 'going-to';
 /**
  * tense: typed — the sentence has one "___" and the base verb in brackets ("Yesterday we ___ (deploy) the hotfix.") ·
- * tenseChoice: the same with 4 choices · recap: a short story using earlier days' words (explain = its Vietnamese translation).
+ * tenseChoice: the same with 4 choices · recap: a short story using earlier days' words (explain = its Vietnamese translation) ·
+ * dialogue: a listening dialogue (data; prompt = its title, explain = its scenario).
  */
-export type BankKind = 'tense' | 'tenseChoice' | 'recap';
+export type BankKind = 'tense' | 'tenseChoice' | 'recap' | 'dialogue';
 export type BankStatus = 'pending' | 'approved' | 'rejected';
 export interface BankItem {
   id: string; day: number; kind: BankKind; word: string; tense: Tense | ''; tenseLabel: string;
   prompt: string; choices: string[]; answer: string; accept: string[]; explain: string;
   source: 'ai' | 'template' | 'manual'; status: BankStatus;
+  /** Dialogues only. */
+  data?: Dialogue;
 }
 export interface BankInput { kind: BankKind; word?: string; tense?: string; prompt: string; choices?: string[]; answer?: string; accept?: string[]; explain?: string }
-export type BankPatch = Partial<Omit<BankInput, 'kind'>> & { status?: BankStatus };
+export type BankPatch = Partial<Omit<BankInput, 'kind'>> & { status?: BankStatus; data?: Dialogue };
 /** source 'template' = built-in questions, used when AI isn't available. items: the day's whole bank. */
 export interface BankGenerateResult { source: 'ai' | 'template'; added: number; quota: Quota; items: BankItem[] }
 /**
@@ -181,6 +185,23 @@ export interface WarmupQuestion {
   type: HomeworkType; word: string; prompt: string; hint: string; choices: string[];
   answer: string; accept: string[]; tense: string; tenseLabel: string; explain: string;
 }
+
+/* ---------- listening dialogues ---------- */
+export interface DialogueSpeaker { name: string; gender: 'female' | 'male' }
+/**
+ * s: the speaker (0 or 1) · text: the English line; blanks are written [[word]] or [[said form|word]]
+ * (said form = what's spoken and the right fill, word = the base word in the word bank) · vi: its Vietnamese translation.
+ */
+export interface DialogueLine { s: 0 | 1; text: string; vi: string }
+/** Four different choices, one of them the answer; explain is in Vietnamese. */
+export interface DialogueQuestion { question: string; choices: string[]; answer: string; explain: string }
+/** A short two-person conversation for a course day: 2 speakers, 4–16 lines, 2–10 blanks, up to 5 questions. */
+export interface Dialogue { title: string; scenario: string; speakers: DialogueSpeaker[]; lines: DialogueLine[]; questions: DialogueQuestion[] }
+/** The day's approved dialogue for practice (answers included), with the blanks' base words shuffled. */
+export interface ListeningDialogue extends Dialogue { id: string; wordBank: string[] }
+export interface Listening { day: number; dialogue: ListeningDialogue | null }
+export interface DialogueGenerateResult { quota: Quota; items: BankItem[] }
+
 export interface Warmup { day: number; recap: { text: string; vi: string } | null; words: WarmupWord[]; questions: WarmupQuestion[] }
 
 export const api = {
@@ -252,6 +273,11 @@ export const api = {
   /** Marks the day's warm-up as done: after the practice (with its result) or when the learner skips it (no result). */
   warmupDone: (id: string, day: number, correct?: number, total?: number) =>
     req<{ warmedUp: number[] }>('POST', '/courses/' + id + '/days/' + day + '/warmup/done', correct !== undefined ? { correct, total } : {}),
+  /** The day's approved listening dialogue, or { dialogue: null } when there's none. 403 when the day isn't open for me. */
+  getListening: (id: string, day: number) => req<Listening>('GET', '/courses/' + id + '/days/' + day + '/listening'),
+  /** Marks the day's listening as done: after the practice (with its result) or when the learner skips it (no result). */
+  listeningDone: (id: string, day: number, correct?: number, total?: number) =>
+    req<{ listened: number[] }>('POST', '/courses/' + id + '/days/' + day + '/listening/done', correct !== undefined ? { correct, total } : {}),
 
   /* Owner: the tense question bank. Homework uses approved items and is frozen once someone hands that day in. */
   listQuestions: (id: string, day: number) => req<BankItem[]>('GET', '/courses/' + id + '/questions?day=' + day),
@@ -261,6 +287,10 @@ export const api = {
   /** A question (or recap) written by hand; approved straight away. A new recap replaces the day's old one. */
   addQuestion: (id: string, day: number, q: BankInput) => req<BankItem>('POST', '/courses/' + id + '/days/' + day + '/questions', q),
   updateQuestion: (id: string, qid: string, q: BankPatch) => req<BankItem>('PATCH', '/courses/' + id + '/questions/' + qid, q),
+  /** A listening dialogue written by hand or imported; approved straight away (replaces the day's approved one). */
+  addDialogue: (id: string, day: number, data: Dialogue) => req<BankItem>('POST', '/courses/' + id + '/days/' + day + '/questions', { kind: 'dialogue', data }),
+  /** AI writes a pending dialogue with the day's words (one daily AI generation). 422 when AI isn't available. */
+  generateDialogue: (id: string, day: number) => req<DialogueGenerateResult>('POST', '/courses/' + id + '/days/' + day + '/dialogue/generate'),
   setQuestionsStatus: (id: string, ids: string[], status: BankStatus) => req<{ updated: number }>('POST', '/courses/' + id + '/questions/status', { ids, status }),
   deleteQuestion: (id: string, qid: string) => req<void>('DELETE', '/courses/' + id + '/questions/' + qid),
   /** Imports up to 100 rows; good ones are approved straight away, bad ones come back in errors. */
