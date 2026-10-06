@@ -115,7 +115,7 @@ export function TodayCard({ c }: { c: CourseDetail }) {
     );
   } else if (allDone) {
     main = (
-      <div className="tcard-main done">
+      <div className="tcard-main is-done">
         <div className="stack" style={{ gap: 4, minWidth: 0, flex: 1 }}>
           <b className="tcard-t"><Icon name="checkc" size="sm" />{last ? 'Course complete — well done!' : 'Day ' + today + ' complete'}</b>
           <span className="muted sm">

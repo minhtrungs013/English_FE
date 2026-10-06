@@ -603,7 +603,7 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 .hwopts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
 .opt.picked{border-color:var(--primary);background:var(--primary-soft)}
 .opt.picked .letter{background:var(--primary);color:#fff}
-.hwnav{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:14px;border-top:1px solid var(--border)}
+.hwnav{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap}
 .hwcount{font-variant-numeric:tabular-nums}
 .hwresult{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 .hwresult h4{outline:none}
@@ -1003,7 +1003,7 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 .lstx{font-size:15px}
 .lsmode{flex-direction:column;align-items:flex-start}
 .lscheck{flex:1;justify-content:flex-end}
-.lsbox .hwnav .btn{white-space:normal}
+.lsbox .hwnav .btn{white-space:nowrap}
 .lsbox .dfoot{flex-direction:column;align-items:stretch}
 .lsstats b{font-size:40px}
 .dlspk{flex-direction:column;align-items:stretch}
@@ -1029,9 +1029,9 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 .dayt-ls{margin-left:2px}
 .tcard{padding:20px 22px;display:flex;flex-direction:column;gap:16px}
 .tcard-main{display:flex;align-items:center;gap:14px 20px;flex-wrap:wrap;padding:18px 20px;border-radius:14px;background:var(--primary-soft)}
-.tcard-main.done{background:var(--success-soft)}
+.tcard-main.is-done{background:var(--success-soft)}
 .tcard-t{display:inline-flex;align-items:center;gap:8px;font-size:17px}
-.tcard-main.done .tcard-t{color:var(--success)}
+.tcard-main.is-done .tcard-t{color:var(--success)}
 .tcard-score{color:var(--success);font-variant-numeric:tabular-nums}
 .tmini{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
 .tmini-row{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:8px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;text-align:left}
