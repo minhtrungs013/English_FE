@@ -156,6 +156,8 @@ function CourseMap({ c }: { c: CourseDetail }) {
 }
 
 const TAB_LABEL: Record<CourseTab, string> = { today: 'Today', map: 'Course map', board: 'Leaderboard', members: 'Members' };
+/** Shorter tab labels for phones (the full label stays for screen readers). */
+const TAB_SHORT: Record<CourseTab, string> = { today: 'Today', map: 'Map', board: 'Ranks', members: 'Members' };
 
 export function CoursePage() {
   const { s, a } = useWB();
@@ -274,7 +276,8 @@ export function CoursePage() {
               {t === 'map' && <Icon name="grid" size="sm" />}
               {t === 'board' && <Icon name="trophy" size="sm" />}
               {t === 'members' && <Icon name="users" size="sm" />}
-              {TAB_LABEL[t]}
+              <span className="ctab-l">{TAB_LABEL[t]}</span>
+              <span className="ctab-s" aria-hidden="true">{TAB_SHORT[t]}</span>
             </button>
           ))}
         </div>

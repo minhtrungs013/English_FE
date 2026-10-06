@@ -41,6 +41,16 @@ export function CourseStudy() {
   /** The learner has done something in the open step (so leaving it asks first). */
   const dirty = useRef(false);
   const head = useRef<HTMLHeadingElement>(null);
+  const bar = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = bar.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const set = () => document.documentElement.style.setProperty('--stbar-h', el.offsetHeight + 'px');
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => { ro.disconnect(); document.documentElement.style.removeProperty('--stbar-h'); };
+  }, [c?.id]);
   /** The warm-up result being saved, so Continue waits for it. */
   const reviewSave = useRef<Promise<boolean> | null>(null);
   /** Moves on from the "done — next" screen (set once the course has loaded). */
@@ -292,7 +302,7 @@ export function CourseStudy() {
   } else if (shown === 'review') {
     title = stepTitle('review');
     sub = plan.finished.review ? 'Done — practise again any time. It doesn’t count toward your score.' : 'The recap story and earlier words (missed ones first), then quick questions. Not graded.';
-    if (!plan.finished.review) tools = <button className="btn btn-ghost" onClick={skipReview} disabled={skipping}>{skipping ? 'Skipping…' : 'Skip review'}</button>;
+    if (!plan.finished.review) tools = <button className="btn btn-secondary btn-sm" onClick={skipReview} disabled={skipping}>{skipping ? 'Skipping…' : 'Skip review'}<Icon name="right" size="sm" /></button>;
     body = <WarmupSection key={'wu' + run} c={c} day={day} embedded onDone={reviewed} onClose={reviewClosed} />;
   } else if (shown === 'learn') {
     const done = plan.finished.learn;
@@ -318,7 +328,7 @@ export function CourseStudy() {
   } else if (shown === 'listen' && dialogue) {
     title = stepTitle('listen');
     sub = plan.finished.listen ? 'Done — practise it again any time.' : 'Hear a short conversation with this day’s words, fill the blanks and answer the questions. Practice only.';
-    if (!plan.finished.listen) tools = <button className="btn btn-ghost" onClick={skipListening} disabled={skipping}>{skipping ? 'Skipping…' : 'Skip listening'}</button>;
+    if (!plan.finished.listen) tools = <button className="btn btn-secondary btn-sm" onClick={skipListening} disabled={skipping}>{skipping ? 'Skipping…' : 'Skip listening'}<Icon name="right" size="sm" /></button>;
     body = <ListeningPractice key={'ls' + run} d={dialogue} day={day} onFinish={listened} onClose={stepClosed('listen')} />;
   } else if (shown === 'homework' && dayObj) {
     title = stepTitle('homework');
@@ -329,7 +339,7 @@ export function CourseStudy() {
 
   return (
     <div className="session study">
-      <header className="stbar">
+      <header className="stbar" ref={bar}>
         <div className="stbar-top">
           <button className="iconbtn" onClick={requestClose} aria-label="Close and go back to the course" title="Close (Esc)"><Icon name="x" /></button>
           <div className="stbar-t">
@@ -341,11 +351,9 @@ export function CourseStudy() {
       </header>
       <main className="stmain">
         <div className="sthead">
-          <div className="stack" style={{ gap: 4, minWidth: 0, flex: 1 }}>
-            <h1 ref={head} tabIndex={-1} className="sth1">{title}</h1>
-            {sub && <p className="muted sthsub">{sub}</p>}
-          </div>
+          <h1 ref={head} tabIndex={-1} className="sth1">{title}</h1>
           {tools && <div className="sttools">{tools}</div>}
+          {sub && <p className="muted sthsub">{sub}</p>}
         </div>
         <div key={shownKey} className="stbody animA" onPointerDownCapture={() => { dirty.current = true; }} onKeyDownCapture={(ev) => { if (ev.key !== 'Escape' && ev.key !== 'Tab') dirty.current = true; }}>
           {body}

@@ -124,7 +124,7 @@ export function TodayCard({ c }: { c: CourseDetail }) {
           </span>
         </div>
         <button className="btn btn-secondary btn-lg" onClick={() => open('homework')}>
-          <Icon name="eye" size="sm" />Day {today} complete ✓ — review answers
+          <Icon name="eye" size="sm" />Review day {today} answers
         </button>
       </div>
     );
@@ -141,7 +141,7 @@ export function TodayCard({ c }: { c: CourseDetail }) {
         </div>
         <button className="btn btn-primary btn-lg tcard-go" onClick={() => open(null)} disabled={loading}>
           {loading ? 'Loading today’s plan…' : doneCount
-            ? <><Icon name="right" size="sm" />Continue: {STEP_LABEL[next!]} (step {k} of {plan.steps.length})</>
+            ? <>Continue: {STEP_LABEL[next!]}<span className="tcard-go-n"> · step {k} of {plan.steps.length}</span><Icon name="right" size="sm" /></>
             : <><Icon name="book" size="sm" />Start day {today}</>}
         </button>
       </div>

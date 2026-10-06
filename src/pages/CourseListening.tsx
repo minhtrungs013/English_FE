@@ -388,10 +388,10 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
             </span>
           )}
         </div>
+        {bankArea}
         {player}
         {toggles(false)}
         {lineList('fill')}
-        {bankArea}
         <div aria-live="polite" aria-atomic="true">
           {marks && (
             <div className={'wufb ' + (blanksRight === nb ? 'ok' : 'no')}>
@@ -522,7 +522,7 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
           <li key={s.id}>
             <button className={'lsstep' + (k === idx ? ' on' : k <= reached ? ' seen' : '')} onClick={() => { if (s.id !== step) go(s.id); }}
               disabled={!preview && k > reached} aria-current={k === idx ? 'step' : undefined}>
-              <span className="lsstep-n" aria-hidden="true">{k < steps.length - 1 ? k + 1 : <Icon name="check" size="sm" />}</span>{s.label}
+              <span className="lsstep-n" aria-hidden="true">{k < steps.length - 1 ? k + 1 : <Icon name="check" size="sm" />}</span><span className="lsstep-l">{s.label}</span>
             </button>
           </li>
         ))}

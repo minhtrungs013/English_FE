@@ -523,7 +523,7 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 .dayt:hover:not(:disabled){border-color:var(--primary)}
 .dayt:disabled{cursor:default}
 .dayt-n{font-weight:800;font-size:14.5px}
-.dayt-s{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;color:var(--muted)}
+.dayt-s{display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px 5px;max-width:100%;font-size:12.5px;font-weight:700;color:var(--muted)}
 .dayt.learned{background:var(--success-soft);border-color:transparent}
 .dayt.learned .dayt-s{color:var(--success)}
 .dayt.pending{border-color:var(--primary);background:var(--primary-soft)}
@@ -949,6 +949,8 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 .input.lsblank.err{border-style:solid;border-color:var(--danger);background:var(--danger-soft);color:var(--danger);text-decoration:line-through;cursor:default}
 .lsfix{font-weight:800;color:var(--success);font-size:14.5px}
 .lsbankwrap{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:12px;background:var(--surface2)}
+/* The word bank stays in view (under the study top bar) while scrolling through the lines. */
+.lsbankwrap{position:sticky;top:calc(var(--stbar-h, 0px) + 8px);z-index:5;box-shadow:0 0 0 1px var(--border),0 6px 16px -10px rgba(0,0,0,.35)}
 .lsbank .chip{background:var(--surface)}
 .lschip.used{opacity:.4;text-decoration:line-through;cursor:default}
 .lschip.used:hover{border-color:var(--border);color:var(--muted)}
@@ -988,8 +990,10 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 @container (max-width: 760px){
 .lscard{padding:16px}
 .lshdr{padding:12px}
-.lssteps{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+.lssteps{flex-wrap:nowrap}
 .lsstep{flex-shrink:0}
+.lsstep:not(.on){padding-right:6px}
+.lsstep:not(.on) .lsstep-l{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .lsbank.chips,.dlins .chips{flex-wrap:wrap;overflow-x:visible}
 .lsbank .chip,.dlins .chip{flex-shrink:1}
 .lsctl .btn{flex:1}
@@ -1016,6 +1020,8 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 .ctab:hover{color:var(--text);background:var(--surface2)}
 .ctab.on{color:var(--primary-ink);border-bottom-color:var(--primary)}
 .ctab:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+.ctab-s{display:none}
+.tcard-go-n{font-weight:600;opacity:.85}
 .cpanel > .lbcard{margin-top:0}
 .cmap-key{display:inline-flex;align-items:center;gap:6px 10px;flex-wrap:wrap}
 .cmap-key > span{display:inline-flex;align-items:center;gap:4px}
@@ -1044,7 +1050,12 @@ button.tmini-row:hover{border-color:var(--primary)}
 .tmini-i.is-active .tmini-s{color:var(--primary-ink)}
 @container (max-width: 760px){
 .ctabs{margin-bottom:16px}
-.ctab{padding:0 12px;font-size:14px}
+/* Phones: four equal tabs with short labels, so none is cut off. */
+.ctabs{gap:0}
+.ctab{flex:1 1 0;min-width:0;justify-content:center;gap:5px;padding:0 4px;font-size:13.5px}
+.ctab .ctab-l{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ctab .ctab-s{display:inline}
+.tcard-go-n{display:none}
 .tcard{padding:16px}
 .tcard-main{padding:16px}
 .tcard-main .btn{flex:1 1 100%;white-space:normal}
@@ -1070,7 +1081,10 @@ button.tmini-row:hover{border-color:var(--primary)}
 .ststep.on{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-ink)}
 .ststep.on .ststep-n{background:var(--primary);color:#fff}
 .stmain{width:100%;max-width:760px;margin:0 auto;padding:28px 20px 64px;display:flex;flex-direction:column;gap:20px}
-.sthead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px 16px;flex-wrap:wrap}
+/* Title and tools (e.g. Skip) on one row, the description under both. */
+.sthead{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 12px}
+.sthead .sthsub{grid-column:1 / -1}
+.sthead .sttools:has(.seg){grid-column:1 / -1}
 .sth1{margin:0;display:flex;align-items:center;gap:10px;font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.25;outline:none;border-radius:6px}
 .sth1 .ic{width:28px;height:28px;color:var(--success)}
 .sth1:focus-visible{outline:2px solid var(--primary);outline-offset:4px}
@@ -1109,7 +1123,7 @@ button.tmini-row:hover{border-color:var(--primary)}
 .ststep:not(.on) .ststep-l{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .stmain{padding:18px 16px 40px;gap:16px}
 .sth1{font-size:21px}
-.sttools{width:100%}
+.sttools:has(.seg){width:100%}
 .sttools .seg{width:100%}
 .sttools .seg button{flex:1;justify-content:center}
 .stbody .lmeet{padding:26px 16px}
