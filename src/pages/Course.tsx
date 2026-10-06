@@ -1,15 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { api, type CourseDay, type CourseDetail, type CourseWord } from '../lib/api';
 import { speak } from '../lib/speech';
-import { useWB } from '../state/WordbookContext';
+import { useWB, type CourseTab } from '../state/WordbookContext';
 import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/ui';
 import { ConfirmDialog, JoinCode, VisibilityBadge, errText, fmtDate, joinedText, startText } from './Courses';
-import { HomeworkSection } from './CourseHomework';
-import { CourseLearn, SaveWordButton } from './CourseLearn';
+import { SaveWordButton } from './CourseLearn';
 import { CourseLeaderboard } from './CourseLeaderboard';
-import { DayListening } from './CourseListening';
-import { NotStarted, TodayPlan } from './CourseToday';
-import { WarmupSection } from './CourseWarmup';
+import { CourseMembers } from './CourseMembers';
+import { NotStarted, TodayCard } from './CourseToday';
 
 type DayState = 'learned' | 'open' | 'locked' | 'empty';
 
@@ -66,19 +64,105 @@ export function CourseWordRow({ w, save }: { w: CourseWord; save?: { courseId: s
   );
 }
 
+/**
+ * The 30 days at a glance: learned ✓, listened 🎧 and the homework score. Enrolled learners open a day in the study
+ * session; everyone else (a preview) sees its words below the grid.
+ */
+function CourseMap({ c }: { c: CourseDetail }) {
+  const { a } = useWB();
+  const [sel, setSel] = useState<number | null>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const e = c.enrollment;
+  const current = e ? Math.min(e.currentDay, c.totalDays) : 0;
+  const learned = e?.learned.length ?? 0;
+
+  const pick = (d: CourseDay) => {
+    if (e) { a.openStudy(c.id, d.day, d.day <= current ? null : 'learn'); return; }
+    setSel(d.day);
+    window.setTimeout(() => panel.current?.focus({ preventScroll: true }), 0);
+    window.setTimeout(() => panel.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  };
+  const selDay = sel !== null ? c.days.find((d) => d.day === sel) : undefined;
+
+  return (
+    <>
+      <div className="rowb" style={{ flexWrap: 'wrap', marginBottom: 12 }}>
+        <span className="muted sm">
+          {e ? learned + '/' + c.totalDays + ' days learned · choose an open day to study it' : 'Choose a day to see its words.'}
+        </span>
+        {e && <span className="cmap-key muted xs" aria-hidden="true">
+          <span><Icon name="check" size="sm" />learned</span><span>🎧 listened</span><span className="dayt-score">87</span><span>homework</span>
+        </span>}
+      </div>
+      <div className="daygrid" role="list" aria-label="Course days">
+        {c.days.map((d) => {
+          const st = dayState(c, d);
+          const isToday = !!e && d.day === current;
+          const pending = st === 'open' && !!e && d.day <= current;
+          const heard = !!e?.listened?.includes(d.day);
+          const label = st === 'learned' ? 'Learned' : st === 'empty' ? 'Coming soon' : st === 'locked' ? d.count + (d.count === 1 ? ' word' : ' words') : isToday ? 'Today' : pending ? 'Ready to learn' : d.count + (d.count === 1 ? ' word' : ' words');
+          const can = !!d.words?.length;
+          return (
+            <div key={d.day} role="listitem" style={{ display: 'contents' }}>
+              <button
+                className={'dayt ' + st + (pending ? ' pending' : '') + (isToday ? ' today' : '') + (sel === d.day ? ' sel' : '')}
+                disabled={!can} onClick={() => pick(d)} aria-pressed={e ? undefined : sel === d.day}
+                aria-label={'Day ' + d.day + ': ' + label + (heard ? ', listening done' : '') + (d.myScore !== null ? ', homework score ' + d.myScore : '') + (e && can ? '. Open in study mode' : '')}>
+                <span className="dayt-n">Day {d.day}</span>
+                {d.myScore !== null && <span className="dayt-score" title="Homework score">{d.myScore}</span>}
+                <span className="dayt-s">
+                  {st === 'learned' && <Icon name="check" size="sm" />}
+                  {st === 'locked' && <Icon name="lock" size="sm" />}
+                  {label}
+                  {heard && <span className="dayt-ls" title="Listening done" aria-hidden="true">🎧</span>}
+                </span>
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {!e && (
+        <div ref={panel} tabIndex={-1} style={{ scrollMarginTop: 84, outline: 'none' }} aria-live="polite">
+          {selDay?.words ? (
+            <div className="card dpanel">
+              <div className="rowb" style={{ flexWrap: 'wrap' }}>
+                <div>
+                  <h2 className="h2">Day {selDay.day}</h2>
+                  <span className="muted sm">{selDay.words.length} {selDay.words.length === 1 ? 'word' : 'words'}</span>
+                </div>
+              </div>
+              <div className="cwlist">
+                {selDay.words.map((w, i) => <CourseWordRow key={w.word + i} w={w} />)}
+              </div>
+              <div className="dfoot">
+                {selDay.words.length > 0 && (
+                  <button className="btn btn-secondary" style={{ marginRight: 'auto' }} onClick={() => a.openStudy(c.id, selDay.day, 'learn')}>
+                    <Icon name="zap" size="sm" />Practise these words
+                  </button>
+                )}
+                <span className="hint">{c.isOwner ? 'This is a preview. Start learning the course to save words day by day.' : 'Join the course to save these words to My Vocabulary.'}</span>
+              </div>
+            </div>
+          ) : (
+            <p className="muted sm" style={{ marginTop: 16 }}>
+              {c.readyDays === 0 ? 'The owner hasn’t added any words yet. Check back soon.' : 'Choose a day above to see its words.'}
+            </p>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+const TAB_LABEL: Record<CourseTab, string> = { today: 'Today', map: 'Course map', board: 'Leaderboard', members: 'Members' };
+
 export function CoursePage() {
   const { s, a } = useWB();
   const { c, setC, failed, reload } = useCourse(s.courseId);
-  const [sel, setSel] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [leaving, setLeaving] = useState(false);
-  /** Enrolled learners get today's plan; the full list of days is folded away under it. */
-  const [allOpen, setAllOpen] = useState(false);
-  /** The selected day is open in the meet → practise flow instead of the word list. */
-  const [practising, setPractising] = useState(false);
-  /** Bumped after homework is handed in so the leaderboard reloads. */
-  const [boardVersion, setBoardVersion] = useState(0);
-  const panel = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
 
   if (failed) {
     return (
@@ -96,23 +180,25 @@ export function CoursePage() {
   const current = e ? Math.min(e.currentDay, c.totalDays) : 0;
   /** Enrolled, but the course's start date hasn't come yet: nothing is open (the owner can still preview the days). */
   const notStarted = !!e && e.currentDay < 1;
-  const pick = (day: number) => {
-    // Today is done in the plan, not twice.
-    if (e && day === current) {
-      const h = document.getElementById('tp-title');
-      h?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      h?.focus();
-      return;
-    }
-    setAllOpen(true);
-    setSel(day);
-    setPractising(false);
-    window.setTimeout(() => panel.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
-  };
-  const showBoard = () => {
-    const h = document.getElementById('lb-title');
-    h?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    h?.focus();
+  const learned = e?.learned.length ?? 0;
+
+  const tabs: CourseTab[] = [
+    ...(e ? ['today' as const] : []),
+    ...(notStarted && !c.isOwner ? [] : ['map' as const]),
+    ...(c.isOwner || (e && !notStarted) ? ['board' as const] : []),
+    ...(c.isOwner ? ['members' as const] : [])
+  ];
+  const tab: CourseTab = s.courseTab && tabs.includes(s.courseTab) ? s.courseTab : tabs[0];
+  const setTab = (t: CourseTab) => a.set({ courseTab: t });
+  // ← → Home End move between tabs (and select them).
+  const onTabKey = (ev: KeyboardEvent) => {
+    const k = tabs.indexOf(tab);
+    const to = ev.key === 'ArrowRight' ? (k + 1) % tabs.length : ev.key === 'ArrowLeft' ? (k - 1 + tabs.length) % tabs.length
+      : ev.key === 'Home' ? 0 : ev.key === 'End' ? tabs.length - 1 : -1;
+    if (to < 0) return;
+    ev.preventDefault();
+    setTab(tabs[to]);
+    window.setTimeout(() => tabsRef.current?.querySelector<HTMLButtonElement>('#ct-' + tabs[to])?.focus(), 0);
   };
 
   const join = async () => {
@@ -120,7 +206,7 @@ export function CoursePage() {
     try {
       const res = await api.joinCourse(c.id);
       setC(res);
-      setSel(null);
+      a.set({ courseTab: 'today' });
       a.showToast(joinedText(res));
     } catch (err) {
       a.showToast(errText(err, 'Couldn’t join this course.'), 'bad');
@@ -140,107 +226,6 @@ export function CoursePage() {
       setLeaving(false);
     }
   };
-  /** Marks a day learned without saving its words (they're saved one by one). */
-  const learn = async (day: number): Promise<boolean> => {
-    setBusy(true);
-    const res = await a.learnCourseDay(c.id, day, []);
-    if (res) setC(res);
-    setBusy(false);
-    return !!res;
-  };
-  const closePractice = () => { setPractising(false); window.setTimeout(() => document.getElementById('cl-practise')?.focus(), 0); };
-
-  const selDay = sel !== null ? c.days.find((d) => d.day === sel) : undefined;
-  const selState = selDay ? dayState(c, selDay) : undefined;
-  const learned = e?.learned.length ?? 0;
-  const homeworkOpen = !!e && !!selDay?.words?.length && selDay.day <= current;
-  // Day 1 has nothing earlier to warm up with.
-  const warmupOpen = homeworkOpen && selDay!.day >= 2;
-  /** Enrolled learners can save the words of open days (today and earlier). */
-  const canSave = !!e && !!selDay && selDay.day <= current;
-  const submitted = () => { void reload(); setBoardVersion((v) => v + 1); };
-  const setListened = (listened: number[]) =>
-    setC((prev) => (prev?.enrollment ? { ...prev, enrollment: { ...prev.enrollment, listened } } : prev));
-
-  const days = (
-    <>
-      <div className="daygrid" role="list" aria-label="Course days">
-        {c.days.map((d) => {
-          const st = dayState(c, d);
-          const isToday = !!e && d.day === current;
-          const pending = st === 'open' && !!e && d.day <= current;
-          const label = st === 'learned' ? 'Learned' : st === 'empty' ? 'Coming soon' : st === 'locked' ? d.count + (d.count === 1 ? ' word' : ' words') : isToday ? 'Today' : pending ? 'Ready to learn' : d.count + (d.count === 1 ? ' word' : ' words');
-          const can = st === 'open' || (st === 'learned' && !!d.words);
-          return (
-            <div key={d.day} role="listitem" style={{ display: 'contents' }}>
-              <button
-                className={'dayt ' + st + (pending ? ' pending' : '') + (isToday ? ' today' : '') + (sel === d.day ? ' sel' : '')}
-                disabled={!can} onClick={() => pick(d.day)} aria-pressed={sel === d.day}
-                aria-label={'Day ' + d.day + ': ' + label + (d.myScore !== null ? ', homework score ' + d.myScore : '')}>
-                <span className="dayt-n">Day {d.day}</span>
-                {d.myScore !== null && <span className="dayt-score" title="Homework score">{d.myScore}</span>}
-                <span className="dayt-s">
-                  {st === 'learned' && <Icon name="check" size="sm" />}
-                  {st === 'locked' && <Icon name="lock" size="sm" />}
-                  {label}
-                </span>
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      <div ref={panel} style={{ scrollMarginTop: 84 }}>
-        {warmupOpen && <WarmupSection key={'wu' + selDay!.day} c={c} day={selDay!.day} />}
-        {selDay && selDay.words ? (
-          <div className="card dpanel" aria-live={practising ? undefined : 'polite'}>
-            <div className="rowb" style={{ flexWrap: 'wrap' }}>
-              <div>
-                <h2 className="h2">Day {selDay.day}</h2>
-                <span className="muted sm">{selDay.words.length} {selDay.words.length === 1 ? 'word' : 'words'}{e && selDay.day === current ? ' · today' : ''}</span>
-              </div>
-              {selState === 'learned' && <span className="badge t-green"><Icon name="check" size="sm" />Learned</span>}
-            </div>
-            {practising ? (
-              <CourseLearn key={'cl' + selDay.day} c={c} day={selDay.day} words={selDay.words} learned={selState === 'learned'}
-                onLearn={canSave ? async () => { if (await learn(selDay.day)) closePractice(); } : undefined}
-                onClose={closePractice} />
-            ) : (
-            <>
-            <div className="cwlist">
-              {selDay.words.map((w, i) => <CourseWordRow key={w.word + i} w={w} save={canSave ? { courseId: c.id, day: selDay.day } : undefined} />)}
-            </div>
-            <div className="dfoot">
-              {selDay.words.length > 0 && (
-                <button id="cl-practise" className="btn btn-secondary" style={{ marginRight: 'auto' }} onClick={() => setPractising(true)}>
-                  <Icon name="zap" size="sm" />Practise these words
-                </button>
-              )}
-              {!e ? (
-                <span className="hint">{c.isOwner ? 'This is a preview. Start learning the course to save words day by day.' : 'Join the course to save these words to My Vocabulary.'}</span>
-              ) : selState === 'learned' ? (
-                <span className="hint">Learned. Words you save go to My Vocabulary with the tag #{c.tag}.</span>
-              ) : selDay.day > current ? (
-                <span className="hint">This day opens on day {selDay.day}.</span>
-              ) : (
-                <button className="btn btn-primary btn-lg" onClick={() => learn(selDay.day)} disabled={busy}>
-                  <Icon name="check" size="sm" />{busy ? 'Marking…' : 'Mark day ' + selDay.day + ' as learned'}
-                </button>
-              )}
-            </div>
-            </>
-            )}
-          </div>
-        ) : (
-          <p className="muted sm" style={{ marginTop: 16 }}>
-            {c.readyDays === 0 ? 'The owner hasn’t added any words yet. Check back soon.' : 'Choose an open day above to see its words.'}
-          </p>
-        )}
-        {homeworkOpen && selDay!.day !== current && <DayListening key={'dl' + selDay!.day} c={c} day={selDay!.day} onListened={setListened} />}
-        {homeworkOpen && <HomeworkSection key={selDay!.day} c={c} day={selDay!} onSubmitted={submitted} />}
-      </div>
-    </>
-  );
 
   return (
     <>
@@ -280,22 +265,29 @@ export function CoursePage() {
         </div>
       )}
 
-      {notStarted ? <NotStarted c={c} />
-        : e && <TodayPlan c={c} setC={setC} reload={reload} onSubmitted={submitted} onOpenDay={pick} onShowBoard={showBoard} />}
-
-      {notStarted && !c.isOwner ? null : e ? (
-        <section className="csec tdays" aria-labelledby="tp-days">
-          <h2 className="h2" id="tp-days">
-            <button className="tdisc" aria-expanded={allOpen} aria-controls="tp-days-body" onClick={() => setAllOpen(!allOpen)}>
-              <Icon name="down" />All days
-              <span className="muted sm tdisc-n">{learned}/{c.totalDays} learned</span>
+      {tabs.length > 1 && (
+        <div ref={tabsRef} className="ctabs" role="tablist" aria-label="Course sections">
+          {tabs.map((t) => (
+            <button key={t} id={'ct-' + t} role="tab" className={'ctab' + (tab === t ? ' on' : '')} aria-selected={tab === t}
+              aria-controls={'cp-' + t} tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)} onKeyDown={onTabKey}>
+              {t === 'today' && <Icon name="calendar" size="sm" />}
+              {t === 'map' && <Icon name="grid" size="sm" />}
+              {t === 'board' && <Icon name="trophy" size="sm" />}
+              {t === 'members' && <Icon name="users" size="sm" />}
+              {TAB_LABEL[t]}
             </button>
-          </h2>
-          <div id="tp-days-body" hidden={!allOpen}>{days}</div>
-        </section>
-      ) : days}
+          ))}
+        </div>
+      )}
 
-      {(c.isOwner || (e && !notStarted)) && <CourseLeaderboard c={c} version={boardVersion} />}
+      {tab && (
+        <div id={'cp-' + tab} role={tabs.length > 1 ? 'tabpanel' : undefined} aria-labelledby={tabs.length > 1 ? 'ct-' + tab : undefined} className="cpanel">
+          {tab === 'today' && (notStarted ? <NotStarted c={c} /> : <TodayCard key={c.id} c={c} />)}
+          {tab === 'map' && <CourseMap c={c} />}
+          {tab === 'board' && <CourseLeaderboard c={c} version={0} />}
+          {tab === 'members' && <CourseMembers c={c} />}
+        </div>
+      )}
 
       {e && (
         <div style={{ marginTop: 28 }}>

@@ -320,6 +320,7 @@ export function CourseEdit() {
     <>
       <BackToCourses />
       <PageHead title="Edit Course" sub={<>Plan what learners get each day of “{c.title}”. Changes to a day are saved right away.{c.startDate ? ' ' + startText(c.startDate) + ' for everyone.' : ''}</>}>
+        <button className="btn btn-secondary" onClick={() => a.openCourse(c.id, false, 'members')}><Icon name="users" size="sm" />Members</button>
         <button className="btn btn-secondary" onClick={() => a.openCourse(c.id)}><Icon name="eye" size="sm" />View as learner</button>
       </PageHead>
 

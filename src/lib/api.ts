@@ -204,6 +204,30 @@ export interface DialogueGenerateResult { quota: Quota; items: BankItem[] }
 
 export interface Warmup { day: number; recap: { text: string; vi: string } | null; words: WarmupWord[]; questions: WarmupQuestion[] }
 
+/* ---------- members (owner) ---------- */
+/**
+ * A learner's progress, for the course owner. learned / warmedUp / listened / homework: days done · missing: open days
+ * with words but no homework handed in · late: homework handed in late · joinedAt / lastActive: ms.
+ */
+export interface CourseMember {
+  userId: string; name: string; isOwner: boolean; joinedAt: number | null; startDay: string; currentDay: number;
+  learned: number; warmedUp: number; listened: number; homework: number; missing: number; late: number;
+  totalScore: number; avgScore: number | null; streak: number; lastActive: number | null;
+}
+/** members: sorted by last activity. */
+export interface CourseMembers { members: CourseMember[]; totalDays: number; daysWithWords: number }
+/** homework: null = not opened · { opened } = opened, not handed in · else the result. warmup / listening: null when skipped or not done. */
+export interface MemberDay {
+  day: number; date: string; open: boolean; words: number;
+  learnedAt: number | null; warmedUpAt: number | null; listenedAt: number | null;
+  warmup: { correct: number; total: number } | null;
+  listening: { correct: number; total: number } | null;
+  homework: null | { opened: true } | { score: number; raw: number; correct: number; total: number; lateDays: number; durationMs: number; submittedAt: number };
+}
+export interface CourseMemberDetail {
+  userId: string; name: string; isOwner: boolean; joinedAt: number | null; startDay: string; currentDay: number; days: MemberDay[];
+}
+
 export const api = {
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
   login: (email: string, password: string) => req<AuthResponse>('POST', '/auth/login', { email, password }),
@@ -278,6 +302,12 @@ export const api = {
   /** Marks the day's listening as done: after the practice (with its result) or when the learner skips it (no result). */
   listeningDone: (id: string, day: number, correct?: number, total?: number) =>
     req<{ listened: number[] }>('POST', '/courses/' + id + '/days/' + day + '/listening/done', correct !== undefined ? { correct, total } : {}),
+
+  /* Owner: who's taking the course and how they're doing. 403 for everyone else. */
+  listMembers: (id: string) => req<CourseMembers>('GET', '/courses/' + id + '/members'),
+  getMember: (id: string, userId: string) => req<CourseMemberDetail>('GET', '/courses/' + id + '/members/' + userId),
+  /** Removes a learner; their homework is deleted too. 400 for the owner themself. */
+  removeMember: (id: string, userId: string) => req<void>('DELETE', '/courses/' + id + '/members/' + userId),
 
   /* Owner: the tense question bank. Homework uses approved items and is frozen once someone hands that day in. */
   listQuestions: (id: string, day: number) => req<BankItem[]>('GET', '/courses/' + id + '/questions?day=' + day),

@@ -9,7 +9,10 @@ import { stopSpeaking } from '../lib/speech';
 
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
 
-export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit';
+export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy';
+export type CourseTab = 'today' | 'map' | 'board' | 'members';
+/** A step of a course day in the study session. */
+export type StudyStep = 'review' | 'learn' | 'listen' | 'homework';
 export type PracticeMode = 'mc' | 'fill' | 'trans' | 'listen';
 
 export interface ReviewState {
@@ -40,8 +43,12 @@ interface UiState {
   modal: Modal | null; toast: Toast | null; chart: '7' | '30';
   /** Search to start the Library page with (set by the header search). */
   libraryQ: string;
-  /** The course open on the 'course' / 'courseEdit' pages. */
+  /** The course open on the 'course' / 'courseEdit' / 'courseStudy' pages. */
   courseId: string;
+  /** The tab the course page opens on ('' = its default). */
+  courseTab: CourseTab | '';
+  /** The day open in the study session, and the step to start on (null = the first unfinished one). */
+  study: { day: number; step: StudyStep | null } | null;
 }
 export type State = Data & UiState;
 
@@ -62,7 +69,7 @@ function initialState(): State {
     route: 'dashboard', prevRoute: 'dashboard', sel: null, rail: false,
     filters: NO_FILTERS, menu: null, notif: false, account: false,
     form: emptyForm(), editForm: emptyForm(), formErr: '', aiBusy: false, aiStep: 0,
-    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: ''
+    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: '', courseTab: '', study: null
   };
 }
 
@@ -138,7 +145,7 @@ function useWordbookState() {
 
   const inSession = () => {
     const c = ref.current;
-    return (c.route === 'review' && !!c.review) || (c.route === 'practice' && !!c.practice);
+    return (c.route === 'review' && !!c.review) || (c.route === 'practice' && !!c.practice) || (c.route === 'courseStudy' && !!c.study);
   };
 
   /* ---------- review ---------- */
@@ -550,7 +557,12 @@ function useWordbookState() {
         : k === 1 ? '“' + res.skipped[0] + '” is already in My Vocabulary.' : 'All ' + k + ' words are already in My Vocabulary.');
     return true;
   };
-  const openCourse = (id: string, edit = false) => go(edit ? 'courseEdit' : 'course', { courseId: id });
+  const openCourse = (id: string, edit = false, tab: CourseTab | '' = '') => go(edit ? 'courseEdit' : 'course', { courseId: id, courseTab: tab, study: null });
+  /** Opens a course day in the full-screen study session. */
+  const openStudy = (id: string, day: number, step: StudyStep | null = null) => {
+    stopSpeaking();
+    go('courseStudy', { courseId: id, study: { day, step } });
+  };
 
   const setFilters = (patch: Partial<Filters>) => set((prev) => ({ filters: { ...prev.filters, ...patch } }));
   const showWordsWith = (patch: Partial<Filters>) => go('vocab', { filters: { ...NO_FILTERS, ...patch } });
@@ -561,7 +573,7 @@ function useWordbookState() {
     startPractice, pUpdate, pPick, pCheck, pNext,
     setF, addChip, generate, save, openEdit, goNew, formCancel,
     askDeleteWord, confirmModal, submitModal, patchModal,
-    exportData, setSettings, setFilters, showWordsWith, reload: load, login, register, logout, saveFromLibrary, shareWord, learnCourseDay, saveCourseWords, openCourse,
+    exportData, setSettings, setFilters, showWordsWith, reload: load, login, register, logout, saveFromLibrary, shareWord, learnCourseDay, saveCourseWords, openCourse, openStudy,
     clearFilters: () => set({ filters: NO_FILTERS }),
     setMenu: (menu: string | null) => set({ menu, notif: false, account: false }),
     closeMenus: () => set({ menu: null, notif: false, account: false }),

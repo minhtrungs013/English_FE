@@ -120,9 +120,11 @@ type Phase = 'idle' | 'loading' | 'taking' | 'sending' | 'result';
  * A day's homework for an enrolled learner: start → one question at a time → hand in → score and answers.
  * embedded: shown inside a step of today's plan, which has its own heading; it opens straight away (the step's button was the
  * "start") and onClose is called instead of going back to the start screen.
+ * bare: in the study session, which has its own heading: no card or heading, but it starts from the start screen (the timer
+ * starts only when the learner chooses to begin).
  */
-export function HomeworkSection({ c, day, onSubmitted, embedded, onClose }: {
-  c: CourseDetail; day: CourseDay; onSubmitted: () => void; embedded?: boolean; onClose?: () => void;
+export function HomeworkSection({ c, day, onSubmitted, embedded, bare, onClose }: {
+  c: CourseDetail; day: CourseDay; onSubmitted: () => void; embedded?: boolean; bare?: boolean; onClose?: () => void;
 }) {
   const { a } = useWB();
   const [phase, setPhase] = useState<Phase>('idle');
@@ -320,8 +322,8 @@ export function HomeworkSection({ c, day, onSubmitted, embedded, onClose }: {
   }
 
   return (
-    <section className={(embedded ? '' : 'card ') + 'hwcard'} aria-labelledby={embedded ? undefined : 'hw-' + day.day} aria-label={embedded ? 'Day ' + day.day + ' homework' : undefined}>
-      {!embedded && head}
+    <section className={(embedded || bare ? '' : 'card ') + 'hwcard'} aria-labelledby={embedded || bare ? undefined : 'hw-' + day.day} aria-label={embedded || bare ? 'Day ' + day.day + ' homework' : undefined}>
+      {!embedded && !bare && head}
       {body}
       <div className="c-sr" aria-live="polite">{phase === 'result' && result ? 'Homework score ' + result.score + ' out of 100, ' + result.correct + ' of ' + result.total + ' correct.' : phase === 'sending' ? 'Handing in…' : ''}</div>
       {asking && (

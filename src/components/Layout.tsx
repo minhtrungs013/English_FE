@@ -12,7 +12,7 @@ function useInitial() {
 }
 
 const isVocabish = (r: Route) => r === 'vocab' || r === 'new' || r === 'detail' || r === 'edit';
-const isCoursish = (r: Route) => r === 'courses' || r === 'course' || r === 'courseEdit';
+const isCoursish = (r: Route) => r === 'courses' || r === 'course' || r === 'courseEdit' || r === 'courseStudy';
 
 export function Sidebar() {
   const { s, a } = useWB();

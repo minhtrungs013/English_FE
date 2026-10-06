@@ -18,6 +18,7 @@ import { Library } from './pages/Library';
 import { Courses } from './pages/Courses';
 import { CoursePage } from './pages/Course';
 import { CourseEdit } from './pages/CourseEdit';
+import { CourseStudy } from './pages/CourseStudy';
 
 function useSystemDark() {
   const [dark, setDark] = useState(() => {
@@ -89,6 +90,8 @@ export default function App() {
   const sysDark = useSystemDark();
   const dark = s.settings.theme === 'dark' || (s.settings.theme === 'system' && sysDark);
   const inSession = (s.route === 'review' && !!s.review) || (s.route === 'practice' && !!s.practice);
+  /** A course day's study session: full screen too, once the app has loaded. */
+  const inStudy = s.route === 'courseStudy' && !!s.study && s.status === 'ready';
 
   const { voice, rate, pitch, accent } = s.settings;
   useEffect(() => { setVoicePrefs({ voice, rate, pitch }); }, [voice, rate, pitch]);
@@ -101,7 +104,7 @@ export default function App() {
   return (
     <div className="shell">
       <div className={'app accent-' + (accent || 'indigo') + (dark ? ' dark' : '') + (s.rail ? ' rail' : '')}>
-        {s.status === 'auth' ? <AuthPage /> : inSession ? <Session /> : (
+        {s.status === 'auth' ? <AuthPage /> : inSession ? <Session /> : inStudy ? <CourseStudy key={s.courseId + ':' + s.study!.day} /> : (
           <>
             <Sidebar />
             <div className="mainwrap">

@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { api, type CourseDetail, type Dialogue, type ListeningDialogue } from '../lib/api';
+import { api, type Dialogue, type ListeningDialogue } from '../lib/api';
 import { shuffle } from '../lib/data';
 import { canSpeak, pickDialogueVoices, speakLine, stopSpeaking, useEnglishVoices } from '../lib/speech';
-import { useWB } from '../state/WordbookContext';
 import { Icon } from '../components/ui';
-import { errText } from './Courses';
 import { normalizeAnswer } from './CourseWarmup';
 
 /** A blank in a line: [[word]] or [[said form|word]] (like the server). */
@@ -531,49 +529,6 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
       </ol>
       {body}
       <div className="c-sr" aria-live="polite" aria-atomic="true">{live}</div>
-    </section>
-  );
-}
-
-/** "Listening" for an earlier open day, under its words in the All days panel. Nothing when the day has no dialogue. */
-export function DayListening({ c, day, onListened }: { c: CourseDetail; day: number; onListened: (listened: number[]) => void }) {
-  const { a } = useWB();
-  const d = useListening(c.id, day);
-  const [open, setOpen] = useState(false);
-  const btn = useRef<HTMLButtonElement>(null);
-  if (!d) return null;
-  const done = (c.enrollment?.listened ?? []).includes(day);
-  const close = () => { setOpen(false); window.setTimeout(() => btn.current?.focus(), 0); };
-  const finish = async (correct: number, total: number) => {
-    try {
-      onListened((await api.listeningDone(c.id, day, correct, total)).listened);
-      a.showToast('Listening for day ' + day + ' saved: ' + correct + ' of ' + total + ' right.');
-      close();
-      return true;
-    } catch (err) {
-      a.showToast(errText(err, 'Couldn’t save your listening.'), 'bad');
-      return false;
-    }
-  };
-  const hid = 'dl-' + day;
-  return (
-    <section className="card lscard" aria-labelledby={hid}>
-      <div className="rowb" style={{ flexWrap: 'wrap' }}>
-        <div className="stack" style={{ gap: 2, minWidth: 0 }}>
-          <h3 className="h2" id={hid}><span aria-hidden="true">🎧 </span>Listening · day {day}</h3>
-          <span className="muted sm">{d.title} · {plural(parseDialogue(d.lines).blanks.length, 'blank')}{d.questions.length ? ' · ' + plural(d.questions.length, 'question') : ''}</span>
-        </div>
-        {done && <span className="badge t-green"><Icon name="check" size="sm" />Done</span>}
-      </div>
-      {open ? (
-        <ListeningPractice key={'dlp' + day} d={d} day={day} onFinish={finish} onClose={close} />
-      ) : (
-        <div className="tact">
-          <button ref={btn} className={'btn ' + (done ? 'btn-secondary' : 'btn-primary')} onClick={() => setOpen(true)}>
-            <Icon name="headphones" size="sm" />{done ? 'Practise listening again' : 'Listening'}
-          </button>
-        </div>
-      )}
     </section>
   );
 }
