@@ -19,6 +19,7 @@ import { Courses } from './pages/Courses';
 import { CoursePage } from './pages/Course';
 import { CourseEdit } from './pages/CourseEdit';
 import { CourseStudy } from './pages/CourseStudy';
+import { NotificationsPage } from './components/Notifications';
 
 function useSystemDark() {
   const [dark, setDark] = useState(() => {
@@ -81,6 +82,7 @@ function Page() {
     case 'categories': return <Categories />;
     case 'tags': return <Tags />;
     case 'settings': return <Settings />;
+    case 'notifications': return <NotificationsPage />;
     default: return <Dashboard />;
   }
 }

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useWB, type Route } from '../state/WordbookContext';
-import { getStats, currentStreak } from '../state/selectors';
+import { getStats } from '../state/selectors';
 import { api, type LibraryWord } from '../lib/api';
 import type { IconName } from '../lib/icons';
 import { SaveButton, TopicBadge } from '../pages/Library';
 import { Icon, LevelBadge } from './ui';
+import { NotificationBell } from './Notifications';
 
 function useInitial() {
   const { s } = useWB();
@@ -153,8 +154,6 @@ function HeaderSearch() {
 export function Topbar() {
   const { s, a } = useWB();
   const initial = useInitial();
-  const stats = getStats(s.words);
-  const hasDue = stats.due > 0;
   return (
     <header className="top">
       <button className="iconbtn railtoggle desk-only" onClick={() => a.set({ rail: !s.rail })} aria-label="Toggle sidebar">
@@ -166,31 +165,7 @@ export function Topbar() {
       </div>
       <HeaderSearch />
       <div className="spacer" />
-      <div style={{ position: 'relative' }}>
-        <button className="iconbtn" onClick={() => a.set({ notif: !s.notif, account: false, menu: null })} aria-label="Notifications" aria-expanded={s.notif}>
-          <Icon name="bell" />
-          {hasDue && <span className="dot" />}
-        </button>
-        {s.notif && (
-          <div className="drop">
-            <div className="drop-h">Notifications</div>
-            {hasDue && (
-              <button className="nrow" onClick={a.startDue}>
-                <span className="stat-ic t-indigo"><Icon name="clock" size="sm" /></span>
-                <span className="ntext"><b>{stats.due} words are due for review</b><span>Start a quick session to keep them fresh</span></span>
-              </button>
-            )}
-            <button className="nrow" onClick={() => a.go('dashboard')}>
-              <span className="stat-ic t-orange"><Icon name="flame" size="sm" /></span>
-              <span className="ntext"><b>You're on a {currentStreak(s.progress)}-day streak</b><span>Review today to keep it going</span></span>
-            </button>
-            <button className="nrow" onClick={() => a.go('vocab')}>
-              <span className="stat-ic t-green"><Icon name="layers" size="sm" /></span>
-              <span className="ntext"><b>{stats.week} new words this week</b><span>Nice progress on your collection</span></span>
-            </button>
-          </div>
-        )}
-      </div>
+      <NotificationBell />
       <div style={{ position: 'relative' }}>
         <button className="avbtn" onClick={() => a.set({ account: !s.account, notif: false, menu: null })} aria-label="Account menu" aria-expanded={s.account}>
           <span className="avatar">{initial}</span>
@@ -206,6 +181,9 @@ export function Topbar() {
             <button className="mitem mob-only" onClick={() => a.go('courses')}><Icon name="cap" size="sm" />Courses</button>
             <button className="mitem mob-only" onClick={() => a.go('categories')}><Icon name="folder" size="sm" />Categories</button>
             <button className="mitem mob-only" onClick={() => a.go('tags')}><Icon name="tag" size="sm" />Tags</button>
+            <button className={'mitem' + (s.route === 'notifications' ? ' on' : '')} onClick={() => a.go('notifications')}>
+              <Icon name="bell" size="sm" /><span className="grow">Notifications</span>{s.unread > 0 && <span className="count">{s.unread > 9 ? '9+' : s.unread}</span>}
+            </button>
             <button className="mitem" onClick={() => a.go('settings')}><Icon name="sliders" size="sm" />Settings</button>
             <div className="msep" />
             <button className="mitem danger" onClick={() => a.logout()}>

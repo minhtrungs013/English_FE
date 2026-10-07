@@ -45,6 +45,8 @@ export interface Settings {
   /** Speaking speed and pitch, 0.5–1.5. */
   rate: number;
   pitch: number;
+  /** Notification types turned off (see NOTE_TYPES). */
+  mute: string[];
 }
 
 export interface Progress {

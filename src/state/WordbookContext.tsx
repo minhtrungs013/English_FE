@@ -4,12 +4,12 @@ import {
   type Data, type FormData, type Rating, type Settings, type Word
 } from '../lib/data';
 import type { IconName } from '../lib/icons';
-import { api, ApiError, getToken, setToken, setUnauthorizedHandler, type AuthResponse, type CourseDetail, type CourseSaveResult, type LibraryWord, type Topic } from '../lib/api';
+import { api, ApiError, getToken, setToken, setUnauthorizedHandler, type AuthResponse, type CourseDetail, type CourseSaveResult, type LibraryWord, type Note, type Topic } from '../lib/api';
 import { stopSpeaking } from '../lib/speech';
 
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
 
-export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy';
+export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy' | 'notifications';
 export type CourseTab = 'today' | 'map' | 'board' | 'members';
 /** A step of a course day in the study session. */
 export type StudyStep = 'review' | 'learn' | 'listen' | 'homework';
@@ -49,13 +49,18 @@ interface UiState {
   courseTab: CourseTab | '';
   /** The day open in the study session, and the step to start on (null = the first unfinished one). */
   study: { day: number; step: StudyStep | null } | null;
+  /** Unread notifications (from the server; checked every few minutes). */
+  unread: number;
 }
 export type State = Data & UiState;
+
+/** How often the unread count is checked while the tab is visible. */
+const NOTE_POLL_MS = 3 * 60_000;
 
 const NO_FILTERS: Filters = { q: '', level: 'all', status: 'all', cat: 'all', tag: 'all' };
 const EMPTY_DATA: Data = {
   words: [], cats: [], tags: [], shared: [], userId: '', autofill: { used: 0, limit: 3 },
-  settings: { name: '', email: '', goal: '20', dir: 'en-vi', autoplay: true, showEx: true, theme: 'light', accent: 'indigo', voice: '', rate: 0.9, pitch: 1 },
+  settings: { name: '', email: '', goal: '20', dir: 'en-vi', autoplay: true, showEx: true, theme: 'light', accent: 'indigo', voice: '', rate: 0.9, pitch: 1, mute: [] },
   progress: { streak: 0, lastStreakDay: '', reviewedDay: '', reviewedToday: 0 }
 };
 
@@ -69,7 +74,7 @@ function initialState(): State {
     route: 'dashboard', prevRoute: 'dashboard', sel: null, rail: false,
     filters: NO_FILTERS, menu: null, notif: false, account: false,
     form: emptyForm(), editForm: emptyForm(), formErr: '', aiBusy: false, aiStep: 0,
-    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: '', courseTab: '', study: null
+    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: '', courseTab: '', study: null, unread: 0
   };
 }
 
@@ -86,8 +91,8 @@ function useWordbookState() {
     set({ status: 'loading', loadError: '' });
     try {
       const d = await api.bootstrap();
-      // An older server may not send autofill yet; keep the defaults then.
-      set({ ...d, autofill: d.autofill ?? EMPTY_DATA.autofill, status: 'ready' });
+      // An older server may not send autofill or mute yet; keep the defaults then.
+      set({ ...d, autofill: d.autofill ?? EMPTY_DATA.autofill, settings: { ...d.settings, mute: d.settings.mute ?? [] }, status: 'ready' });
     } catch (e) {
       // A rejected session has already logged out (see setUnauthorizedHandler); keep the login screen.
       if (e instanceof ApiError && e.status === 401) return;
@@ -101,6 +106,25 @@ function useWordbookState() {
     return () => { window.clearTimeout(toastTimer.current); window.clearTimeout(settingsTimer.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Unread notifications: check once loaded, when the tab becomes visible again, and every few minutes while it's visible.
+  const ready = s.status === 'ready';
+  useEffect(() => {
+    if (!ready) return undefined;
+    let timer: number | undefined;
+    const check = () => {
+      const sent = getToken();
+      api.unreadNotifications()
+        .then((r) => { if (getToken() === sent) set({ unread: r.unread }); })
+        .catch(() => { /* try again next time */ });
+    };
+    const start = () => { window.clearInterval(timer); check(); timer = window.setInterval(check, NOTE_POLL_MS); };
+    const onVisible = () => { if (document.visibilityState === 'visible') start(); else window.clearInterval(timer); };
+    if (document.visibilityState === 'visible') start();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
 
   const showToast = (msg: string, kind: Toast['kind'] = 'ok') => {
     window.clearTimeout(toastTimer.current);
@@ -564,6 +588,30 @@ function useWordbookState() {
     go('courseStudy', { courseId: id, study: { day, step } });
   };
 
+  /* ---------- notifications ---------- */
+  /** Marks notifications read ('all' = every one). Returns false on failure. */
+  const markNotesRead = async (ids: string[] | 'all'): Promise<boolean> => {
+    if (ids !== 'all' && !ids.length) return true;
+    const res = await call(api.markNotificationsRead(ids));
+    if (res) set({ unread: res.unread });
+    return !!res;
+  };
+  const deleteNote = async (n: Note): Promise<boolean> => {
+    const ok = await call(api.deleteNotification(n.id).then(() => true));
+    if (ok && !n.read) set((prev) => ({ unread: Math.max(0, prev.unread - 1) }));
+    return !!ok;
+  };
+  /** Marks a notification read and goes where it points (if anywhere). */
+  const openNote = (n: Note) => {
+    if (!n.read) void markNotesRead([n.id]);
+    const l = n.link;
+    if (!l) return;
+    if (l.to === 'review') startDue();
+    else if (l.to === 'library') go('library', { libraryQ: '' });
+    else if (l.courseId && l.day && l.step) openStudy(l.courseId, l.day, l.step);
+    else if (l.courseId) openCourse(l.courseId, false, l.tab ?? '');
+  };
+
   const setFilters = (patch: Partial<Filters>) => set((prev) => ({ filters: { ...prev.filters, ...patch } }));
   const showWordsWith = (patch: Partial<Filters>) => go('vocab', { filters: { ...NO_FILTERS, ...patch } });
 
@@ -574,6 +622,8 @@ function useWordbookState() {
     setF, addChip, generate, save, openEdit, goNew, formCancel,
     askDeleteWord, confirmModal, submitModal, patchModal,
     exportData, setSettings, setFilters, showWordsWith, reload: load, login, register, logout, saveFromLibrary, shareWord, learnCourseDay, saveCourseWords, openCourse, openStudy,
+    markNotesRead, deleteNote, openNote,
+    setUnread: (unread: number) => set({ unread }),
     clearFilters: () => set({ filters: NO_FILTERS }),
     setMenu: (menu: string | null) => set({ menu, notif: false, account: false }),
     closeMenus: () => set({ menu: null, notif: false, account: false }),

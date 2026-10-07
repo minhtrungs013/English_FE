@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from 'react';
-import { api } from '../lib/api';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { api, type NoteType } from '../lib/api';
 import type { Accent, Settings as SettingsData, Theme } from '../lib/data';
 import { canSpeak, speak, useEnglishVoices } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { Icon, PageHead } from '../components/ui';
+import { NOTE_GROUPS, NOTE_META } from '../components/Notifications';
 import { PasswordInput } from './Auth';
 
 const THEMES: [Theme, string][] = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']];
@@ -101,6 +102,37 @@ function Switch({ on, label, onToggle }: { on: boolean; label: string; onToggle:
   return <button className={'switch' + (on ? ' on' : '')} role="switch" aria-checked={on} aria-label={label} onClick={onToggle} />;
 }
 
+/** A switch per notification type; turned-off types are saved in `mute`. */
+function NotificationSettings() {
+  const { s, a } = useWB();
+  const mute = s.settings.mute;
+  // Toggles build on the latest list, so quick clicks before a re-render aren't lost.
+  const latest = useRef(mute);
+  useEffect(() => { latest.current = mute; }, [mute]);
+  const toggle = (t: NoteType) => {
+    const m = latest.current;
+    latest.current = m.includes(t) ? m.filter((x) => x !== t) : [...m, t];
+    a.setSettings({ mute: latest.current });
+  };
+  return (
+    <div className="card pad">
+      <h2 className="h2" style={{ marginBottom: 6 }}>Notifications</h2>
+      <p className="muted sm" style={{ margin: 0 }}>Choose what shows up under the bell. Turning one off stops new ones; existing ones stay.</p>
+      {NOTE_GROUPS.map((g) => (
+        <section key={g.title} className="nset" aria-labelledby={'nset-' + g.types[0]}>
+          <h3 id={'nset-' + g.types[0]} className="nset-h">{g.title}</h3>
+          {g.types.map((t) => (
+            <div key={t} className="setrow">
+              <div className="setlbl"><b>{NOTE_META[t].label}</b><span className="muted sm">{NOTE_META[t].desc}</span></div>
+              <Switch on={!mute.includes(t)} label={NOTE_META[t].label} onToggle={() => toggle(t)} />
+            </div>
+          ))}
+        </section>
+      ))}
+    </div>
+  );
+}
+
 export function Settings() {
   const { s, a } = useWB();
   const st = s.settings;
@@ -168,6 +200,8 @@ export function Settings() {
         </div>
 
         <VoiceSettings />
+
+        <NotificationSettings />
 
         <div className="card pad">
           <h2 className="h2" style={{ marginBottom: 6 }}>Data</h2>

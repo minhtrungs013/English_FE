@@ -228,6 +228,22 @@ export interface CourseMemberDetail {
   userId: string; name: string; isOwner: boolean; joinedAt: number | null; startDay: string; currentDay: number; days: MemberDay[];
 }
 
+/* ---------- notifications ---------- */
+export type NoteType =
+  | 'day_open' | 'homework_due' | 'homework_late' | 'streak_risk' | 'course_start' | 'words_due'
+  | 'member_joined' | 'member_removed' | 'owner_pending' | 'owner_empty_day' | 'library_saved';
+/** Where a notification takes the user: a course (optionally a day / tab / study step), the due review, or the library. */
+export interface NoteLink {
+  to: 'course' | 'review' | 'library';
+  courseId?: string; day?: number;
+  tab?: 'today' | 'map' | 'board' | 'members';
+  step?: 'review' | 'learn' | 'listen' | 'homework';
+}
+/** count: repeats grouped into one (e.g. "3 people joined") · at: ms of the latest change. */
+export interface Note { id: string; type: NoteType; title: string; body: string; link: NoteLink | null; count: number; read: boolean; at: number }
+/** Newest first; hasMore: older ones exist (page back with `before` = the last item's `at`). */
+export interface NotePage { items: Note[]; hasMore: boolean; unread: number }
+
 export const api = {
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
   login: (email: string, password: string) => req<AuthResponse>('POST', '/auth/login', { email, password }),
@@ -325,5 +341,12 @@ export const api = {
   deleteQuestion: (id: string, qid: string) => req<void>('DELETE', '/courses/' + id + '/questions/' + qid),
   /** Imports up to 100 rows; good ones are approved straight away, bad ones come back in errors. */
   importQuestions: (id: string, day: number, items: ImportRow[]) =>
-    req<ImportResult>('POST', '/courses/' + id + '/days/' + day + '/questions/import', { items })
+    req<ImportResult>('POST', '/courses/' + id + '/days/' + day + '/questions/import', { items }),
+
+  /* Notifications. Both GETs also make the server check for new ones (at most once a minute per user). */
+  notifications: (limit = 30, before?: number) => req<NotePage>('GET', '/notifications?limit=' + limit + (before ? '&before=' + before : '')),
+  unreadNotifications: () => req<{ unread: number }>('GET', '/notifications/unread'),
+  /** Marks the given notifications read, or every one with 'all'. */
+  markNotificationsRead: (ids: string[] | 'all') => req<{ unread: number }>('POST', '/notifications/read', ids === 'all' ? { all: true } : { ids }),
+  deleteNotification: (id: string) => req<void>('DELETE', '/notifications/' + id)
 };
