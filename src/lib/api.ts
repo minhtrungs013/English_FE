@@ -247,34 +247,62 @@ export interface Note { id: string; type: NoteType; title: string; body: string;
 /** Newest first; hasMore: older ones exist (page back with `before` = the last item's `at`). */
 export interface NotePage { items: Note[]; hasMore: boolean; unread: number }
 
-/* ---------- grammar (tense lessons & practice) ---------- */
-/** mastery: 0–100 from the recent answers · lastAt: ms of the last practice, null when never practised. */
+/* ---------- grammar (foundations & tense lessons, practice) ---------- */
+/** The Foundations lessons (helping verbs) in the order they're taught; the cheat sheet is a reference page (no practice). */
+export type Foundation = 'be' | 'do' | 'have' | 'agreement' | 'aux-cheatsheet';
+export const FOUNDATIONS: readonly Foundation[] = ['be', 'do', 'have', 'agreement', 'aux-cheatsheet'];
+/** Any grammar lesson: Foundations first, then the tenses (the API's order). */
+export type LessonId = Foundation | Tense;
+export const LESSON_IDS: readonly LessonId[] = [...FOUNDATIONS, ...TENSES];
+export const isLesson = (t: unknown): t is LessonId => typeof t === 'string' && (LESSON_IDS as readonly string[]).includes(t);
+export type GrammarGroup = 'foundations' | 'tenses';
+
+/** A lesson in the list · mastery: 0–100 from the recent answers · lastAt: ms of the last practice, null when never practised · drills: 0 for the cheat sheet. */
 export interface GrammarTense {
-  id: Tense; name: string; vi: string; summary: string; drills: number; mastery: number; attempts: number; lastAt: number | null;
+  id: LessonId; group: GrammarGroup; name: string; vi: string; summary: string; drills: number; mastery: number; attempts: number; lastAt: number | null;
 }
 export interface GrammarExample { en: string; vi: string }
 export type GrammarForm = 'affirmative' | 'negative' | 'question';
-/** Theory (summary, explain, vi) is in Vietnamese; patterns and examples are in English. */
+/** The helping verb by subject in one tense (e.g. "he / she / it": works · doesn't work · Does she work?). */
+export interface GrammarPerson { subject: string; affirmative: string; negative: string; question: string }
+/** A conjugation / reference table: cells has one entry per column (the first is the row's subject); link opens another lesson. */
+export interface GrammarTable {
+  title: string; columns: string[];
+  rows: { label: string; cells: string[]; link?: string }[];
+  note?: string;
+}
+/**
+ * Theory (summary, explain, vi, notes) is in Vietnamese; patterns and examples are in English.
+ * Tenses have formula, signals and compare; Foundations have tables instead (and compareName is '').
+ */
 export interface GrammarLesson {
-  id: Tense; name: string; vi: string; summary: string;
-  formula: Record<GrammarForm, { pattern: string; example: string; vi: string }>;
+  id: LessonId; group: GrammarGroup; name: string; vi: string; summary: string;
+  formula?: Record<GrammarForm, { pattern: string; example: string; vi: string }> & {
+    persons?: GrammarPerson[];
+    /** The Foundations lesson about this tense's helping verb (none for future simple). */
+    foundation?: 'be' | 'do' | 'have';
+  };
+  tables?: GrammarTable[];
   uses: { title: string; explain: string; examples: GrammarExample[] }[];
-  signals: string[];
+  signals?: string[];
   mistakes: { wrong: string; right: string; explain: string }[];
-  compare: { with: Tense; explain: string; examples: (GrammarExample & { tense: Tense })[] };
+  compare?: { with: Tense; explain: string; examples: (GrammarExample & { tense: Tense })[] };
   compareName: string; drillCount: number; mastery: number; attempts: number;
 }
 /** prompt has one "___"; typed ones ('tense') show the base verb in brackets after it. No answers — they're graded on submit. */
 export interface GrammarQuestion { id: string; kind: 'tense' | 'tenseChoice'; level: 'easy' | 'medium' | 'hard'; prompt: string; choices: string[] }
-/** mode: a tense id, or 'mix' (weaker tenses come up more often). */
+/** mode: a lesson id, or 'mix' / 'mix-tenses' / 'mix-foundations' (weaker lessons come up more often). */
 export interface GrammarPractice { mode: string; questions: GrammarQuestion[] }
-/** lesson: the lesson the question belongs to (its mastery changes) · tense / tenseLabel: the tense of the answer · explain: Vietnamese. */
+/**
+ * lesson: the lesson the question belongs to (its mastery changes) · tense: the lesson to review for it (a tense id, or a
+ * Foundations id like 'do') · tenseLabel: what to show (a tense name, or a topic like "Be · past") · explain: Vietnamese.
+ */
 export interface GrammarResult {
-  id: string; lesson: Tense; tense: Tense; tenseLabel: string; prompt: string;
+  id: string; lesson: LessonId; tense: string; tenseLabel: string; prompt: string;
   yourAnswer: string; answer: string; correct: boolean; explain: string;
 }
 /** mastery: each practised lesson's mastery after this set. */
-export interface GrammarGraded { results: GrammarResult[]; correct: number; total: number; mastery: Partial<Record<Tense, number>> }
+export interface GrammarGraded { results: GrammarResult[]; correct: number; total: number; mastery: Partial<Record<LessonId, number>> }
 
 export const api = {
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
@@ -382,7 +410,7 @@ export const api = {
   markNotificationsRead: (ids: string[] | 'all') => req<{ unread: number }>('POST', '/notifications/read', ids === 'all' ? { all: true } : { ids }),
   deleteNotification: (id: string) => req<void>('DELETE', '/notifications/' + id),
 
-  /* Grammar: the tense lessons, my mastery of each, and practice sets (graded on the server). */
+  /* Grammar: the lessons (Foundations, then tenses), my mastery of each, and practice sets (graded on the server). */
   grammar: () => req<{ tenses: GrammarTense[] }>('GET', '/grammar'),
   grammarLesson: (tense: string) => req<GrammarLesson>('GET', '/grammar/' + encodeURIComponent(tense)),
   grammarPractice: (mode: string, n = 10) => req<GrammarPractice>('GET', '/grammar/practice?mode=' + encodeURIComponent(mode) + '&n=' + n),

@@ -1325,6 +1325,38 @@ button.tmini-row:hover{border-color:var(--primary)}
 .glnav-b span{display:flex;flex-direction:column;line-height:1.3}
 .glnav-b small{font-size:12px;font-weight:600;color:var(--muted)}
 .glink{align-self:flex-start;gap:6px}
+/* grammar: groups, mixed-practice picker, reference tables */
+.gmix{flex-wrap:wrap}
+.gmix-b{flex:1 1 220px}
+.gmix .seg{background:rgba(255,255,255,.16)}
+.gmix .seg button{color:#fff}
+.gmix .seg button:hover:not(.on){background:rgba(255,255,255,.12)}
+.gmix .seg button.on{background:#fff;color:color-mix(in srgb,var(--primary) 82%,#000);box-shadow:none}
+.gmix .seg button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.gsect{margin-bottom:28px}
+.gsect:last-child{margin-bottom:0}
+.gsect-h{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap;margin-bottom:12px}
+.gcard-ic{width:52px;height:52px;border-radius:14px;background:var(--info-soft);color:var(--info);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.glh3{margin:0;font-size:15.5px;font-weight:800;letter-spacing:-.01em}
+.gtbl{width:100%;border-collapse:collapse}
+.gtcap{caption-side:top;text-align:left;padding:0 0 12px}
+.gtbl th,.gtbl td{padding:10px;text-align:left;vertical-align:top;border-top:1px solid var(--border);overflow-wrap:anywhere;line-height:1.5}
+.gtbl thead th{border-top:none;padding-top:0;font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.gtbl th:first-child,.gtbl td:first-child{padding-left:0}
+.gtbl tbody th{font-weight:800;color:var(--text);min-width:120px}
+.gt-lbl{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:2px}
+.gt-first{color:var(--primary-ink)}
+.gtrow-link{cursor:pointer}
+.gtrow-link:hover > *{background:var(--surface2)}
+.gt-go{border:none;background:none;padding:0;margin:0;font:inherit;font-weight:800;color:var(--primary-ink);cursor:pointer;display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px 6px;text-align:left;min-height:24px}
+.gt-go:hover > span:first-child{text-decoration:underline}
+.gt-go:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:4px}
+.gt-to{font-size:12px;font-weight:600;color:var(--muted)}
+.gtnote,.gfound{margin:0;display:flex;align-items:flex-start;gap:8px;padding:10px 14px;border-radius:12px;font-size:14.5px;line-height:1.6}
+.gtnote{background:var(--surface2)}
+.gfound{align-items:center;flex-wrap:wrap;gap:4px 8px;background:var(--primary-soft)}
+.gfound .linkbtn{font-size:14.5px;min-height:32px}
+.glcta.glcta-ref{position:static;box-shadow:none}
 /* grammar practice session */
 .gtitle{margin:0;font-weight:800}
 .gpbar{display:flex;align-items:center;gap:12px;flex:1 1 220px;max-width:420px}
@@ -1380,4 +1412,18 @@ button.tmini-row:hover{border-color:var(--primary)}
 .gdots{gap:4px}
 .gdot{width:28px;height:30px;border-radius:8px}
 .gres .hwrev{padding:4px 14px}
+.gmix-seg{flex:1 1 100%}
+.gmix-seg button{flex:1}
+.gsect{margin-bottom:22px}
+.gtbl,.gtbl tbody,.gtbl tr,.gtbl th,.gtbl td{display:block;width:auto}
+.gtbl caption{display:block}
+.gtbl thead{display:none}
+.gtbl tbody{display:flex;flex-direction:column;gap:8px}
+.gtbl tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px;padding:8px 12px 10px;border:1px solid var(--border);border-radius:12px}
+.gtbl tbody th{grid-column:1 / -1;padding-bottom:6px;min-width:0}
+.gtbl th,.gtbl td,.gtbl th:first-child,.gtbl td:first-child{border-top:none;padding:4px 0}
+.gtbl td::before{content:attr(data-label);display:block;font-size:12px;font-weight:700;color:var(--muted)}
+.gtrow-link:hover > *{background:none}
+.gtrow-link:hover{background:var(--surface2)}
+.glcta.glcta-ref .btn{flex:1 1 100%}
 }

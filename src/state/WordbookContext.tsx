@@ -51,9 +51,9 @@ interface UiState {
   study: { day: number; step: StudyStep | null } | null;
   /** Unread notifications (from the server; checked every few minutes). */
   unread: number;
-  /** The tense lesson open on 'grammarLesson' (a tense id). */
+  /** The grammar lesson open on 'grammarLesson' (a lesson id: a tense or a Foundations lesson). */
   grammarId: string;
-  /** The grammar practice session: a tense id or 'mix', the page to go back to, and a counter to start it over. */
+  /** The grammar practice session: a lesson id or a mix mode, the page to go back to, and a counter to start it over. */
   grammarPractice: { mode: string; back: Route; run: number } | null;
 }
 export type State = Data & UiState;
@@ -593,13 +593,13 @@ function useWordbookState() {
   };
 
   /* ---------- grammar ---------- */
-  /** Opens a tense lesson (or the Grammar page with no id). */
+  /** Opens a grammar lesson (or the Grammar page with no id). */
   const openGrammar = (id?: string) => {
     stopSpeaking();
     if (id) go('grammarLesson', { grammarId: id, study: null, grammarPractice: null });
     else go('grammar', { grammarPractice: null });
   };
-  /** Starts a full-screen practice set: one tense, or 'mix'. Leaving it goes back to the page it was started from. */
+  /** Starts a full-screen practice set: one lesson, or 'mix' / 'mix-tenses' / 'mix-foundations'. Leaving it goes back to the page it was started from. */
   const startGrammarPractice = (mode: string) => {
     stopSpeaking();
     const c = ref.current;

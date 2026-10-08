@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import {
-  api, ApiError, TENSES, isTense,
-  type GrammarForm, type GrammarGraded, type GrammarLesson, type GrammarQuestion, type GrammarTense, type Tense
+  api, ApiError, FOUNDATIONS, LESSON_IDS, TENSES, isLesson, isTense,
+  type GrammarForm, type GrammarGraded, type GrammarGroup, type GrammarLesson, type GrammarPerson, type GrammarQuestion, type GrammarTable,
+  type GrammarTense, type LessonId, type Tense
 } from '../lib/api';
 import { speak } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
@@ -19,11 +20,36 @@ export const TENSE_NAME: Record<Tense, string> = {
   'future-simple': 'Future simple (will)',
   'going-to': 'Future (be going to)'
 };
-const nameOf = (t: string) => (isTense(t) ? TENSE_NAME[t] : t);
+/** English names of every lesson (Foundations and tenses). */
+export const LESSON_NAME: Record<LessonId, string> = {
+  be: 'Be',
+  do: 'Do',
+  have: 'Have',
+  agreement: 'Subject–verb agreement',
+  'aux-cheatsheet': 'Cheat sheet',
+  ...TENSE_NAME
+};
+const nameOf = (t: string) => (isLesson(t) ? LESSON_NAME[t] : t);
 
 /** Questions in a practice set. */
 const PRACTICE_N = 10;
 const SORT_KEY = 'wordbook:grammarSort';
+const MIX_KEY = 'wordbook:grammarMix';
+
+/** Mixed practice over everything, or over one group. */
+type MixMode = 'mix' | 'mix-tenses' | 'mix-foundations';
+const MIX_MODES: { id: MixMode; label: string; sub: string }[] = [
+  { id: 'mix', label: 'All', sub: 'Helping verbs and tenses' },
+  { id: 'mix-tenses', label: 'Tenses', sub: 'The seven tenses' },
+  { id: 'mix-foundations', label: 'Foundations', sub: 'Be, do, have and agreement' }
+];
+const isMixMode = (m: unknown): m is MixMode => MIX_MODES.some((x) => x.id === m);
+const MIX_TITLE: Record<MixMode, string> = { mix: 'Mixed practice', 'mix-tenses': 'Mixed practice: tenses', 'mix-foundations': 'Mixed practice: foundations' };
+
+const GROUPS: { id: GrammarGroup; title: string; emoji: string; ids: readonly LessonId[] }[] = [
+  { id: 'foundations', title: 'Foundations: Helping verbs', emoji: '🧱', ids: FOUNDATIONS },
+  { id: 'tenses', title: 'Tenses', emoji: '⏱️', ids: TENSES }
+];
 
 const plural = (n: number, one: string, many = one + 's') => n + ' ' + (n === 1 ? one : many);
 
@@ -57,13 +83,50 @@ export function MasteryBadge({ value }: { value: number }) {
 
 /* ---------- Grammar home ---------- */
 
-/** The seven tenses with my mastery of each, and a mixed practice that leans on the weakest ones. */
+/** One lesson in the list: its mastery, or "Reference" for a page with nothing to practise (the cheat sheet). */
+function LessonCard({ t }: { t: GrammarTense }) {
+  const { a } = useWB();
+  const ref = t.drills === 0;
+  return (
+    <li className={'card gcard' + (ref ? ' gcard-ref' : '')}>
+      <div className="gcard-top">
+        <div className="gcard-t">
+          <h3 className="gcard-name">
+            <button className="gcard-link" onClick={() => a.openGrammar(t.id)} aria-describedby={'gc-' + t.id}>{t.name}</button>
+          </h3>
+          <span className="gcard-vi" lang="vi">{t.vi}</span>
+        </div>
+        {ref ? <span className="gcard-ic" aria-hidden="true"><Icon name="book" /></span> : <MasteryRing value={t.mastery} />}
+      </div>
+      <p className="gcard-sum muted sm" lang="vi">{t.summary}</p>
+      <div className="gcard-foot" id={'gc-' + t.id}>
+        {ref ? (
+          <>
+            <span className="badge t-blue"><Icon name="book" size="sm" />Reference</span>
+            <span className="muted xs">No practice — read and look up</span>
+          </>
+        ) : (
+          <>
+            <MasteryBadge value={t.mastery} />
+            <span className="muted xs">{t.attempts ? plural(t.attempts, 'answer') : 'Not practised yet'}</span>
+          </>
+        )}
+        <Icon name="right" size="sm" className="gcard-go" />
+      </div>
+    </li>
+  );
+}
+
+/** The lessons in two groups (Foundations, then the tenses) with my mastery of each, and a mixed practice that leans on the weakest ones. */
 export function GrammarHome() {
   const { a } = useWB();
   const [list, setList] = useState<GrammarTense[] | null>(null);
   const [err, setErr] = useState('');
   const [sort, setSort] = useState<'order' | 'weak'>(() => {
     try { return localStorage.getItem(SORT_KEY) === 'weak' ? 'weak' : 'order'; } catch { return 'order'; }
+  });
+  const [mix, setMix] = useState<MixMode>(() => {
+    try { const v = localStorage.getItem(MIX_KEY); return isMixMode(v) ? v : 'mix'; } catch { return 'mix'; }
   });
 
   const load = () => {
@@ -80,32 +143,47 @@ export function GrammarHome() {
     setSort(v);
     try { localStorage.setItem(SORT_KEY, v); } catch { /* storage blocked: just for this visit */ }
   };
+  const pickMix = (v: MixMode) => {
+    setMix(v);
+    try { localStorage.setItem(MIX_KEY, v); } catch { /* storage blocked: just for this visit */ }
+  };
 
   // Weakest first: lowest mastery, then the least practised; ties stay in lesson order (the sort is stable).
-  const shown = list && (sort === 'weak' ? [...list].sort((x, y) => x.mastery - y.mastery || x.attempts - y.attempts) : list);
-  const practised = list ? list.filter((t) => t.attempts > 0).length : 0;
-  const avg = list && list.length ? Math.round(list.reduce((n, t) => n + t.mastery, 0) / list.length) : 0;
+  // Reference pages (nothing to practise) stay at the end of their group.
+  const sorted = (xs: GrammarTense[]) => (sort === 'weak'
+    ? [...xs].sort((x, y) => Number(x.drills === 0) - Number(y.drills === 0) || x.mastery - y.mastery || x.attempts - y.attempts)
+    : xs);
+  // A lesson without a group (older API) counts as a tense.
+  const groupOf = (t: GrammarTense): GrammarGroup => (t.group === 'foundations' ? 'foundations' : 'tenses');
+  const practisable = list ? list.filter((t) => t.drills > 0) : [];
+  const practised = practisable.filter((t) => t.attempts > 0).length;
+  const avg = practisable.length ? Math.round(practisable.reduce((n, t) => n + t.mastery, 0) / practisable.length) : 0;
+  const mixInfo = MIX_MODES.find((m) => m.id === mix)!;
 
   return (
     <>
-      <PageHead title="Grammar" sub="The seven tenses you need at work — short lessons in Vietnamese with English examples, then practice." />
+      <PageHead title="Grammar" sub="Helping verbs first, then the seven tenses you need at work — short lessons in Vietnamese with English examples, then practice." />
 
       <section className="gmix" aria-labelledby="gmix-t">
         <span className="gmix-ic" aria-hidden="true"><Icon name="zap" size="lg" /></span>
         <div className="gmix-b">
           <h2 id="gmix-t" className="gmix-t">Mixed practice</h2>
-          <p className="gmix-s">Focuses on your weakest tenses · {PRACTICE_N} questions</p>
+          <p className="gmix-s" id="gmix-s">{mixInfo.sub} · your weakest first · {PRACTICE_N} questions</p>
         </div>
-        <button className="btn btn-white btn-lg" onClick={() => a.startGrammarPractice('mix')} aria-label="Start mixed practice">
+        <div className="seg gmix-seg" role="group" aria-label="What to practise">
+          {MIX_MODES.map((m) => (
+            <button key={m.id} className={mix === m.id ? 'on' : ''} aria-pressed={mix === m.id} onClick={() => pickMix(m.id)}>{m.label}</button>
+          ))}
+        </div>
+        <button className="btn btn-white btn-lg" onClick={() => a.startGrammarPractice(mix)} aria-label={'Start mixed practice: ' + mixInfo.label} aria-describedby="gmix-s">
           Start<Icon name="right" size="sm" />
         </button>
       </section>
 
       <div className="ghead">
-        <div>
-          <h2 className="h2">Tenses</h2>
-          {list && <span className="muted sm">{practised ? practised + ' of ' + list.length + ' practised · average mastery ' + avg + '%' : 'Start with a lesson, then practise it.'}</span>}
-        </div>
+        <span className="muted sm">
+          {list ? (practised ? practised + ' of ' + practisable.length + ' lessons practised · average mastery ' + avg + '%' : 'Start with a lesson, then practise it.') : ''}
+        </span>
         <div className="seg" role="group" aria-label="Order">
           <button className={sort === 'order' ? 'on' : ''} aria-pressed={sort === 'order'} onClick={() => pickSort('order')}>Lesson order</button>
           <button className={sort === 'weak' ? 'on' : ''} aria-pressed={sort === 'weak'} onClick={() => pickSort('weak')}>Weakest first</button>
@@ -116,32 +194,30 @@ export function GrammarHome() {
         <EmptyState icon="alert" tint="t-red" title="Can’t load the lessons" text={err}>
           <button className="btn btn-primary" onClick={() => { setList(null); load(); }}><Icon name="refresh" size="sm" />Try again</button>
         </EmptyState>
-      ) : !shown ? (
-        <div className="ggrid" aria-busy="true" aria-label="Loading lessons">
-          {TENSES.map((t) => <div key={t} className="sk" style={{ height: 178, borderRadius: 16 }} />)}
-        </div>
       ) : (
-        <ul className="ggrid" aria-label="Tense lessons">
-          {shown.map((t) => (
-            <li key={t.id} className="card gcard">
-              <div className="gcard-top">
-                <div className="gcard-t">
-                  <h3 className="gcard-name">
-                    <button className="gcard-link" onClick={() => a.openGrammar(t.id)} aria-describedby={'gc-' + t.id}>{t.name}</button>
-                  </h3>
-                  <span className="gcard-vi" lang="vi">{t.vi}</span>
+        GROUPS.map((g) => {
+          const items = list ? list.filter((t) => groupOf(t) === g.id) : null;
+          if (items && !items.length) return null;
+          const done = items ? items.filter((t) => t.drills > 0 && t.attempts > 0).length : 0;
+          const total = items ? items.filter((t) => t.drills > 0).length : 0;
+          return (
+            <section key={g.id} className="gsect" aria-labelledby={'gs-' + g.id}>
+              <div className="gsect-h">
+                <h2 id={'gs-' + g.id} className="h2"><span aria-hidden="true">{g.emoji} </span>{g.title}</h2>
+                {items && <span className="muted xs">{done} of {total} practised</span>}
+              </div>
+              {!items ? (
+                <div className="ggrid" aria-busy="true" aria-label="Loading lessons">
+                  {g.ids.map((t) => <div key={t} className="sk" style={{ height: 178, borderRadius: 16 }} />)}
                 </div>
-                <MasteryRing value={t.mastery} />
-              </div>
-              <p className="gcard-sum muted sm" lang="vi">{t.summary}</p>
-              <div className="gcard-foot" id={'gc-' + t.id}>
-                <MasteryBadge value={t.mastery} />
-                <span className="muted xs">{t.attempts ? plural(t.attempts, 'answer') : 'Not practised yet'}</span>
-                <Icon name="right" size="sm" className="gcard-go" />
-              </div>
-            </li>
-          ))}
-        </ul>
+              ) : (
+                <ul className="ggrid" aria-labelledby={'gs-' + g.id}>
+                  {sorted(items).map((t) => <LessonCard key={t.id} t={t} />)}
+                </ul>
+              )}
+            </section>
+          );
+        })
       )}
     </>
   );
@@ -212,7 +288,69 @@ function LessonLoading() {
   );
 }
 
-/** One tense: formula, uses, signal words, common mistakes and how it differs from its neighbour; then practise it. */
+/** "Not sure about …?" for the helping verb of a tense, pointing to its Foundations lesson. */
+function foundationHint(lesson: LessonId, f: 'be' | 'do' | 'have'): string {
+  if (f === 'be') return lesson.startsWith('past') ? 'was / were' : 'am / is / are';
+  return f === 'do' ? 'do / does / did' : 'have / has';
+}
+
+/**
+ * A reference table: the title as its caption, a header row, and one row per subject / case (its first cell is the row
+ * header; a label that says more than the first cell is shown above it). A row with a link opens that lesson (its button
+ * is the keyboard / screen reader way in; the whole row is clickable too). Phones get stacked cards.
+ */
+function LessonTable({ t, id, level = 2 }: { t: GrammarTable; id: string; level?: 2 | 3 }) {
+  const { a } = useWB();
+  const H = level === 2 ? 'h2' : 'h3';
+  return (
+    <table className="gtbl">
+      <caption className="gtcap"><H id={id} className={level === 2 ? 'glh2' : 'glh3'}>{level === 2 && <Icon name="grid" />}{t.title}</H></caption>
+      <thead>
+        <tr>{t.columns.map((c, k) => <th key={k} scope="col">{c}</th>)}</tr>
+      </thead>
+      <tbody>
+        {t.rows.map((r, k) => {
+          const link = isLesson(r.link) ? r.link : null;
+          const first = r.cells[0] ?? r.label;
+          const to = link ? LESSON_NAME[link] : '';
+          // Say where the link goes unless the row already names it ("Present simple" → Present simple).
+          const showTo = !!link && !to.toLowerCase().startsWith(first.toLowerCase());
+          return (
+            <tr key={k} className={link ? 'gtrow-link' : undefined} onClick={link ? () => a.openGrammar(link) : undefined}>
+              <th scope="row">
+                {r.label && r.label !== first && <span className="gt-lbl">{r.label}</span>}
+                {link ? (
+                  <button className="gt-go" onClick={(ev) => { ev.stopPropagation(); a.openGrammar(link); }}>
+                    <span>{first}</span>
+                    {showTo ? <small className="gt-to">Lesson: {to}</small> : <span className="c-sr"> — open the lesson</span>}
+                    <Icon name="right" size="sm" />
+                  </button>
+                ) : <span className="gt-first">{first}</span>}
+              </th>
+              {t.columns.slice(1).map((c, j) => <td key={j} data-label={c}>{r.cells[j + 1] ?? ''}</td>)}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+/** The helping verb by subject in a tense (from formula.persons). */
+function PersonsTable({ persons, id }: { persons: GrammarPerson[]; id: string }) {
+  const t: GrammarTable = {
+    title: 'By subject',
+    columns: ['Subject', 'Affirmative', 'Negative', 'Question'],
+    rows: persons.map((p) => ({ label: p.subject, cells: [p.subject, p.affirmative, p.negative, p.question] }))
+  };
+  return <LessonTable t={t} id={id} level={3} />;
+}
+
+/**
+ * One lesson. A tense: formula (with the helping verb by subject), uses, signal words, common mistakes and how it differs
+ * from its neighbour. A Foundations lesson: its tables, uses and mistakes. Then practise it (the cheat sheet has nothing to
+ * practise: it's a reference page).
+ */
 export function GrammarLessonPage() {
   const { s, a } = useWB();
   const id = s.grammarId;
@@ -251,60 +389,88 @@ export function GrammarLessonPage() {
   }
   if (!l) return <>{back}<LessonLoading /></>;
 
-  const idx = TENSES.indexOf(l.id);
-  const prev = idx > 0 ? TENSES[idx - 1] : null;
-  const next = idx >= 0 && idx < TENSES.length - 1 ? TENSES[idx + 1] : null;
-  const tenseName = (t: Tense) => (t === l.id ? l.name : t === l.compare.with && l.compareName ? l.compareName : nameOf(t));
+  // Lesson order (prev / next) runs across both groups, Foundations first, like the API's list.
+  const idx = LESSON_IDS.indexOf(l.id);
+  const prev = idx > 0 ? LESSON_IDS[idx - 1] : null;
+  const next = idx >= 0 && idx < LESSON_IDS.length - 1 ? LESSON_IDS[idx + 1] : null;
+  const isFoundation = l.group === 'foundations' || (FOUNDATIONS as readonly string[]).includes(l.id);
+  const groupIds: readonly LessonId[] = isFoundation ? FOUNDATIONS : TENSES;
+  const gIdx = groupIds.indexOf(l.id);
+  const tenseName = (t: Tense) => (t === l.id ? l.name : t === l.compare?.with && l.compareName ? l.compareName : nameOf(t));
+  const f = l.formula;
+  const found = f?.foundation && isLesson(f.foundation) ? f.foundation : null;
+  const canPractise = l.drillCount > 0;
 
   return (
     <article className="glesson" aria-labelledby="gl-title">
       {back}
       <header className="glhead">
-        {idx >= 0 && <span className="qkicker">Tense {idx + 1} of {TENSES.length}</span>}
+        {gIdx >= 0 && <span className="qkicker">{isFoundation ? 'Foundations' : 'Tense'} {gIdx + 1} of {groupIds.length}</span>}
         <h1 id="gl-title" ref={head} tabIndex={-1} className="h1 glh1">{l.name}</h1>
         <p className="glvi" lang="vi">{l.vi}</p>
         <p className="glsum" lang="vi">{l.summary}</p>
       </header>
 
-      <section className="card glsec" aria-labelledby="gl-formula">
-        <h2 id="gl-formula" className="glh2"><Icon name="layers" />Formula</h2>
-        <p className="glkey" aria-hidden="true">
-          <span className="gp gp-s">S</span>subject<span className="gp gp-a">helper</span>helper word<span className="gp gp-v">V</span>main verb
-        </p>
-        <table className="gltbl">
-          <thead>
-            <tr><th scope="col">Form</th><th scope="col">Pattern</th><th scope="col">Example</th></tr>
-          </thead>
-          <tbody>
-            {FORMS.map((f) => {
-              const row = l.formula[f];
-              if (!row) return null;
-              return (
-                <tr key={f}>
-                  <th scope="row"><span className={'badge ' + (f === 'affirmative' ? 't-green' : f === 'negative' ? 't-red' : 't-blue')}>{FORM_LABEL[f]}</span></th>
-                  <td data-label="Pattern"><Pattern text={row.pattern} /></td>
-                  <td data-label="Example"><Example en={row.example} vi={row.vi} /></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </section>
+      {f && (
+        <section className="card glsec" aria-labelledby="gl-formula">
+          <h2 id="gl-formula" className="glh2"><Icon name="layers" />Formula</h2>
+          <p className="glkey" aria-hidden="true">
+            <span className="gp gp-s">S</span>subject<span className="gp gp-a">helper</span>helper word<span className="gp gp-v">V</span>main verb
+          </p>
+          <table className="gltbl">
+            <thead>
+              <tr><th scope="col">Form</th><th scope="col">Pattern</th><th scope="col">Example</th></tr>
+            </thead>
+            <tbody>
+              {FORMS.map((fm) => {
+                const row = f[fm];
+                if (!row) return null;
+                return (
+                  <tr key={fm}>
+                    <th scope="row"><span className={'badge ' + (fm === 'affirmative' ? 't-green' : fm === 'negative' ? 't-red' : 't-blue')}>{FORM_LABEL[fm]}</span></th>
+                    <td data-label="Pattern"><Pattern text={row.pattern} /></td>
+                    <td data-label="Example"><Example en={row.example} vi={row.vi} /></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {!!f.persons?.length && <PersonsTable persons={f.persons} id="gl-persons" />}
+          {found && (
+            <p className="gfound">
+              <span aria-hidden="true">💡</span>
+              <span>Not sure about {foundationHint(l.id, found)}?</span>
+              <button className="linkbtn" onClick={() => a.openGrammar(found)}>
+                Lesson: {LESSON_NAME[found]}<Icon name="right" size="sm" />
+              </button>
+            </p>
+          )}
+        </section>
+      )}
 
-      <section className="card glsec" aria-labelledby="gl-uses">
-        <h2 id="gl-uses" className="glh2"><Icon name="listcheck" />How to use</h2>
-        <ol className="gluses">
-          {l.uses.map((u, k) => (
-            <li key={k} className="gluse">
-              <h3 className="gluse-t" lang="vi"><span className="gluse-n" aria-hidden="true">{k + 1}</span>{u.title}</h3>
-              <p className="gluse-x" lang="vi">{u.explain}</p>
-              <div className="glexs">{u.examples.map((ex, j) => <Example key={j} en={ex.en} vi={ex.vi} />)}</div>
-            </li>
-          ))}
-        </ol>
-      </section>
+      {l.tables?.map((t, k) => (
+        <section key={k} className="card glsec" aria-labelledby={'gl-t' + k}>
+          <LessonTable t={t} id={'gl-t' + k} />
+          {t.note && <p className="gtnote" lang="vi"><span aria-hidden="true">💡</span><span>{t.note}</span></p>}
+        </section>
+      ))}
 
-      {l.signals.length > 0 && (
+      {l.uses.length > 0 && (
+        <section className="card glsec" aria-labelledby="gl-uses">
+          <h2 id="gl-uses" className="glh2"><Icon name="listcheck" />How to use</h2>
+          <ol className="gluses">
+            {l.uses.map((u, k) => (
+              <li key={k} className="gluse">
+                <h3 className="gluse-t" lang="vi"><span className="gluse-n" aria-hidden="true">{k + 1}</span>{u.title}</h3>
+                <p className="gluse-x" lang="vi">{u.explain}</p>
+                {u.examples.length > 0 && <div className="glexs">{u.examples.map((ex, j) => <Example key={j} en={ex.en} vi={ex.vi} />)}</div>}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {!!l.signals?.length && (
         <section className="card glsec" aria-labelledby="gl-signals">
           <h2 id="gl-signals" className="glh2"><Icon name="hash" />Signal words</h2>
           <p className="muted sm glp">Words that often go with this tense.</p>
@@ -339,33 +505,40 @@ export function GrammarLessonPage() {
                 tag={<span className={'badge ' + (ex.tense === l.id ? 't-indigo' : 't-blue')}><Icon name="clock" size="sm" />{tenseName(ex.tense)}</span>} />
             ))}
           </div>
-          {isTense(l.compare.with) && (
-            <button className="linkbtn glmore" onClick={() => a.openGrammar(l.compare.with)}>
+          {isLesson(l.compare.with) && (
+            <button className="linkbtn glmore" onClick={() => a.openGrammar(l.compare!.with)}>
               Open the {l.compareName || nameOf(l.compare.with)} lesson<Icon name="right" size="sm" />
             </button>
           )}
         </section>
       )}
 
-      <div className="glcta">
-        <div className="glcta-m">
-          <MasteryBadge value={l.mastery} />
-          <span className="muted xs">{l.attempts ? plural(l.attempts, 'answer') + ' so far' : 'Not practised yet'}</span>
+      {canPractise ? (
+        <div className="glcta">
+          <div className="glcta-m">
+            <MasteryBadge value={l.mastery} />
+            <span className="muted xs">{l.attempts ? plural(l.attempts, 'answer') + ' so far' : 'Not practised yet'}</span>
+          </div>
+          <button className="btn btn-primary" onClick={() => a.startGrammarPractice(l.id)}>
+            <Icon name="zap" size="sm" />{isFoundation ? 'Practise this lesson' : 'Practise this tense'}<span className="glcta-n">({PRACTICE_N} questions)</span>
+          </button>
         </div>
-        <button className="btn btn-primary" onClick={() => a.startGrammarPractice(l.id)}>
-          <Icon name="zap" size="sm" />Practise this tense<span className="glcta-n">({PRACTICE_N} questions)</span>
-        </button>
-      </div>
+      ) : (
+        <div className="glcta glcta-ref">
+          <span className="muted sm">A reference page — nothing to practise here.</span>
+          <button className="btn btn-secondary" onClick={() => a.openGrammar()}><Icon name="left" size="sm" />Back to Grammar</button>
+        </div>
+      )}
 
       <nav className="glnav" aria-label="Other lessons">
         {prev ? (
           <button className="glnav-b" onClick={() => a.openGrammar(prev)}>
-            <Icon name="left" size="sm" /><span><small>Previous</small>{TENSE_NAME[prev]}</span>
+            <Icon name="left" size="sm" /><span><small>Previous</small>{LESSON_NAME[prev]}</span>
           </button>
         ) : <span />}
         {next && (
           <button className="glnav-b next" onClick={() => a.openGrammar(next)}>
-            <span><small>Next</small>{TENSE_NAME[next]}</span><Icon name="right" size="sm" />
+            <span><small>Next</small>{LESSON_NAME[next]}</span><Icon name="right" size="sm" />
           </button>
         )}
       </nav>
@@ -376,6 +549,9 @@ export function GrammarLessonPage() {
 /* ---------- practice session ---------- */
 
 type Phase = 'loading' | 'error' | 'taking' | 'sending' | 'result';
+
+/** Whether a question belongs to a tense lesson (its id is "<lesson>:<n>"); Foundations questions ask for the right form. */
+const inTense = (q: GrammarQuestion) => isTense(q.id.slice(0, q.id.lastIndexOf(':')));
 
 /** The prompt with its "___" as a text box (typed questions). */
 function TypedPrompt({ q, value, onChange, onEnter, inputRef, id }: {
@@ -396,14 +572,14 @@ function TypedPrompt({ q, value, onChange, onEnter, inputRef, id }: {
           onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); onEnter(); } }} />
         {after}
       </p>
-      <span id={id + '-full'} className="c-sr">{q.prompt.replace(/_{3,}/, 'blank')}. Put the verb in brackets in the right tense.</span>
+      <span id={id + '-full'} className="c-sr">{q.prompt.replace(/_{3,}/, 'blank')}. Put the verb in brackets in the right {inTense(q) ? 'tense' : 'form'}.</span>
     </>
   );
 }
 
 /**
  * A practice set in focus (full screen): one question at a time, typed or 4 choices; answers are graded on the server only
- * when the learner checks them all. Then the score, how each tense's mastery moved, and every answer explained.
+ * when the learner checks them all. Then the score, how each lesson's mastery moved, and every answer explained.
  * Esc or ✕ leaves (asking first once something is answered).
  */
 export function GrammarPractice() {
@@ -414,8 +590,8 @@ export function GrammarPractice() {
   const [qs, setQs] = useState<GrammarQuestion[]>([]);
   const [answers, setAnswers] = useState<string[]>([]);
   const [i, setI] = useState(0);
-  /** Mastery of each tense before this set (for "40% → 55%"). */
-  const [before, setBefore] = useState<Partial<Record<Tense, number>>>({});
+  /** Mastery of each lesson before this set (for "40% → 55%"). */
+  const [before, setBefore] = useState<Partial<Record<LessonId, number>>>({});
   const [result, setResult] = useState<GrammarGraded | null>(null);
   const [asking, setAsking] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -426,7 +602,7 @@ export function GrammarPractice() {
   const resHead = useRef<HTMLHeadingElement>(null);
   const errHead = useRef<HTMLHeadingElement>(null);
 
-  const title = mode === 'mix' ? 'Mixed practice' : nameOf(mode) + ' practice';
+  const title = isMixMode(mode) ? MIX_TITLE[mode] : nameOf(mode) + ' practice';
   const n = qs.length;
   const q = qs[i];
   const last = i === n - 1;
@@ -555,7 +731,7 @@ export function GrammarPractice() {
         </ol>
         <div key={i} className="hwq animA">
           <h2 ref={qHead} tabIndex={-1} className="qkicker gqk" id={hid}>
-            Question {i + 1} of {n} · {q.kind === 'tense' ? 'Put the verb in the right tense' : 'Choose the right verb form'}
+            Question {i + 1} of {n} · {q.kind === 'tense' ? 'Put the verb in the right ' + (inTense(q) ? 'tense' : 'form') : 'Choose the right verb form'}
           </h2>
           {q.kind === 'tense' || !q.choices.length ? (
             <TypedPrompt q={q} value={answer} onChange={setAnswer} onEnter={next} inputRef={input} id={hid} />
@@ -584,7 +760,7 @@ export function GrammarPractice() {
       </>
     );
   } else if (phase === 'result' && result) {
-    const lessons = (Object.entries(result.mastery) as [Tense, number][]).sort((x, y) => TENSES.indexOf(x[0]) - TENSES.indexOf(y[0]));
+    const lessons = (Object.entries(result.mastery) as [LessonId, number][]).sort((x, y) => LESSON_IDS.indexOf(x[0]) - LESSON_IDS.indexOf(y[0]));
     const pct = result.total ? Math.round((100 * result.correct) / result.total) : 0;
     body = (
       <div className="gres">
@@ -631,8 +807,8 @@ export function GrammarPractice() {
                   {!r.correct && <span>Answer: <b className="hw-ok">{r.answer}</b></span>}
                 </div>
                 <TenseNote label={r.tenseLabel} explain={r.explain} />
-                {/* The tense of the right answer: on contrast drills that's the one the learner mixed up. */}
-                {!r.correct && isTense(r.tense) && (
+                {/* The lesson to review: the tense of the right answer (on contrast drills, the one the learner mixed up) or the Foundations lesson. */}
+                {!r.correct && isLesson(r.tense) && (
                   <button className="linkbtn glink" onClick={() => a.openGrammar(r.tense)}>
                     <span aria-hidden="true">📖</span>Review the lesson<span className="c-sr">: {nameOf(r.tense)}</span>
                   </button>
@@ -658,7 +834,7 @@ export function GrammarPractice() {
           <button className="iconbtn" onClick={requestClose} aria-label="Close practice" title="Close (Esc)"><Icon name="x" /></button>
           <div className="stbar-t">
             <h1 className="stbar-c gtitle">{title}</h1>
-            <span className="muted sm">{mode === 'mix' ? 'Your weakest tenses come up most' : 'Grammar'}</span>
+            <span className="muted sm">{isMixMode(mode) ? 'Your weakest lessons come up most' : 'Grammar'}</span>
           </div>
         </div>
         {shownN > 0 && (

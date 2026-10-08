@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { api, ApiError, isTense, type CourseDay, type CourseDetail, type Homework, type HomeworkQuestion, type HomeworkResult } from '../lib/api';
+import { api, ApiError, isLesson, isTense, type CourseDay, type CourseDetail, type Homework, type HomeworkQuestion, type HomeworkResult } from '../lib/api';
 import { useWB } from '../state/WordbookContext';
 import { Icon } from '../components/ui';
 import { ConfirmDialog, errText } from './Courses';
@@ -48,8 +48,8 @@ export function Prompt({ q, fill }: { q: Pick<HomeworkQuestion, 'type' | 'prompt
 }
 
 /**
- * The tense and its Vietnamese explanation, shown once the answer is known. With a tense id, a link opens that tense's
- * grammar lesson (leaving a study session is fine: it's for reviewing).
+ * The tense (or topic) and its Vietnamese explanation, shown once the answer is known. With a lesson id (a tense or a
+ * Foundations lesson), a link opens that grammar lesson (leaving a study session is fine: it's for reviewing).
  */
 export function TenseNote({ label, explain, tense }: { label?: string; explain?: string; tense?: string }) {
   const { a } = useWB();
@@ -58,9 +58,9 @@ export function TenseNote({ label, explain, tense }: { label?: string; explain?:
     <div className="tensenote">
       {label && <span className="badge t-blue"><Icon name="clock" size="sm" />{label}</span>}
       {explain && <span className="sm" lang="vi">{explain}</span>}
-      {isTense(tense) && (
+      {isLesson(tense) && (
         <button className="linkbtn glink" onClick={() => a.openGrammar(tense)}>
-          <span aria-hidden="true">📖</span>Learn this tense{label && <span className="c-sr">: {label}</span>}
+          <span aria-hidden="true">📖</span>{isTense(tense) ? 'Learn this tense' : 'Learn this'}{label && <span className="c-sr">: {label}</span>}
         </button>
       )}
     </div>
