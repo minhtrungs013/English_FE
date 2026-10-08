@@ -734,7 +734,10 @@ export function GrammarPractice() {
             Question {i + 1} of {n} · {q.kind === 'tense' ? 'Put the verb in the right ' + (inTense(q) ? 'tense' : 'form') : 'Choose the right verb form'}
           </h2>
           {q.kind === 'tense' || !q.choices.length ? (
-            <TypedPrompt q={q} value={answer} onChange={setAnswer} onEnter={next} inputRef={input} id={hid} />
+            <>
+              <TypedPrompt q={q} value={answer} onChange={setAnswer} onEnter={next} inputRef={input} id={hid} />
+              <span className="keyhint">Type only the missing words — e.g. “has finished”, not “She has finished”.</span>
+            </>
           ) : (
             <>
               <p className="qtext hwprompt sentence" id={hid + '-p'}><Prompt q={{ type: 'tenseChoice', prompt: q.prompt }} fill={answer} /></p>

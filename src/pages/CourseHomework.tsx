@@ -289,6 +289,7 @@ export function HomeworkSection({ c, day, onSubmitted, embedded, bare, onClose }
               onChange={(ev) => setAnswer(ev.target.value)}
               onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); next(); } }} />
           )}
+          {q.type === 'tense' && <span className="keyhint">Type only the missing words — e.g. “has finished”, not “She has finished”.</span>}
         </div>
         <div className="hwnav">
           <button className="btn btn-secondary" onClick={() => setI(i - 1)} disabled={i === 0 || phase === 'sending'}><Icon name="left" size="sm" />Back</button>
