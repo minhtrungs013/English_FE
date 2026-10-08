@@ -988,8 +988,10 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 /* The word bank stays in view (under the study top bar) while scrolling through the lines. */
 .lsbankwrap{position:sticky;top:calc(var(--stbar-h, 0px) + 8px);z-index:5;box-shadow:0 0 0 1px var(--border),0 6px 16px -10px rgba(0,0,0,.35)}
 .lsbank .chip{background:var(--surface)}
-.lschip.used{opacity:.4;text-decoration:line-through;cursor:default}
-.lschip.used:hover{border-color:var(--border);color:var(--muted)}
+/* Used words stay clickable: tapping one moves it to the chosen blank. */
+.lschip.used{opacity:.45;text-decoration:line-through}
+.lsclear{width:28px;height:28px;min-width:28px;color:var(--muted)}
+.lsclear:hover{color:var(--danger)}
 .lsmode{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .lshard{display:inline-flex;align-items:center;gap:10px;font-weight:600}
 .lscheck{display:inline-flex;align-items:center;gap:10px}

@@ -157,15 +157,37 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
     setChipOf((a) => a.map((x, j) => (j === k ? chip : x)));
   };
   const fillChip = (i: number) => {
-    if (marks || used(i)) return;
+    if (marks) return;
     const t = target;
-    const next = answers.map((x, j) => (j === t ? bank[i] : x));
-    setBlank(t, bank[i], i);
+    // Every copy of this word is in use: take it out of another blank and move it here.
+    const from = used(i) && chipOf[t] !== i ? chipOf.findIndex((x, j) => x === i && j !== t) : -1;
+    const next = answers.map((x, j) => (j === t ? bank[i] : j === from ? '' : x));
+    setAnswers(next);
+    setChipOf((a) => a.map((x, j) => (j === t ? i : j === from ? null : x)));
     // On to the next empty blank (after this one, then from the start).
     const order = [...Array(nb).keys()].map((j) => (t + 1 + j) % nb);
     const to = order.find((j) => !next[j].trim());
     if (to !== undefined) setTarget(to);
-    setLive('Blank ' + (t + 1) + ': ' + bank[i] + '. ' + (to !== undefined ? 'Next: blank ' + (to + 1) + '.' : 'All blanks filled.'));
+    setLive('Blank ' + (t + 1) + ': ' + bank[i] + (from >= 0 ? ' (moved from blank ' + (from + 1) + ')' : '') + '. ' + (to !== undefined ? 'Next: blank ' + (to + 1) + '.' : 'All blanks filled.'));
+  };
+  /** Takes the word out of a blank (its chip goes back to the word bank) and makes that blank the next to fill. */
+  const clearBlank = (k: number) => {
+    setBlank(k, '', null);
+    setTarget(k);
+    setLive('Blank ' + (k + 1) + ' cleared.');
+  };
+  const clearAll = () => {
+    setAnswers(P.blanks.map(() => ''));
+    setChipOf(P.blanks.map(() => null));
+    setTarget(0);
+    setLive('All blanks cleared.');
+  };
+  /** After checking: edit the answers again (they're kept). */
+  const tryAgain = () => {
+    setMarks(null);
+    const firstWrong = marks ? marks.findIndex((x) => !x) : -1;
+    setTarget(firstWrong >= 0 ? firstWrong : 0);
+    setLive('Change the blanks you got wrong, then check again.');
   };
   const focusBlank = (k: number) => document.getElementById(hid + '-b' + k)?.focus();
   const checkBlanks = () => {
@@ -261,9 +283,14 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
           onChange={(ev) => setBlank(k, ev.target.value, null)}
           onKeyDown={(ev) => {
             if (marks) return;
-            if (!hard && (ev.key === 'Backspace' || ev.key === 'Delete') && answers[k]) { ev.preventDefault(); setBlank(k, '', null); setLive('Blank ' + (k + 1) + ' cleared.'); }
+            if (!hard && (ev.key === 'Backspace' || ev.key === 'Delete') && answers[k]) { ev.preventDefault(); clearBlank(k); }
             else if (ev.key === 'Enter') { ev.preventDefault(); if (k < nb - 1) focusBlank(k + 1); else checkBlanks(); }
           }} />
+        {!marks && !hard && answers[k] && (
+          <button type="button" className="iconbtn sm lsclear" onClick={() => { clearBlank(k); focusBlank(k); }} aria-label={'Clear blank ' + (k + 1)} title="Take this word out">
+            <Icon name="x" size="sm" />
+          </button>
+        )}
         {marks && !m && <span id={hid + '-fix' + k} className="lsfix"><span className="c-sr">Answer: </span>{b.said}</span>}
       </span>
     );
@@ -368,8 +395,8 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
         <span className="label" id={hid + '-bank'}>Word bank <span className="muted xs">— fills blank {target + 1}</span></span>
         <div className="chips lsbank" role="group" aria-labelledby={hid + '-bank'}>
           {bank.map((w, i) => (
-            <button key={w + i} className={'chip lschip' + (used(i) ? ' used' : '')} disabled={used(i)} onClick={() => fillChip(i)}
-              aria-label={used(i) ? w + ' (used)' : 'Put ' + w + ' in blank ' + (target + 1)}>{w}</button>
+            <button key={w + i} className={'chip lschip' + (used(i) ? ' used' : '')} onClick={() => fillChip(i)}
+              aria-label={(used(i) ? w + ' (used — move it to blank ' : 'Put ' + w + ' in blank ') + (target + 1) + (used(i) ? ')' : '')}>{w}</button>
           ))}
         </div>
       </div>
@@ -403,11 +430,15 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
         <div className="hwnav">
           <button className="btn btn-ghost" onClick={() => go('listen')}><Icon name="left" size="sm" />Back</button>
           {marks ? (
-            <button ref={nextBtn} className="btn btn-primary" onClick={() => go(qs.length ? 'questions' : 'summary')}>
-              {qs.length ? 'Next: questions' : 'See results'}<Icon name="right" size="sm" />
-            </button>
+            <span className="lscheck">
+              {blanksRight < nb && <button className="btn btn-secondary" onClick={tryAgain}><Icon name="refresh" size="sm" />Try again</button>}
+              <button ref={nextBtn} className="btn btn-primary" onClick={() => go(qs.length ? 'questions' : 'summary')}>
+                {qs.length ? 'Next: questions' : 'See results'}<Icon name="right" size="sm" />
+              </button>
+            </span>
           ) : (
             <span className="lscheck">
+              {filled > 0 && <button className="btn btn-ghost btn-sm" onClick={clearAll}>Clear all</button>}
               <span className="muted sm" aria-hidden="true">{filled}/{nb}</span>
               <button className="btn btn-primary" onClick={checkBlanks} disabled={!filled}><Icon name="check" size="sm" />Check<span className="c-sr"> ({filled} of {nb} blanks filled)</span></button>
             </span>
