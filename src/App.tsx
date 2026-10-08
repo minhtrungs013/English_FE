@@ -20,6 +20,7 @@ import { CoursePage } from './pages/Course';
 import { CourseEdit } from './pages/CourseEdit';
 import { CourseStudy } from './pages/CourseStudy';
 import { NotificationsPage } from './components/Notifications';
+import { GrammarHome, GrammarLessonPage, GrammarPractice } from './pages/Grammar';
 
 function useSystemDark() {
   const [dark, setDark] = useState(() => {
@@ -83,6 +84,9 @@ function Page() {
     case 'tags': return <Tags />;
     case 'settings': return <Settings />;
     case 'notifications': return <NotificationsPage />;
+    case 'grammar':
+    case 'grammarPractice': return <GrammarHome />;
+    case 'grammarLesson': return <GrammarLessonPage key={s.grammarId} />;
     default: return <Dashboard />;
   }
 }
@@ -94,6 +98,8 @@ export default function App() {
   const inSession = (s.route === 'review' && !!s.review) || (s.route === 'practice' && !!s.practice);
   /** A course day's study session: full screen too, once the app has loaded. */
   const inStudy = s.route === 'courseStudy' && !!s.study && s.status === 'ready';
+  /** A grammar practice set: full screen as well. */
+  const inGrammar = s.route === 'grammarPractice' && !!s.grammarPractice && s.status === 'ready';
 
   const { voice, rate, pitch, accent } = s.settings;
   useEffect(() => { setVoicePrefs({ voice, rate, pitch }); }, [voice, rate, pitch]);
@@ -106,7 +112,7 @@ export default function App() {
   return (
     <div className="shell">
       <div className={'app accent-' + (accent || 'indigo') + (dark ? ' dark' : '') + (s.rail ? ' rail' : '')}>
-        {s.status === 'auth' ? <AuthPage /> : inSession ? <Session /> : inStudy ? <CourseStudy key={s.courseId + ':' + s.study!.day} /> : (
+        {s.status === 'auth' ? <AuthPage /> : inSession ? <Session /> : inStudy ? <CourseStudy key={s.courseId + ':' + s.study!.day} /> : inGrammar ? <GrammarPractice key={'gp' + s.grammarPractice!.run} /> : (
           <>
             <Sidebar />
             <div className="mainwrap">

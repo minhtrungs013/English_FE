@@ -171,7 +171,7 @@ export function WarmupSection({ c, day, embedded, onDone, onClose }: {
             <div className={'wufb ' + (ok ? 'ok' : 'no')}>
               <b className="wufb-t"><Icon name={ok ? 'checkc' : 'alert'} size="sm" />{ok ? 'Correct!' : 'Not quite.'}</b>
               {!ok && <span>Answer: <b className="hw-ok">{q.answer}</b></span>}
-              <TenseNote label={q.tenseLabel} explain={q.explain} />
+              <TenseNote label={q.tenseLabel} explain={q.explain} tense={q.tense} />
             </div>
           )}
         </div>

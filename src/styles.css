@@ -1233,3 +1233,151 @@ button.tmini-row:hover{border-color:var(--primary)}
 .mday{grid-template-columns:minmax(0,1fr)}
 .mremove .btn{flex:1}
 }
+/* grammar: tense lessons and practice */
+.gmix{display:flex;align-items:center;gap:18px;padding:22px 24px;border-radius:18px;background:var(--primary);color:#fff;margin-bottom:28px}
+.gmix-ic{width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.gmix-b{flex:1;min-width:0}
+.gmix-t{margin:0;font-size:20px;font-weight:800;letter-spacing:-.01em}
+.gmix-s{margin:2px 0 0;color:#E9E6FF;font-weight:600;font-size:14.5px}
+.ghead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.ggrid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.gcard{position:relative;padding:20px;display:flex;flex-direction:column;gap:10px;min-width:0;transition:border-color .15s}
+.gcard:hover{border-color:var(--primary)}
+.gcard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.gcard-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.gcard-name{margin:0;font-size:18px;font-weight:800;letter-spacing:-.01em;line-height:1.3}
+.gcard-link{border:none;background:none;padding:0;margin:0;font:inherit;color:var(--text);text-align:left;cursor:pointer}
+.gcard-link::after{content:"";position:absolute;inset:0;border-radius:16px}
+.gcard-link:focus-visible{outline:none}
+.gcard-link:focus-visible::after{outline:2px solid var(--primary);outline-offset:2px}
+.gcard-vi{font-size:14px;font-weight:600;color:var(--primary-ink)}
+.gcard-sum{margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.gcard-foot{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;margin-top:auto;padding-top:4px}
+.gcard-go{margin-left:auto;color:var(--faint)}
+.gcard:hover .gcard-go{color:var(--primary-ink)}
+.gring{position:relative;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.gring svg{position:absolute;inset:0}
+.gring circle{fill:none;stroke-width:5}
+.gring-bg{stroke:var(--surface3)}
+.gring-fg{stroke:var(--faint);stroke-linecap:round;transition:stroke-dashoffset .4s}
+.gring.m-learning .gring-fg{stroke:var(--warning)}.gring.m-good .gring-fg{stroke:var(--info)}.gring.m-mastered .gring-fg{stroke:var(--success)}
+.gring.m-new .gring-fg{stroke:transparent}
+.gring b{position:relative;font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums}
+/* lesson */
+.glesson{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.glesson > .back{align-self:flex-start;margin-bottom:-8px}
+.glhead{display:flex;flex-direction:column;gap:4px}
+.glh1{outline:none;border-radius:6px}
+.glh1:focus-visible{outline:2px solid var(--primary);outline-offset:4px}
+.glvi{margin:0;font-size:18px;font-weight:700;color:var(--primary-ink)}
+.glsum{margin:8px 0 0;font-size:16.5px;line-height:1.7;max-width:72ch}
+.glsec{padding:22px 24px;display:flex;flex-direction:column;gap:14px}
+.glh2{margin:0;display:flex;align-items:center;gap:10px;font-size:19px;font-weight:800;letter-spacing:-.01em}
+.glh2 .ic{color:var(--primary-ink)}
+.glp{margin:0;line-height:1.65}
+.glkey{margin:0;display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;font-size:12.5px;color:var(--muted);font-weight:600}
+.glkey .gp{margin-left:6px}.glkey .gp:first-child{margin-left:0}
+.gltbl{width:100%;border-collapse:collapse}
+.gltbl th,.gltbl td{padding:12px 10px;text-align:left;vertical-align:top;border-top:1px solid var(--border)}
+.gltbl thead th{border-top:none;padding-top:0;font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.gltbl tbody th{width:130px;font-weight:700}
+.gltbl td[data-label="Pattern"]{width:38%}
+.gpat{display:flex;flex-direction:column;gap:6px}
+.gpat-alt{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.gpat-part{display:inline-flex;align-items:center;gap:4px}
+.gpat-plus{color:var(--faint);font-weight:800}
+.gpat-or{font-size:12px;font-weight:700;color:var(--muted);margin-right:4px}
+.gp{display:inline-flex;align-items:center;min-height:26px;padding:2px 8px;border-radius:7px;font-size:14px;font-weight:700;line-height:1.3}
+.gp-s{background:var(--info-soft);color:var(--info)}
+.gp-a{background:var(--warning-soft);color:var(--warning)}
+.gp-v{background:var(--success-soft);color:var(--success)}
+.glex{display:flex;flex-direction:column;gap:2px;min-width:0}
+.glex-tag{margin-bottom:4px}
+.glex-en{display:flex;align-items:flex-start;gap:4px;font-size:16px;font-weight:600;line-height:1.5}
+.glex-en > span{padding-top:6px;overflow-wrap:anywhere}
+.glex-en .iconbtn{margin-top:-1px}
+.glex-vi{font-size:14px;color:var(--muted);line-height:1.55}
+.glexs{display:flex;flex-direction:column;gap:12px;padding:12px 16px;border-radius:12px;background:var(--surface2)}
+.gluses{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:22px}
+.gluse{display:flex;flex-direction:column;gap:8px}
+.gluse-t{margin:0;display:flex;align-items:flex-start;gap:10px;font-size:16.5px;font-weight:800;line-height:1.4}
+.gluse-n{width:26px;height:26px;border-radius:8px;background:var(--primary-soft);color:var(--primary-ink);display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.gluse-x{margin:0;line-height:1.65}
+.glsigs{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.gsig{display:inline-flex;align-items:center;min-height:32px;padding:0 13px;border-radius:99px;background:var(--primary-soft);color:var(--primary-ink);font-weight:700;font-size:14px}
+.glmist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.glmist-i{display:flex;flex-direction:column;gap:6px;padding:14px 0;border-top:1px solid var(--border)}
+.glmist-i:first-child{border-top:none;padding-top:0}
+.glwrong,.glright{display:flex;align-items:center;gap:8px;font-size:16px;line-height:1.45}
+.glwrong s{color:var(--danger);text-decoration-thickness:2px}
+.glright{font-weight:700;color:var(--success)}
+.glright .iconbtn{margin:-8px 0}
+.glmark{font-size:14px;flex-shrink:0;width:20px;text-align:center}
+.glmist-x{margin:0 0 0 28px;color:var(--muted);font-size:14.5px;line-height:1.6}
+.glmore{align-self:flex-start}
+.glcta{position:sticky;bottom:16px;z-index:15;display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;padding:12px 14px 12px 18px;border-radius:16px;border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow-lg)}
+.glcta-m{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap}
+.glcta-n{font-weight:600;opacity:.85}
+.glnav{display:flex;justify-content:space-between;gap:12px}
+.glnav-b{display:inline-flex;align-items:center;gap:10px;min-height:56px;padding:8px 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;font-weight:700;cursor:pointer;text-align:left;max-width:50%}
+.glnav-b.next{text-align:right;margin-left:auto}
+.glnav-b:hover{border-color:var(--primary)}
+.glnav-b span{display:flex;flex-direction:column;line-height:1.3}
+.glnav-b small{font-size:12px;font-weight:600;color:var(--muted)}
+.glink{align-self:flex-start;gap:6px}
+/* grammar practice session */
+.gtitle{margin:0;font-weight:800}
+.gpbar{display:flex;align-items:center;gap:12px;flex:1 1 220px;max-width:420px}
+.gdots{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.gdot{width:32px;height:32px;border-radius:9px;border:1.5px solid var(--border);background:var(--surface);color:var(--muted);font:inherit;font-size:12.5px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums}
+.gdot:hover:not(:disabled){border-color:var(--primary)}
+.gdot.done{background:var(--primary-soft);border-color:var(--primary-soft);color:var(--primary-ink)}
+.gdot.on{border-color:var(--primary);background:var(--primary);color:#fff}
+.gdot:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.gqk{margin:0;outline:none;border-radius:4px}
+.gqk:focus-visible{outline:2px solid var(--primary);outline-offset:4px}
+.gprompt{font-size:24px;line-height:1.7;overflow-wrap:anywhere}
+.gblank{display:inline-block;max-width:100%;min-height:44px;margin:0 4px;padding:0 8px;border:none;border-bottom:3px solid var(--primary);border-radius:8px 8px 0 0;background:var(--primary-soft);color:var(--primary-ink);font:inherit;font-weight:800;text-align:center;outline:none;vertical-align:baseline}
+.gblank:focus{box-shadow:0 0 0 3px var(--bar)}
+.gerr-h{margin:0;font-size:19px;font-weight:800;outline:none}
+.gres{display:flex;flex-direction:column;gap:20px}
+.gmchg-w{display:flex;flex-direction:column;gap:8px}
+.gmchg{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.gmchg li{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;padding:10px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--border)}
+.gmchg-n{font-weight:700;flex:1 1 160px}
+.gmchg-v{font-variant-numeric:tabular-nums;color:var(--muted)}
+.gmchg-v b{color:var(--text)}
+.gres .hwrev{padding:4px 20px;border-radius:16px;border:1px solid var(--border);background:var(--surface)}
+.gres .hwritem:first-child{border-top:none}
+@media (prefers-reduced-motion: reduce){.gring-fg{transition:none}}
+@container (max-width: 1120px){
+.ggrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@container (max-width: 760px){
+.gmix{flex-wrap:wrap;padding:18px;gap:14px;margin-bottom:22px}
+.gmix .btn{flex:1 1 100%}
+.ghead .seg{width:100%}
+.ghead .seg button{flex:1}
+.ggrid{grid-template-columns:minmax(0,1fr);gap:12px}
+.gcard{padding:16px}
+.glesson{gap:16px}
+.glsum{font-size:15.5px}
+.glsec{padding:18px 16px}
+.gltbl thead{display:none}
+.gltbl,.gltbl tbody,.gltbl tr,.gltbl th,.gltbl td{display:block;width:auto}
+.gltbl tbody th,.gltbl td[data-label="Pattern"]{width:auto}
+.gltbl tr{padding:12px 0;border-top:1px solid var(--border)}
+.gltbl tr:first-child{border-top:none;padding-top:0}
+.gltbl th,.gltbl td{padding:4px 0;border-top:none}
+.gltbl td::before{content:attr(data-label);display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px}
+.glexs{padding:10px 12px}
+.glmist-x{margin-left:0}
+.glcta{bottom:86px;padding:10px 12px}
+.glcta .btn{flex:1 1 100%;white-space:normal}
+.glnav-b{max-width:none;flex:1;min-width:0}
+.gpbar{flex-basis:100%;max-width:none}
+.gprompt{font-size:20px}
+.gdots{gap:4px}
+.gdot{width:28px;height:30px;border-radius:8px}
+.gres .hwrev{padding:4px 14px}
+}

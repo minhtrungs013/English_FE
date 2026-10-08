@@ -153,6 +153,9 @@ export interface Leaderboard {
 
 /* ---------- tense question bank & warm-up ---------- */
 export type Tense = 'present-simple' | 'present-continuous' | 'present-perfect' | 'past-simple' | 'past-continuous' | 'future-simple' | 'going-to';
+/** The tenses in the order the grammar lessons teach them. */
+export const TENSES: readonly Tense[] = ['present-simple', 'present-continuous', 'present-perfect', 'past-simple', 'past-continuous', 'future-simple', 'going-to'];
+export const isTense = (t: unknown): t is Tense => typeof t === 'string' && (TENSES as readonly string[]).includes(t);
 /**
  * tense: typed — the sentence has one "___" and the base verb in brackets ("Yesterday we ___ (deploy) the hotfix.") ·
  * tenseChoice: the same with 4 choices · recap: a short story using earlier days' words (explain = its Vietnamese translation) ·
@@ -243,6 +246,35 @@ export interface NoteLink {
 export interface Note { id: string; type: NoteType; title: string; body: string; link: NoteLink | null; count: number; read: boolean; at: number }
 /** Newest first; hasMore: older ones exist (page back with `before` = the last item's `at`). */
 export interface NotePage { items: Note[]; hasMore: boolean; unread: number }
+
+/* ---------- grammar (tense lessons & practice) ---------- */
+/** mastery: 0–100 from the recent answers · lastAt: ms of the last practice, null when never practised. */
+export interface GrammarTense {
+  id: Tense; name: string; vi: string; summary: string; drills: number; mastery: number; attempts: number; lastAt: number | null;
+}
+export interface GrammarExample { en: string; vi: string }
+export type GrammarForm = 'affirmative' | 'negative' | 'question';
+/** Theory (summary, explain, vi) is in Vietnamese; patterns and examples are in English. */
+export interface GrammarLesson {
+  id: Tense; name: string; vi: string; summary: string;
+  formula: Record<GrammarForm, { pattern: string; example: string; vi: string }>;
+  uses: { title: string; explain: string; examples: GrammarExample[] }[];
+  signals: string[];
+  mistakes: { wrong: string; right: string; explain: string }[];
+  compare: { with: Tense; explain: string; examples: (GrammarExample & { tense: Tense })[] };
+  compareName: string; drillCount: number; mastery: number; attempts: number;
+}
+/** prompt has one "___"; typed ones ('tense') show the base verb in brackets after it. No answers — they're graded on submit. */
+export interface GrammarQuestion { id: string; kind: 'tense' | 'tenseChoice'; level: 'easy' | 'medium' | 'hard'; prompt: string; choices: string[] }
+/** mode: a tense id, or 'mix' (weaker tenses come up more often). */
+export interface GrammarPractice { mode: string; questions: GrammarQuestion[] }
+/** lesson: the lesson the question belongs to (its mastery changes) · tense / tenseLabel: the tense of the answer · explain: Vietnamese. */
+export interface GrammarResult {
+  id: string; lesson: Tense; tense: Tense; tenseLabel: string; prompt: string;
+  yourAnswer: string; answer: string; correct: boolean; explain: string;
+}
+/** mastery: each practised lesson's mastery after this set. */
+export interface GrammarGraded { results: GrammarResult[]; correct: number; total: number; mastery: Partial<Record<Tense, number>> }
 
 export const api = {
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
@@ -348,5 +380,12 @@ export const api = {
   unreadNotifications: () => req<{ unread: number }>('GET', '/notifications/unread'),
   /** Marks the given notifications read, or every one with 'all'. */
   markNotificationsRead: (ids: string[] | 'all') => req<{ unread: number }>('POST', '/notifications/read', ids === 'all' ? { all: true } : { ids }),
-  deleteNotification: (id: string) => req<void>('DELETE', '/notifications/' + id)
+  deleteNotification: (id: string) => req<void>('DELETE', '/notifications/' + id),
+
+  /* Grammar: the tense lessons, my mastery of each, and practice sets (graded on the server). */
+  grammar: () => req<{ tenses: GrammarTense[] }>('GET', '/grammar'),
+  grammarLesson: (tense: string) => req<GrammarLesson>('GET', '/grammar/' + encodeURIComponent(tense)),
+  grammarPractice: (mode: string, n = 10) => req<GrammarPractice>('GET', '/grammar/practice?mode=' + encodeURIComponent(mode) + '&n=' + n),
+  /** 1–20 answers ('' for none). Updates my mastery of each lesson in the set. */
+  submitGrammar: (answers: { id: string; answer: string }[]) => req<GrammarGraded>('POST', '/grammar/practice', { answers })
 };

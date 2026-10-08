@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { api, ApiError, type CourseDay, type CourseDetail, type Homework, type HomeworkQuestion, type HomeworkResult } from '../lib/api';
+import { api, ApiError, isTense, type CourseDay, type CourseDetail, type Homework, type HomeworkQuestion, type HomeworkResult } from '../lib/api';
 import { useWB } from '../state/WordbookContext';
 import { Icon } from '../components/ui';
 import { ConfirmDialog, errText } from './Courses';
@@ -47,13 +47,22 @@ export function Prompt({ q, fill }: { q: Pick<HomeworkQuestion, 'type' | 'prompt
   return <>{q.prompt.slice(0, m.index)}<span className="blank">{fill || ' '}</span>{q.prompt.slice(m.index + m[0].length)}</>;
 }
 
-/** The tense and its Vietnamese explanation, shown once the answer is known. */
-export function TenseNote({ label, explain }: { label?: string; explain?: string }) {
+/**
+ * The tense and its Vietnamese explanation, shown once the answer is known. With a tense id, a link opens that tense's
+ * grammar lesson (leaving a study session is fine: it's for reviewing).
+ */
+export function TenseNote({ label, explain, tense }: { label?: string; explain?: string; tense?: string }) {
+  const { a } = useWB();
   if (!label && !explain) return null;
   return (
     <div className="tensenote">
       {label && <span className="badge t-blue"><Icon name="clock" size="sm" />{label}</span>}
       {explain && <span className="sm" lang="vi">{explain}</span>}
+      {isTense(tense) && (
+        <button className="linkbtn glink" onClick={() => a.openGrammar(tense)}>
+          <span aria-hidden="true">📖</span>Learn this tense{label && <span className="c-sr">: {label}</span>}
+        </button>
+      )}
     </div>
   );
 }
@@ -84,7 +93,7 @@ function HomeworkReviewList({ r }: { r: HomeworkResult }) {
               <span>Your answer: <b className={q.correct ? 'hw-ok' : 'hw-no'}>{q.yourAnswer || '(no answer)'}</b></span>
               {!q.correct && <span>Answer: <b className="hw-ok">{q.answer}</b></span>}
             </div>
-            <TenseNote label={q.tenseLabel} explain={q.explain} />
+            <TenseNote label={q.tenseLabel} explain={q.explain} tense={q.tense} />
           </div>
         </li>
       ))}

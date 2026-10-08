@@ -9,7 +9,7 @@ import { stopSpeaking } from '../lib/speech';
 
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
 
-export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy' | 'notifications';
+export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy' | 'notifications' | 'grammar' | 'grammarLesson' | 'grammarPractice';
 export type CourseTab = 'today' | 'map' | 'board' | 'members';
 /** A step of a course day in the study session. */
 export type StudyStep = 'review' | 'learn' | 'listen' | 'homework';
@@ -51,6 +51,10 @@ interface UiState {
   study: { day: number; step: StudyStep | null } | null;
   /** Unread notifications (from the server; checked every few minutes). */
   unread: number;
+  /** The tense lesson open on 'grammarLesson' (a tense id). */
+  grammarId: string;
+  /** The grammar practice session: a tense id or 'mix', the page to go back to, and a counter to start it over. */
+  grammarPractice: { mode: string; back: Route; run: number } | null;
 }
 export type State = Data & UiState;
 
@@ -74,7 +78,7 @@ function initialState(): State {
     route: 'dashboard', prevRoute: 'dashboard', sel: null, rail: false,
     filters: NO_FILTERS, menu: null, notif: false, account: false,
     form: emptyForm(), editForm: emptyForm(), formErr: '', aiBusy: false, aiStep: 0,
-    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: '', courseTab: '', study: null, unread: 0
+    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: '', courseTab: '', study: null, unread: 0, grammarId: '', grammarPractice: null
   };
 }
 
@@ -169,7 +173,7 @@ function useWordbookState() {
 
   const inSession = () => {
     const c = ref.current;
-    return (c.route === 'review' && !!c.review) || (c.route === 'practice' && !!c.practice) || (c.route === 'courseStudy' && !!c.study);
+    return (c.route === 'review' && !!c.review) || (c.route === 'practice' && !!c.practice) || (c.route === 'courseStudy' && !!c.study) || (c.route === 'grammarPractice' && !!c.grammarPractice);
   };
 
   /* ---------- review ---------- */
@@ -588,6 +592,26 @@ function useWordbookState() {
     go('courseStudy', { courseId: id, study: { day, step } });
   };
 
+  /* ---------- grammar ---------- */
+  /** Opens a tense lesson (or the Grammar page with no id). */
+  const openGrammar = (id?: string) => {
+    stopSpeaking();
+    if (id) go('grammarLesson', { grammarId: id, study: null, grammarPractice: null });
+    else go('grammar', { grammarPractice: null });
+  };
+  /** Starts a full-screen practice set: one tense, or 'mix'. Leaving it goes back to the page it was started from. */
+  const startGrammarPractice = (mode: string) => {
+    stopSpeaking();
+    const c = ref.current;
+    const back: Route = c.route === 'grammarPractice' ? c.grammarPractice?.back ?? 'grammar' : c.route === 'grammarLesson' ? 'grammarLesson' : 'grammar';
+    go('grammarPractice', { grammarPractice: { mode, back, run: (c.grammarPractice?.run ?? 0) + 1 } });
+  };
+  /** Leaves the practice session for the page it was started from. */
+  const exitGrammarPractice = () => {
+    stopSpeaking();
+    go(ref.current.grammarPractice?.back ?? 'grammar', { grammarPractice: null });
+  };
+
   /* ---------- notifications ---------- */
   /** Marks notifications read ('all' = every one). Returns false on failure. */
   const markNotesRead = async (ids: string[] | 'all'): Promise<boolean> => {
@@ -622,6 +646,7 @@ function useWordbookState() {
     setF, addChip, generate, save, openEdit, goNew, formCancel,
     askDeleteWord, confirmModal, submitModal, patchModal,
     exportData, setSettings, setFilters, showWordsWith, reload: load, login, register, logout, saveFromLibrary, shareWord, learnCourseDay, saveCourseWords, openCourse, openStudy,
+    openGrammar, startGrammarPractice, exitGrammarPractice,
     markNotesRead, deleteNote, openNote,
     setUnread: (unread: number) => set({ unread }),
     clearFilters: () => set({ filters: NO_FILTERS }),
