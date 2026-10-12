@@ -165,11 +165,26 @@ export function WordsPerDayPicker({ value, onChange, id }: { value: number; onCh
   );
 }
 
+/** "Dictation sentences per day" (0–3) with its help text; `id` labels the group, `id + '-h'` is the help text. */
+export function DictationPerDayPicker({ value, onChange, id }: { value: number; onChange: (n: number) => void; id: string }) {
+  return (
+    <>
+      <div className="seg" role="group" aria-labelledby={id} aria-describedby={id + '-h'}>
+        {[0, 1, 2, 3].map((n) => (
+          <button key={n} className={value === n ? 'on' : ''} aria-pressed={value === n} onClick={() => onChange(n)}>{n === 0 ? 'None' : n}</button>
+        ))}
+      </div>
+      <span className="hint" id={id + '-h'}>Learners hear an example sentence of an earlier word and type it. Counted in the homework score.</span>
+    </>
+  );
+}
+
 function CreateCourse({ onClose }: { onClose: () => void }) {
   const { a } = useWB();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [wpd, setWpd] = useState(5);
+  const [dpd, setDpd] = useState(2);
   const [visibility, setVisibility] = useState<CourseSummary['visibility']>('private');
   const [start, setStart] = useState<StartPick>({ fixed: false, date: '' });
   const [err, setErr] = useState('');
@@ -181,7 +196,7 @@ function CreateCourse({ onClose }: { onClose: () => void }) {
     if ('error' in sd) { setErr(sd.error); return; }
     setBusy(true);
     try {
-      const c = await api.createCourse({ title: title.trim(), description: description.trim(), wordsPerDay: wpd, visibility, startDate: sd.startDate });
+      const c = await api.createCourse({ title: title.trim(), description: description.trim(), wordsPerDay: wpd, dictationPerDay: dpd, visibility, startDate: sd.startDate });
       a.showToast('Course “' + c.title + '” created. Now add words to each day.');
       a.openCourse(c.id, true);
     } catch (e) {
@@ -205,6 +220,10 @@ function CreateCourse({ onClose }: { onClose: () => void }) {
       <div className="field">
         <span className="label" id="nc-wpd">Words per day</span>
         <WordsPerDayPicker id="nc-wpd" value={wpd} onChange={setWpd} />
+      </div>
+      <div className="field">
+        <span className="label" id="nc-dpd">Dictation sentences per day</span>
+        <DictationPerDayPicker id="nc-dpd" value={dpd} onChange={setDpd} />
       </div>
       <div className="field">
         <span className="label">Who can join</span>

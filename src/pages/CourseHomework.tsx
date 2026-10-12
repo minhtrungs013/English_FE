@@ -1,8 +1,21 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { api, ApiError, isLesson, isTense, type CourseDay, type CourseDetail, type Homework, type HomeworkQuestion, type HomeworkResult } from '../lib/api';
+import { canSpeak, speak, stopSpeaking } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { Icon } from '../components/ui';
 import { ConfirmDialog, errText } from './Courses';
+import { SLOW, Tokens } from './Dictation';
+
+/** A dictation question's sentence: base64 of its UTF-8 text (plain `atob` if TextDecoder isn't there; the sentences are ASCII). */
+export function decodeAudio(b64?: string): string {
+  if (!b64) return '';
+  try {
+    const bin = atob(b64);
+    try { return new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0))); } catch { return bin; }
+  } catch {
+    return '';
+  }
+}
 
 const DAY_MS = 86_400_000;
 const utc = (key: string) => { const [y, m, d] = key.split('-').map(Number); return Date.UTC(y, m - 1, d); };
@@ -34,7 +47,8 @@ export const ASK: Record<HomeworkQuestion['type'], string> = {
   type: 'Type the word for this meaning',
   blank: 'Fill in the missing word',
   tense: 'Put the verb in the right tense',
-  tenseChoice: 'Choose the right verb form'
+  tenseChoice: 'Choose the right verb form',
+  dictation: 'Listen and type the sentence'
 };
 
 /** Questions whose prompt is a sentence with a gap ("_____" for blank, "___" for tense ones). */
@@ -87,12 +101,31 @@ function HomeworkReviewList({ r }: { r: HomeworkResult }) {
               <span className="muted xs" style={{ fontWeight: 700 }}>{i + 1}. {ASK[q.type]}</span>
               {q.review && <span className="badge t-amber">Review</span>}
             </div>
-            <div className="hwrprompt"><Prompt q={q} fill={isSentence(q.type) ? q.answer : undefined} /></div>
-            <div className="hwans">
-              <span className="c-sr">{q.correct ? 'Correct.' : 'Wrong.'}</span>
-              <span>Your answer: <b className={q.correct ? 'hw-ok' : 'hw-no'}>{q.yourAnswer || '(no answer)'}</b></span>
-              {!q.correct && <span>Answer: <b className="hw-ok">{q.answer}</b></span>}
-            </div>
+            {q.type === 'dictation' ? (
+              <>
+                <div className="hwans">
+                  <span className="c-sr">{q.correct ? 'Correct.' : 'Wrong.'}</span>
+                  <span>Your answer: <b className={q.correct ? 'hw-ok' : 'hw-no'}>{q.yourAnswer || '(no answer)'}</b></span>
+                  {q.grade && <span className="muted xs">Score {q.grade.score}%</span>}
+                </div>
+                <div className={'dc-fb ' + (q.correct ? 'ok' : 'no')}>
+                  {q.grade && <Tokens tokens={q.grade.tokens} />}
+                  <div className="dc-full">
+                    <span className="dc-en"><span className="c-sr">The sentence: </span>{q.answer}</span>
+                    <button className="iconbtn sm" onClick={() => speak(q.answer)} aria-label={'Play again: ' + q.answer} title="Play again"><Icon name="volume" size="sm" /></button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="hwrprompt"><Prompt q={q} fill={isSentence(q.type) ? q.answer : undefined} /></div>
+                <div className="hwans">
+                  <span className="c-sr">{q.correct ? 'Correct.' : 'Wrong.'}</span>
+                  <span>Your answer: <b className={q.correct ? 'hw-ok' : 'hw-no'}>{q.yourAnswer || '(no answer)'}</b></span>
+                  {!q.correct && <span>Answer: <b className="hw-ok">{q.answer}</b></span>}
+                </div>
+              </>
+            )}
             <TenseNote label={q.tenseLabel} explain={q.explain} tense={q.tense} />
           </div>
         </li>
@@ -145,8 +178,12 @@ export function HomeworkSection({ c, day, onSubmitted, embedded, bare, onClose }
   const [asking, setAsking] = useState(false);
   const qHead = useRef<HTMLHeadingElement>(null);
   const input = useRef<HTMLInputElement>(null);
+  const area = useRef<HTMLTextAreaElement>(null);
   const startBtn = useRef<HTMLButtonElement>(null);
   const opened = useRef(false);
+  /** Times each dictation question was played, and the ones that already auto-played once. */
+  const [plays, setPlays] = useState<number[]>([]);
+  const autoPlayed = useRef(new Set<number>());
 
   const e = c.enrollment!;
   const late = lateDaysFor(e.startDay, day.day);
@@ -166,6 +203,8 @@ export function HomeworkSection({ c, day, onSubmitted, embedded, bare, onClose }
         setPhase('result');
       } else {
         setAnswers(h.questions.map(() => ''));
+        setPlays(h.questions.map(() => 0));
+        autoPlayed.current = new Set();
         setI(0);
         setPhase('taking');
       }
@@ -206,18 +245,43 @@ export function HomeworkSection({ c, day, onSubmitted, embedded, bare, onClose }
     else void send();
   };
 
+  /** Speaks the current dictation sentence (factor: the learner's speed × this) and counts the play. */
+  const playQ = (factor = 1) => {
+    if (!q || q.type !== 'dictation') return;
+    speak(decodeAudio(q.audio), factor);
+    const k = i;
+    setPlays((prev) => prev.map((x, j) => (j === k ? x + 1 : x)));
+  };
+
   // Move focus to the new question: the input for typed answers, else the question itself.
   useEffect(() => {
     if (phase !== 'taking' || !q) return;
     if (q.choices.length) qHead.current?.focus();
+    else if (q.type === 'dictation') area.current?.focus();
     else input.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, i]);
 
-  // 1–4 pick a choice; Enter goes on when the focus isn't on a control.
+  // A dictation question plays once by itself the first time it appears (marked when it plays, so StrictMode's re-run still plays it).
+  useEffect(() => {
+    if (phase !== 'taking' || q?.type !== 'dictation' || autoPlayed.current.has(i)) return;
+    const k = i;
+    const t = window.setTimeout(() => { autoPlayed.current.add(k); playQ(); }, 350);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, i]);
+
+  // Stop any sentence still being spoken when the homework is handed in or closed.
+  useEffect(() => {
+    if (phase !== 'taking') stopSpeaking();
+  }, [phase]);
+  useEffect(() => () => stopSpeaking(), []);
+
+  // 1–4 pick a choice; Enter goes on when the focus isn't on a control; Ctrl+Space replays a dictation sentence.
   useEffect(() => {
     if (phase !== 'taking' || !q || asking) return;
     const onKey = (ev: KeyboardEvent) => {
+      if (q.type === 'dictation' && ev.key === ' ' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); playQ(); return; }
       const tag = (ev.target as HTMLElement).tagName;
       if (ev.ctrlKey || ev.metaKey || ev.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(tag)) return;
       const k = Number(ev.key);
@@ -267,11 +331,36 @@ export function HomeworkSection({ c, day, onSubmitted, embedded, bare, onClose }
         </div>
         <div key={i} className="hwq animA">
           <Kicker q={q}>Question {i + 1} of {n} · {ASK[q.type]}</Kicker>
-          <h4 ref={qHead} tabIndex={-1} className={'qtext hwprompt' + (isSentence(q.type) ? ' sentence' : '')} id={'hwq-' + day.day}>
-            <Prompt q={q} fill={answer.trim()} />
-          </h4>
-          {q.hint && <div className="muted sm">Hint: {q.hint}</div>}
-          {q.choices.length ? (
+          {q.type === 'dictation' ? (
+            <>
+              <div className="listen dc-play">
+                <button className="playbig" onClick={() => playQ()} aria-label="Play the sentence"><Icon name="play" /></button>
+                <div className="stack" style={{ gap: 8 }}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => playQ(SLOW)}>
+                    <span aria-hidden="true">🐢</span>Slow<span className="c-sr">: play the sentence slowly</span>
+                  </button>
+                  <span className="muted sm">{plays[i] ? 'Played ' + plays[i] + '×' : 'Not played yet'}</span>
+                </div>
+              </div>
+              {!canSpeak() && <div className="errtxt"><Icon name="alert" size="sm" />Your browser can’t play speech, so audio may not work here.</div>}
+              <label className="label" htmlFor={'hwq-in-' + day.day} id={'hwq-' + day.day}>
+                Type what you hear{q.hint && <span className="muted sm" style={{ fontWeight: 400 }}> · {q.hint}</span>}
+              </label>
+              <textarea ref={area} id={'hwq-in-' + day.day} className="input dc-in" rows={3} placeholder="Type the sentence…" value={answer}
+                maxLength={400} spellCheck={false} autoCapitalize="off" autoComplete="off" autoCorrect="off"
+                onChange={(ev) => setAnswer(ev.target.value)}
+                onKeyDown={(ev) => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); next(); } }} />
+              <span className="keyhint"><span className="kbd">Ctrl</span> + <span className="kbd">Space</span> to replay · <span className="kbd">Enter</span> for next</span>
+            </>
+          ) : (
+            <>
+              <h4 ref={qHead} tabIndex={-1} className={'qtext hwprompt' + (isSentence(q.type) ? ' sentence' : '')} id={'hwq-' + day.day}>
+                <Prompt q={q} fill={answer.trim()} />
+              </h4>
+              {q.hint && <div className="muted sm">Hint: {q.hint}</div>}
+            </>
+          )}
+          {q.type === 'dictation' ? null : q.choices.length ? (
             <>
               <div className="opts hwopts" role="group" aria-labelledby={'hwq-' + day.day}>
                 {q.choices.map((t, k) => (

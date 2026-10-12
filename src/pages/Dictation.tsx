@@ -19,7 +19,7 @@ export const DICT_DAILY = 'daily';
 export const DICT_MIX = 'mix';
 const DICT_N = 10;
 /** Slow playback: the learner's speed × this. */
-const SLOW = 0.6;
+export const SLOW = 0.6;
 
 const GROUPS: { id: DictationGroup; title: string; emoji: string }[] = [
   { id: 'basics', title: 'Basics', emoji: '🔢' },
@@ -215,7 +215,7 @@ export function DictationSection() {
 /* ---------- feedback ---------- */
 
 /** The aligned words, coloured; every word also says in words what happened (for screen readers). */
-function Tokens({ tokens }: { tokens: DictationToken[] }) {
+export function Tokens({ tokens }: { tokens: DictationToken[] }) {
   return (
     <p className="dc-toks">
       {tokens.map((t, k) => {

@@ -84,6 +84,8 @@ export type CourseEnrollment = { startDay: string; currentDay: number; learned: 
 export interface CourseSummary {
   id: string; title: string; description: string; ownerId: string; ownerName: string; isOwner: boolean;
   visibility: 'private' | 'public'; wordsPerDay: number; totalDays: number; tag: string;
+  /** Dictation questions in each day's homework (0–3). */
+  dictationPerDay: number;
   readyDays: number; members: number;
   /** '' = self-paced (each learner's day 1 is the day they join) · 'YYYY-MM-DD' = day 1 for everyone. */
   startDate: string;
@@ -102,7 +104,7 @@ export interface CourseDay {
 }
 export interface CourseDetail extends CourseSummary { days: CourseDay[] }
 export type CourseScope = 'joined' | 'mine' | 'public';
-export interface CourseInput { title: string; description?: string; wordsPerDay?: number; visibility?: 'private' | 'public'; startDate?: string }
+export interface CourseInput { title: string; description?: string; wordsPerDay?: number; dictationPerDay?: number; visibility?: 'private' | 'public'; startDate?: string }
 export interface CourseAiWord { source: 'library' | 'ai' | 'online'; word: CourseWord; quota: Quota }
 export interface CourseSaveResult { added: Word[]; skipped: string[]; tag: string }
 export interface CourseLearnResult extends CourseSaveResult { course: CourseDetail }
@@ -111,9 +113,10 @@ export interface CourseLearnResult extends CourseSaveResult { course: CourseDeta
 /**
  * meaning: pick the Vietnamese meaning of the English prompt · word: pick the English word for the meaning ·
  * type: type the word for the meaning · blank: type the word missing from the sentence ("_____") ·
- * tense: type the verb in brackets in the right tense ("___ (deploy)") · tenseChoice: pick the right verb form.
+ * tense: type the verb in brackets in the right tense ("___ (deploy)") · tenseChoice: pick the right verb form ·
+ * dictation: listen to a sentence (the device speaks `audio`) and type it.
  */
-export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice';
+export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice' | 'dictation';
 export interface HomeworkQuestion {
   type: HomeworkType;
   /** A word from an earlier day. */
@@ -121,11 +124,15 @@ export interface HomeworkQuestion {
   prompt: string; hint: string;
   /** Four choices for meaning/word questions, empty for typed ones. */
   choices: string[];
+  /** Dictation only: the sentence, base64 (UTF-8), for the device to speak. Never shown before handing in. */
+  audio?: string;
 }
 export interface HomeworkReview extends HomeworkQuestion {
   yourAnswer: string; answer: string; correct: boolean;
   /** Tense questions only ('' otherwise); explain is in Vietnamese. */
   tense?: string; tenseLabel?: string; explain?: string;
+  /** Dictation only: the word-by-word grade (answer = the sentence). */
+  grade?: DictationGrade;
 }
 export interface HomeworkResult {
   /** Final score (raw × penalty), 0–100. */
