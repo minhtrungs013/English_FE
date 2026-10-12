@@ -21,7 +21,7 @@ import { CourseEdit } from './pages/CourseEdit';
 import { CourseStudy } from './pages/CourseStudy';
 import { NotificationsPage } from './components/Notifications';
 import { GrammarHome, GrammarLessonPage, GrammarPractice } from './pages/Grammar';
-import { DictationPractice } from './pages/Dictation';
+import { DictationHub, DictationPractice } from './pages/Dictation';
 
 function useSystemDark() {
   const [dark, setDark] = useState(() => {
@@ -80,8 +80,9 @@ function Page() {
     case 'new':
     case 'edit': return <VocabForm />;
     case 'detail': return <VocabDetail />;
-    case 'practice':
-    case 'dictationPractice': return <Practice />;
+    case 'practice': return <Practice />;
+    case 'dictation':
+    case 'dictationPractice': return <DictationHub />;
     case 'categories': return <Categories />;
     case 'tags': return <Tags />;
     case 'settings': return <Settings />;

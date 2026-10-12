@@ -1531,16 +1531,20 @@ button.tmini-row:hover{border-color:var(--primary)}
 .gpl-bar{grid-column:1 / -1;grid-row:2}
 .gpl-ans > summary{padding:14px}
 }
-/* dictation (Nghe – chép): Practice page section and the full-screen practice */
-.dc-sec{margin-top:36px}
-.dc-head{margin-bottom:14px}
-.dc-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:16px;margin-bottom:20px;align-items:stretch}
-.dc-top .gday{margin-bottom:0}
-.dc-mine h3{margin:0;font-size:18px;font-weight:800}
+/* dictation (Nghe – chép): the Dictation hub and the full-screen practice */
+.dc-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:28px;align-items:start}
+.dc-tcard{display:flex;align-items:center;gap:14px;padding:16px 18px;min-height:88px;height:100%}
+.dc-tcard .stat-ic{width:44px;height:44px;border-radius:12px;flex-shrink:0}
+.dc-tcard-b{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+.dc-tcard-t{margin:0;font-size:17px;font-weight:800;letter-spacing:-.01em;line-height:1.35;display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap}
+.dc-tcard-b p{margin:0;line-height:1.5}
+.dc-tcard .btn{flex-shrink:0}
+.dc-sets-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;margin-bottom:10px}
+.dc-sets-h .h2{margin:0}
+.dc-filter{margin-bottom:16px}
+.dc-grid{align-items:start}
 .dc-err{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 18px;margin-bottom:20px}
-.dc-mixrow{margin:-6px 0 16px}
-.dc-grp-t{font-size:16px}
-.dc-set{gap:8px}
+.dc-set{gap:8px;padding:16px 18px}
 .dc-set-name{font-size:17px}
 .dc-bar{display:block;height:8px}
 .dc-q{display:flex;flex-direction:column;gap:16px}
@@ -1575,8 +1579,10 @@ button.tmini-row:hover{border-color:var(--primary)}
 .dc-tips ul{margin:0;padding:0 20px 14px 40px;display:flex;flex-direction:column;gap:6px;line-height:1.55}
 .dc-session .hwritem{align-items:flex-start}
 @container (max-width: 760px){
-.dc-sec{margin-top:28px}
-.dc-top{grid-template-columns:minmax(0,1fr);gap:12px}
+.dc-top{grid-template-columns:minmax(0,1fr);gap:12px;margin-bottom:22px}
+.dc-tcard{flex-wrap:wrap;padding:14px;gap:12px;height:auto}
+.dc-tcard-b{flex:1 1 180px}
+.dc-tcard .btn{flex:1 1 100%}
 .dc-play{padding:14px;gap:14px}
 .dc-play .playbig{width:68px;height:68px}
 .dc-toks{font-size:16px}

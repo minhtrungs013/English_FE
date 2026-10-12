@@ -14,6 +14,7 @@ function useInitial() {
 
 const isVocabish = (r: Route) => r === 'vocab' || r === 'new' || r === 'detail' || r === 'edit';
 const isCoursish = (r: Route) => r === 'courses' || r === 'course' || r === 'courseEdit' || r === 'courseStudy';
+const isDictationish = (r: Route) => r === 'dictation' || r === 'dictationPractice';
 const isGrammarish = (r: Route) => r === 'grammar' || r === 'grammarLesson' || r === 'grammarPractice';
 
 export function Sidebar() {
@@ -40,7 +41,7 @@ export function Sidebar() {
       <nav className="nav" aria-label="Main">
         {nav.map((n) => (
           <div key={n.id} style={{ display: 'contents' }}>
-            <button className={'navitem' + (n.id === s.route || (n.id === 'vocab' && isVocabish(s.route)) || (n.id === 'courses' && isCoursish(s.route)) || (n.id === 'grammar' && isGrammarish(s.route)) || (n.id === 'practice' && s.route === 'dictationPractice') ? ' on' : '')} onClick={n.go} aria-label={n.label} title={n.label}>
+            <button className={'navitem' + (n.id === s.route || (n.id === 'vocab' && isVocabish(s.route)) || (n.id === 'courses' && isCoursish(s.route)) || (n.id === 'grammar' && isGrammarish(s.route)) || (n.id === 'practice' && isDictationish(s.route)) ? ' on' : '')} onClick={n.go} aria-label={n.label} title={n.label}>
               <Icon name={n.icon} />
               <span className="navlabel">{n.label}</span>
             </button>
@@ -201,7 +202,7 @@ export function Topbar() {
 
 export function BottomNav() {
   const { s, a } = useWB();
-  const cls = (id: Route) => 'bitem' + (id === s.route || (id === 'vocab' && isVocabish(s.route)) || (id === 'practice' && s.route === 'dictationPractice') ? ' on' : '');
+  const cls = (id: Route) => 'bitem' + (id === s.route || (id === 'vocab' && isVocabish(s.route)) || (id === 'practice' && isDictationish(s.route)) ? ' on' : '');
   return (
     <nav className="bnav" aria-label="Mobile">
       <button className={cls('dashboard')} onClick={() => a.go('dashboard')}><Icon name="grid" />Home</button>

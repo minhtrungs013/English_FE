@@ -7,7 +7,7 @@ import {
 import { shuffle, type Word } from '../lib/data';
 import { canSpeak, getVoicePrefs, speak, speakLine, stopSpeaking } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
-import { Icon } from '../components/ui';
+import { Icon, PageHead } from '../components/ui';
 import { ConfirmDialog, errText } from './Courses';
 import { MasteryBadge, masteryLevel } from './Grammar';
 
@@ -85,7 +85,7 @@ function hintSr(text: string, level: number): string {
   return 'Hint: ' + plural(words.length, 'word') + ', starting with ' + words.map((w) => (w.match(/[\p{L}\p{N}]/u)?.[0] ?? w)).join(', ') + '.';
 }
 
-/* ---------- Practice page section ---------- */
+/* ---------- Dictation hub ---------- */
 
 function MasteryBar({ value }: { value: number }) {
   return <span className="gpl-bar dc-bar" aria-hidden="true"><span className={'m-' + masteryLevel(value)} style={{ width: Math.min(100, Math.max(0, value)) + '%' }} /></span>;
@@ -96,11 +96,11 @@ function SetCard({ t }: { t: DictationSetInfo }) {
   return (
     <li className="card gcard dc-set">
       <div className="gcard-t">
-        <h4 className="gcard-name dc-set-name">
+        <h3 className="gcard-name dc-set-name">
           <button className="gcard-link" onClick={() => a.startDictation(t.id)} aria-describedby={'dcs-' + t.id}>
             {t.name}<span className="c-sr">: start dictation</span>
           </button>
-        </h4>
+        </h3>
         <span className="gcard-vi" lang="vi">{t.vi}</span>
       </div>
       {t.summary && <p className="gcard-sum muted sm" lang="vi">{t.summary}</p>}
@@ -114,11 +114,23 @@ function SetCard({ t }: { t: DictationSetInfo }) {
   );
 }
 
-/** "Dictation · Nghe – chép" on the Practice page: from my words (S), today's dictation and the sets (M). */
-export function DictationSection() {
+type GroupFilter = 'all' | DictationGroup;
+const FILTER_KEY = 'wb.dictation.filter';
+const FILTERS: { id: GroupFilter; title: string }[] = [{ id: 'all', title: 'All' }, ...GROUPS.map((g) => ({ id: g.id, title: g.title }))];
+const isFilter = (v: unknown): v is GroupFilter => FILTERS.some((f) => f.id === v);
+
+/** The Dictation page ("Nghe – chép"): today's dictation and from my words on top, then the sets with a group filter. */
+export function DictationHub() {
   const { s, a } = useWB();
   const [data, setData] = useState<DictationList | null>(null);
   const [err, setErr] = useState('');
+  const [filter, setFilterState] = useState<GroupFilter>(() => {
+    try { const v = localStorage.getItem(FILTER_KEY); return isFilter(v) ? v : 'all'; } catch { return 'all'; }
+  });
+  const setFilter = (v: GroupFilter) => {
+    setFilterState(v);
+    try { localStorage.setItem(FILTER_KEY, v); } catch { /* storage blocked: just for this visit */ }
+  };
 
   const load = () => {
     let on = true;
@@ -133,82 +145,79 @@ export function DictationSection() {
   const exCount = s.words.filter((w) => (w.ex ?? '').trim()).length;
   const mineN = s.words.length ? wordItems(s.words).length : 0;
   const doneToday = !!data?.practisedToday;
+  const sets = data ? data.sets.filter((x) => filter === 'all' || x.group === filter) : null;
+  const filterTitle = FILTERS.find((f) => f.id === filter)!.title;
 
   return (
-    <section className="dc-sec" aria-labelledby="dc-h">
-      <div className="gsect-h dc-head">
-        <h2 id="dc-h" className="h2"><span aria-hidden="true">🎧 </span>Dictation · <span lang="vi">Nghe – chép</span></h2>
-        <span className="muted xs">Listen to a sentence and type exactly what you hear.</span>
-      </div>
+    <>
+      <button className="back" onClick={() => a.go('practice')}><Icon name="left" size="sm" />Practice</button>
+      <PageHead title="Dictation" sub="Listen to a sentence and type exactly what you hear." />
 
       <div className="dc-top">
-        <div className="card pcard dc-mine">
-          <span className="stat-ic t-blue"><Icon name="headphones" size="lg" /></span>
-          <h3 id="dc-mine-t">From my words</h3>
-          <p id="dc-mine-s">
-            {!s.words.length
-              ? 'Add words with example sentences first.'
-              : exCount >= 3
-                ? 'Hear a sentence from your word list and type it. ' + plural(Math.min(DICT_N, exCount), 'sentence') + '.'
-                : 'Hear a sentence from your word list and type it. You have few example sentences, so some items are single words.'}
-          </p>
-          <button className="btn btn-secondary" onClick={() => a.startDictation(DICT_MINE)} disabled={!mineN} aria-describedby="dc-mine-s">
-            Start<span className="c-sr"> dictation from my words</span><Icon name="right" size="sm" />
-          </button>
-        </div>
-
-        <section className={'card gday dc-day' + (doneToday ? ' done' : '')} aria-labelledby="dc-day-t">
-          <span className="gday-ic" aria-hidden="true"><Icon name={doneToday ? 'checkc' : 'calendar'} size="lg" /></span>
-          <div className="gday-b">
-            <h3 id="dc-day-t" className="gday-t">Today’s dictation</h3>
-            <p className="muted sm gday-s" id="dc-day-s">
-              {doneToday
-                ? <><span className="badge t-green"><Icon name="check" size="sm" />Done today ✓</span> Practise again any time.</>
-                : 'Your recent mistakes first, then your weaker sets.'}
-            </p>
+        <section className={'card dc-tcard' + (doneToday ? ' done' : '')} aria-labelledby="dc-day-t">
+          <span className={'stat-ic ' + (doneToday ? 't-green' : 't-indigo')} aria-hidden="true"><Icon name={doneToday ? 'checkc' : 'calendar'} size="lg" /></span>
+          <div className="dc-tcard-b">
+            <h2 id="dc-day-t" className="dc-tcard-t">
+              Today’s dictation
+              {doneToday && <span className="badge t-green"><Icon name="check" size="sm" />Done today ✓</span>}
+            </h2>
+            <p className="muted sm" id="dc-day-s">{plural(DICT_N, 'sentence')} picked for you.</p>
           </div>
-          <button className={'btn btn-lg ' + (doneToday ? 'btn-secondary' : 'btn-primary')} onClick={() => a.startDictation(DICT_DAILY)} aria-describedby="dc-day-s">
+          <button className={'btn ' + (doneToday ? 'btn-secondary' : 'btn-primary')} onClick={() => a.startDictation(DICT_DAILY)} aria-describedby="dc-day-s">
             {doneToday ? <><Icon name="refresh" size="sm" />Practise again</> : <>Start<Icon name="right" size="sm" /></>}
             <span className="c-sr"> today’s dictation</span>
           </button>
         </section>
+
+        <section className="card dc-tcard" aria-labelledby="dc-mine-t">
+          <span className="stat-ic t-blue" aria-hidden="true"><Icon name="headphones" size="lg" /></span>
+          <div className="dc-tcard-b">
+            <h2 id="dc-mine-t" className="dc-tcard-t">From my words</h2>
+            <p className="muted sm" id="dc-mine-s">
+              {!s.words.length
+                ? 'Add words with example sentences first.'
+                : exCount >= 3
+                  ? 'Sentences from your word list · ' + plural(Math.min(DICT_N, exCount), 'sentence') + '.'
+                  : 'Sentences from your word list; few examples, so some items are single words.'}
+            </p>
+          </div>
+          <button className="btn btn-secondary" onClick={() => a.startDictation(DICT_MINE)} disabled={!mineN} aria-describedby="dc-mine-s">
+            Start<span className="c-sr"> dictation from my words</span><Icon name="right" size="sm" />
+          </button>
+        </section>
       </div>
 
-      {err ? (
-        <div className="card dc-err" role="alert">
-          <span className="errtxt"><Icon name="alert" size="sm" />{err}</span>
-          <button className="btn btn-secondary btn-sm" onClick={() => { setData(null); load(); }}><Icon name="refresh" size="sm" />Try again</button>
-        </div>
-      ) : (
-        <>
+      <section className="dc-sets" aria-labelledby="dc-sets-h">
+        <div className="dc-sets-h">
+          <h2 id="dc-sets-h" className="h2">Practice sets</h2>
           {data && data.sets.length > 1 && (
-            <div className="dc-mixrow">
-              <button className="linkbtn" onClick={() => a.startDictation(DICT_MIX)}><Icon name="zap" size="sm" />Mixed dictation — your weakest sets come up most</button>
-            </div>
+            <button className="linkbtn" onClick={() => a.startDictation(DICT_MIX)}><Icon name="zap" size="sm" />Mixed dictation<span className="c-sr"> — your weakest sets come up most</span></button>
           )}
-          {GROUPS.map((g) => {
-            const sets = data ? data.sets.filter((x) => x.group === g.id) : null;
-            if (sets && !sets.length) return null;
-            return (
-              <section key={g.id} className="gsect dc-grp" aria-labelledby={'dcg-' + g.id}>
-                <div className="gsect-h">
-                  <h3 id={'dcg-' + g.id} className="h2 dc-grp-t"><span aria-hidden="true">{g.emoji} </span>{g.title}</h3>
-                </div>
-                {!sets ? (
-                  <div className="ggrid" aria-busy="true" aria-label="Loading dictation sets">
-                    {[0, 1, 2].map((k) => <div key={k} className="sk" style={{ height: 150, borderRadius: 16 }} />)}
-                  </div>
-                ) : (
-                  <ul className="ggrid" aria-labelledby={'dcg-' + g.id}>
-                    {sets.map((t) => <SetCard key={t.id} t={t} />)}
-                  </ul>
-                )}
-              </section>
-            );
-          })}
-        </>
-      )}
-    </section>
+        </div>
+        <div className="chips dc-filter" role="group" aria-label="Show sets">
+          {FILTERS.map((f) => (
+            <button key={f.id} type="button" className={'chip' + (filter === f.id ? ' on' : '')} aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>{f.title}</button>
+          ))}
+        </div>
+
+        {err ? (
+          <div className="card dc-err" role="alert">
+            <span className="errtxt"><Icon name="alert" size="sm" />{err}</span>
+            <button className="btn btn-secondary btn-sm" onClick={() => { setData(null); load(); }}><Icon name="refresh" size="sm" />Try again</button>
+          </div>
+        ) : !sets ? (
+          <div className="ggrid dc-grid" aria-busy="true" aria-label="Loading dictation sets">
+            {[0, 1, 2].map((k) => <div key={k} className="sk" style={{ height: 140, borderRadius: 16 }} />)}
+          </div>
+        ) : !sets.length ? (
+          <p className="muted sm">No sets in {filterTitle} yet.</p>
+        ) : (
+          <ul className="ggrid dc-grid" aria-label={filterTitle + ' sets'}>
+            {sets.map((t) => <SetCard key={t.id} t={t} />)}
+          </ul>
+        )}
+      </section>
+    </>
   );
 }
 
@@ -678,7 +687,7 @@ export function DictationPractice() {
 
         <div className="stdone-act">
           <button className="btn btn-primary btn-lg" onClick={() => a.startDictation(mode)}><Icon name="refresh" size="sm" />Practise again</button>
-          <button className="btn btn-secondary btn-lg" onClick={close}><Icon name="left" size="sm" />Back to Practice</button>
+          <button className="btn btn-secondary btn-lg" onClick={close}><Icon name="left" size="sm" />Back to Dictation</button>
         </div>
       </div>
     );

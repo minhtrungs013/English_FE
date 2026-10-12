@@ -9,7 +9,7 @@ import { stopSpeaking } from '../lib/speech';
 
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
 
-export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy' | 'notifications' | 'grammar' | 'grammarLesson' | 'grammarPractice' | 'dictationPractice';
+export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy' | 'notifications' | 'grammar' | 'grammarLesson' | 'grammarPractice' | 'dictation' | 'dictationPractice';
 export type CourseTab = 'today' | 'map' | 'board' | 'members';
 /** A step of a course day in the study session. */
 export type StudyStep = 'review' | 'learn' | 'listen' | 'homework';
@@ -621,15 +621,15 @@ function useWordbookState() {
   };
 
   /* ---------- dictation ---------- */
-  /** Starts a full-screen dictation set ('mine', 'daily', 'mix' or a set id). Leaving it goes back to Practice. */
+  /** Starts a full-screen dictation set ('mine', 'daily', 'mix' or a set id). Leaving it goes back to the Dictation hub. */
   const startDictation = (mode: string) => {
     stopSpeaking();
     go('dictationPractice', { dictation: { mode, run: (ref.current.dictation?.run ?? 0) + 1 } });
   };
-  /** Leaves the dictation session for the Practice page. */
+  /** Leaves the dictation session for the Dictation hub. */
   const exitDictation = () => {
     stopSpeaking();
-    go('practice', { dictation: null });
+    go('dictation', { dictation: null });
   };
 
   /* ---------- notifications ---------- */
