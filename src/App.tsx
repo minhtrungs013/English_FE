@@ -21,6 +21,7 @@ import { CourseEdit } from './pages/CourseEdit';
 import { CourseStudy } from './pages/CourseStudy';
 import { NotificationsPage } from './components/Notifications';
 import { GrammarHome, GrammarLessonPage, GrammarPractice } from './pages/Grammar';
+import { DictationPractice } from './pages/Dictation';
 
 function useSystemDark() {
   const [dark, setDark] = useState(() => {
@@ -79,7 +80,8 @@ function Page() {
     case 'new':
     case 'edit': return <VocabForm />;
     case 'detail': return <VocabDetail />;
-    case 'practice': return <Practice />;
+    case 'practice':
+    case 'dictationPractice': return <Practice />;
     case 'categories': return <Categories />;
     case 'tags': return <Tags />;
     case 'settings': return <Settings />;
@@ -100,6 +102,8 @@ export default function App() {
   const inStudy = s.route === 'courseStudy' && !!s.study && s.status === 'ready';
   /** A grammar practice set: full screen as well. */
   const inGrammar = s.route === 'grammarPractice' && !!s.grammarPractice && s.status === 'ready';
+  /** A dictation set: full screen too. */
+  const inDictation = s.route === 'dictationPractice' && !!s.dictation && s.status === 'ready';
 
   const { voice, rate, pitch, accent } = s.settings;
   useEffect(() => { setVoicePrefs({ voice, rate, pitch }); }, [voice, rate, pitch]);
@@ -112,7 +116,7 @@ export default function App() {
   return (
     <div className="shell">
       <div className={'app accent-' + (accent || 'indigo') + (dark ? ' dark' : '') + (s.rail ? ' rail' : '')}>
-        {s.status === 'auth' ? <AuthPage /> : inSession ? <Session /> : inStudy ? <CourseStudy key={s.courseId + ':' + s.study!.day} /> : inGrammar ? <GrammarPractice key={'gp' + s.grammarPractice!.run} /> : (
+        {s.status === 'auth' ? <AuthPage /> : inSession ? <Session /> : inStudy ? <CourseStudy key={s.courseId + ':' + s.study!.day} /> : inGrammar ? <GrammarPractice key={'gp' + s.grammarPractice!.run} /> : inDictation ? <DictationPractice key={'dp' + s.dictation!.run} /> : (
           <>
             <Sidebar />
             <div className="mainwrap">

@@ -9,7 +9,7 @@ import { stopSpeaking } from '../lib/speech';
 
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
 
-export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy' | 'notifications' | 'grammar' | 'grammarLesson' | 'grammarPractice';
+export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy' | 'notifications' | 'grammar' | 'grammarLesson' | 'grammarPractice' | 'dictationPractice';
 export type CourseTab = 'today' | 'map' | 'board' | 'members';
 /** A step of a course day in the study session. */
 export type StudyStep = 'review' | 'learn' | 'listen' | 'homework';
@@ -57,6 +57,8 @@ interface UiState {
   grammarVerb: string;
   /** The grammar practice session: a lesson id or a mix mode, the page to go back to, and a counter to start it over. */
   grammarPractice: { mode: string; back: Route; run: number } | null;
+  /** The dictation session (full screen): 'mine' (from my words), 'daily', 'mix' or a set id, and a counter to start it over. */
+  dictation: { mode: string; run: number } | null;
 }
 export type State = Data & UiState;
 
@@ -80,7 +82,7 @@ function initialState(): State {
     route: 'dashboard', prevRoute: 'dashboard', sel: null, rail: false,
     filters: NO_FILTERS, menu: null, notif: false, account: false,
     form: emptyForm(), editForm: emptyForm(), formErr: '', aiBusy: false, aiStep: 0,
-    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: '', courseTab: '', study: null, unread: 0, grammarId: '', grammarVerb: '', grammarPractice: null
+    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: '', courseTab: '', study: null, unread: 0, grammarId: '', grammarVerb: '', grammarPractice: null, dictation: null
   };
 }
 
@@ -175,7 +177,7 @@ function useWordbookState() {
 
   const inSession = () => {
     const c = ref.current;
-    return (c.route === 'review' && !!c.review) || (c.route === 'practice' && !!c.practice) || (c.route === 'courseStudy' && !!c.study) || (c.route === 'grammarPractice' && !!c.grammarPractice);
+    return (c.route === 'review' && !!c.review) || (c.route === 'practice' && !!c.practice) || (c.route === 'courseStudy' && !!c.study) || (c.route === 'grammarPractice' && !!c.grammarPractice) || (c.route === 'dictationPractice' && !!c.dictation);
   };
 
   /* ---------- review ---------- */
@@ -618,6 +620,18 @@ function useWordbookState() {
     go(ref.current.grammarPractice?.back ?? 'grammar', { grammarPractice: null });
   };
 
+  /* ---------- dictation ---------- */
+  /** Starts a full-screen dictation set ('mine', 'daily', 'mix' or a set id). Leaving it goes back to Practice. */
+  const startDictation = (mode: string) => {
+    stopSpeaking();
+    go('dictationPractice', { dictation: { mode, run: (ref.current.dictation?.run ?? 0) + 1 } });
+  };
+  /** Leaves the dictation session for the Practice page. */
+  const exitDictation = () => {
+    stopSpeaking();
+    go('practice', { dictation: null });
+  };
+
   /* ---------- notifications ---------- */
   /** Marks notifications read ('all' = every one). Returns false on failure. */
   const markNotesRead = async (ids: string[] | 'all'): Promise<boolean> => {
@@ -653,6 +667,7 @@ function useWordbookState() {
     askDeleteWord, confirmModal, submitModal, patchModal,
     exportData, setSettings, setFilters, showWordsWith, reload: load, login, register, logout, saveFromLibrary, shareWord, learnCourseDay, saveCourseWords, openCourse, openStudy,
     openGrammar, startGrammarPractice, exitGrammarPractice,
+    startDictation, exitDictation,
     markNotesRead, deleteNote, openNote,
     setUnread: (unread: number) => set({ unread }),
     clearFilters: () => set({ filters: NO_FILTERS }),

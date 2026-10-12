@@ -1,6 +1,7 @@
 import type { IconName } from '../lib/icons';
 import { useWB, type PracticeMode } from '../state/WordbookContext';
 import { Icon, PageHead } from '../components/ui';
+import { DictationSection } from './Dictation';
 
 const MODES: [PracticeMode | 'flash', string, string, IconName, string][] = [
   ['flash', 'Flashcards', 'Review your words with flip cards.', 'cards', 't-indigo'],
@@ -25,6 +26,7 @@ export function Practice() {
           </div>
         ))}
       </div>
+      <DictationSection />
     </>
   );
 }

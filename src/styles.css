@@ -1531,3 +1531,55 @@ button.tmini-row:hover{border-color:var(--primary)}
 .gpl-bar{grid-column:1 / -1;grid-row:2}
 .gpl-ans > summary{padding:14px}
 }
+/* dictation (Nghe – chép): Practice page section and the full-screen practice */
+.dc-sec{margin-top:36px}
+.dc-head{margin-bottom:14px}
+.dc-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:16px;margin-bottom:20px;align-items:stretch}
+.dc-top .gday{margin-bottom:0}
+.dc-mine h3{margin:0;font-size:18px;font-weight:800}
+.dc-err{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 18px;margin-bottom:20px}
+.dc-mixrow{margin:-6px 0 16px}
+.dc-grp-t{font-size:16px}
+.dc-set{gap:8px}
+.dc-set-name{font-size:17px}
+.dc-bar{display:block;height:8px}
+.dc-q{display:flex;flex-direction:column;gap:16px}
+.dc-title{margin:0;font-size:19px;font-weight:800}
+.dc-play{padding:16px 20px}
+.dc-inputs{display:flex;flex-direction:column;gap:14px}
+.dc-part{display:flex;flex-direction:column;gap:6px}
+.dc-part-h{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px}
+.dc-part-btns{display:inline-flex;gap:2px}
+.dc-slow{font-size:16px}
+.input.dc-in{min-height:0;font-size:17px;line-height:1.55;padding:10px 14px;resize:vertical}
+.input.dc-in[readonly]{background:var(--surface2)}
+.dc-hint{margin:0;padding:8px 12px;border-radius:10px;background:var(--warning-soft);color:var(--text);font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:16px;letter-spacing:.06em;overflow-wrap:anywhere;line-height:1.6}
+.dc-hint.shown{font-family:inherit;letter-spacing:0;font-weight:700}
+.dc-fb{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface)}
+.dc-fb.ok{border-color:var(--success)}
+.dc-toks{margin:0;font-size:18px;line-height:2.1;overflow-wrap:anywhere}
+.dt{display:inline-block;line-height:1.4;border-radius:6px}
+.dt-ok{color:var(--success);font-weight:600}
+.dt-near{color:var(--warning);font-weight:700;border-bottom:2px dotted var(--warning)}
+.dt-note{display:inline-block;margin-left:4px;padding:0 5px;border-radius:5px;background:var(--warning-soft);color:var(--warning);font-size:11.5px;font-weight:700;vertical-align:middle;line-height:1.5}
+.dt-wrong s{color:var(--danger);text-decoration-thickness:2px}
+.dt-wrong b{color:var(--success);font-weight:800}
+.dt-miss{padding:0 6px;border:1.5px dashed var(--warning);color:var(--text);font-weight:700;background:var(--warning-soft)}
+.dt-extra s{color:var(--danger);text-decoration-thickness:2px;opacity:.85}
+.dc-full{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.dc-en{font-weight:700;overflow-wrap:anywhere}
+.dc-vi{color:var(--muted);font-size:14px}
+.dc-res .fb-t{flex-wrap:wrap}
+.dc-score{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--text)}
+.dc-hints{margin-left:4px;height:20px;padding:0 6px}
+.dc-tips ul{margin:0;padding:0 20px 14px 40px;display:flex;flex-direction:column;gap:6px;line-height:1.55}
+.dc-session .hwritem{align-items:flex-start}
+@container (max-width: 760px){
+.dc-sec{margin-top:28px}
+.dc-top{grid-template-columns:minmax(0,1fr);gap:12px}
+.dc-play{padding:14px;gap:14px}
+.dc-play .playbig{width:68px;height:68px}
+.dc-toks{font-size:16px}
+.input.dc-in{font-size:16px}
+.dc-tips ul{padding:0 14px 12px 32px}
+}
