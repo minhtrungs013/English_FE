@@ -1,7 +1,57 @@
+import { useEffect, useState } from 'react';
 import { dayKey, fmtAgo } from '../lib/data';
+import { api, type GrammarList } from '../lib/api';
 import { useWB } from '../state/WordbookContext';
 import { currentStreak, getStats, reviewedToday } from '../state/selectors';
 import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/ui';
+import { PLACEMENT, MasteryBadge, placementSkipped, weakestTense } from './Grammar';
+
+/**
+ * Grammar at a glance: my weakest practised tense (review it or practise it), or — before any tense is practised — a way
+ * in through the placement test (hidden once it's skipped). Loaded once per visit; nothing shows if it fails.
+ */
+function WeakestTenseCard() {
+  const { s, a } = useWB();
+  const [g, setG] = useState<GrammarList | null>(null);
+  useEffect(() => {
+    let on = true;
+    api.grammar().then((r) => { if (on) setG(r); }).catch(() => { /* optional card: stay hidden */ });
+    return () => { on = false; };
+  }, []);
+  if (!g) return null;
+  const w = weakestTense(g.tenses);
+  if (w) {
+    return (
+      <section className="card gweak" aria-labelledby="gweak-t">
+        <span className="gweak-ic" aria-hidden="true"><Icon name="clock" size="lg" /></span>
+        <div className="gweak-b">
+          <span className="qkicker">Grammar</span>
+          <h2 id="gweak-t" className="gweak-t">Weakest tense: {w.name} · {w.mastery}%</h2>
+          <MasteryBadge value={w.mastery} />
+        </div>
+        <div className="gweak-act">
+          <button className="btn btn-secondary" onClick={() => a.openGrammar(w.id)}><Icon name="book" size="sm" />Review lesson<span className="c-sr">: {w.name}</span></button>
+          <button className="btn btn-primary" onClick={() => a.startGrammarPractice(w.id)}><Icon name="zap" size="sm" />Practise<span className="c-sr"> {w.name}</span></button>
+        </div>
+      </section>
+    );
+  }
+  // Nothing practised yet: offer the placement test, unless it was skipped (or an older API doesn't have it).
+  if (g.placement !== null || placementSkipped(s.userId)) return null;
+  return (
+    <section className="card gweak" aria-labelledby="gweak-t">
+      <span className="gweak-ic" aria-hidden="true"><Icon name="trophy" size="lg" /></span>
+      <div className="gweak-b">
+        <span className="qkicker">Grammar</span>
+        <h2 id="gweak-t" className="gweak-t">Find your level in grammar</h2>
+        <span className="muted sm">A 5-minute placement test (≈19 questions) suggests where to start.</span>
+      </div>
+      <div className="gweak-act">
+        <button className="btn btn-primary" onClick={() => a.startGrammarPractice(PLACEMENT)}>Take the test<Icon name="right" size="sm" /></button>
+      </div>
+    </section>
+  );
+}
 
 function ProgressChart() {
   const { s, a } = useWB();
@@ -104,6 +154,8 @@ export function Dashboard() {
         </div>
         <ProgressChart />
       </div>
+
+      <WeakestTenseCard />
 
       <div className="card">
         <div className="cardhead">

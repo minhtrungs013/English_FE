@@ -251,9 +251,12 @@ export interface NotePage { items: Note[]; hasMore: boolean; unread: number }
 /** The Foundations lessons (helping verbs) in the order they're taught; the cheat sheet is a reference page (no practice). */
 export type Foundation = 'be' | 'do' | 'have' | 'agreement' | 'aux-cheatsheet';
 export const FOUNDATIONS: readonly Foundation[] = ['be', 'do', 'have', 'agreement', 'aux-cheatsheet'];
-/** Any grammar lesson: Foundations first, then the tenses (the API's order). */
-export type LessonId = Foundation | Tense;
-export const LESSON_IDS: readonly LessonId[] = [...FOUNDATIONS, ...TENSES];
+/** Mixed practice with real-world texts (name the tense, fix the mistake, fill in a text): in the tenses group, but not a tense. */
+export type MixedLesson = 'mixed';
+export const MIXED_LESSON: MixedLesson = 'mixed';
+/** Any grammar lesson: Foundations first, then the tenses, then mixed practice (the API's order). */
+export type LessonId = Foundation | Tense | MixedLesson;
+export const LESSON_IDS: readonly LessonId[] = [...FOUNDATIONS, ...TENSES, MIXED_LESSON];
 export const isLesson = (t: unknown): t is LessonId => typeof t === 'string' && (LESSON_IDS as readonly string[]).includes(t);
 export type GrammarGroup = 'foundations' | 'tenses';
 
@@ -289,20 +292,48 @@ export interface GrammarLesson {
   compare?: { with: Tense; explain: string; examples: (GrammarExample & { tense: Tense })[] };
   compareName: string; drillCount: number; mastery: number; attempts: number;
 }
-/** prompt has one "___"; typed ones ('tense') show the base verb in brackets after it. No answers — they're graded on submit. */
-export interface GrammarQuestion { id: string; kind: 'tense' | 'tenseChoice'; level: 'easy' | 'medium' | 'hard'; prompt: string; choices: string[] }
-/** mode: a lesson id, or 'mix' / 'mix-tenses' / 'mix-foundations' (weaker lessons come up more often). */
+/** A latest placement test: lesson id → right / asked, and the 3 lessons to start with (weakest first). */
+export interface GrammarPlacementInfo { at: number | null; recommended: string[]; scores: Record<string, { correct: number; total: number }> }
+/** practisedToday: any lesson practised today · placement: my latest placement test, null when never taken (missing on an older API). */
+export interface GrammarList { tenses: GrammarTense[]; practisedToday?: boolean; placement?: GrammarPlacementInfo | null }
+export type GrammarKind = 'tense' | 'tenseChoice' | 'identify' | 'fixError' | 'cloze';
+/**
+ * No answers — they're graded on submit.
+ * tense: prompt has one "___" and the base verb in brackets (typed) · tenseChoice: the same with choices ·
+ * identify: name the tense of the [[highlighted]] verb phrase — choices are tense ids, labels their names (same order) ·
+ * fixError: tap the wrong word in `tokens` (the prompt split on spaces) and type the correction ·
+ * cloze: a short text (`title`) with `blanks` "___ (verb)" gaps.
+ */
+export interface GrammarQuestion {
+  id: string; kind: GrammarKind; level: 'easy' | 'medium' | 'hard'; prompt: string; choices: string[];
+  labels?: string[]; tokens?: string[]; title?: string; blanks?: number;
+}
+/** One answer: typed / picked text (identify: a tense id; fixError: the correction), the word picked (fixError), one text per blank (cloze). */
+export interface GrammarAnswer { id: string; answer?: string; pick?: number; answers?: string[] }
+/** One blank of a graded cloze text. */
+export interface GrammarBlankResult { yourAnswer: string; answer: string; correct: boolean; tense: string; tenseLabel: string; explain: string }
+/** mode: a lesson id, 'mix' / 'mix-tenses' / 'mix-foundations' (weaker lessons come up more often) or 'daily' (recent mistakes first, then weak lessons). */
 export interface GrammarPractice { mode: string; questions: GrammarQuestion[] }
 /**
  * lesson: the lesson the question belongs to (its mastery changes) · tense: the lesson to review for it (a tense id, or a
  * Foundations id like 'do') · tenseLabel: what to show (a tense name, or a topic like "Be · past") · explain: Vietnamese.
  */
 export interface GrammarResult {
-  id: string; lesson: LessonId; tense: string; tenseLabel: string; prompt: string;
+  id: string; kind?: GrammarKind; lesson: LessonId; tense: string; tenseLabel: string; prompt: string;
   yourAnswer: string; answer: string; correct: boolean; explain: string;
+  /** identify: the prompt with its [[highlight]], and the names of the tenses picked / right. */
+  highlight?: string; yourLabel?: string; answerLabel?: string;
+  /** fixError: the words, the indexes of the wrong one(s), the word picked (null: none) and whether it was one of them. */
+  tokens?: string[]; wrongTokens?: number[]; wrong?: string; pick?: number | null; pickRight?: boolean;
+  /** fixError: whether the typed correction is right (the server knows the accepted alternatives). */
+  fixRight?: boolean;
+  /** cloze: the text's title, right blanks / blanks, and each blank (correct is true only when every blank is). */
+  title?: string; score?: { correct: number; total: number }; blanks?: GrammarBlankResult[];
 }
 /** mastery: each practised lesson's mastery after this set. */
 export interface GrammarGraded { results: GrammarResult[]; correct: number; total: number; mastery: Partial<Record<LessonId, number>> }
+/** The placement test graded: per-lesson scores and the 3 lessons to start with. */
+export interface GrammarPlacementGraded extends GrammarGraded { scores: Record<string, { correct: number; total: number }>; recommended: string[] }
 
 export const api = {
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
@@ -411,9 +442,13 @@ export const api = {
   deleteNotification: (id: string) => req<void>('DELETE', '/notifications/' + id),
 
   /* Grammar: the lessons (Foundations, then tenses), my mastery of each, and practice sets (graded on the server). */
-  grammar: () => req<{ tenses: GrammarTense[] }>('GET', '/grammar'),
+  grammar: () => req<GrammarList>('GET', '/grammar'),
   grammarLesson: (tense: string) => req<GrammarLesson>('GET', '/grammar/' + encodeURIComponent(tense)),
   grammarPractice: (mode: string, n = 10) => req<GrammarPractice>('GET', '/grammar/practice?mode=' + encodeURIComponent(mode) + '&n=' + n),
-  /** 1–20 answers ('' for none). Updates my mastery of each lesson in the set. */
-  submitGrammar: (answers: { id: string; answer: string }[]) => req<GrammarGraded>('POST', '/grammar/practice', { answers })
+  /** 1–30 answers ('' for none). Updates my mastery of each lesson in the set. */
+  submitGrammar: (answers: GrammarAnswer[]) => req<GrammarGraded>('POST', '/grammar/practice', { answers }),
+  /** The placement test (fixed questions, about 19) and my last result. */
+  grammarPlacement: () => req<{ questions: GrammarQuestion[]; last: GrammarPlacementInfo | null }>('GET', '/grammar/placement'),
+  /** Grades the placement test and starts each lesson's mastery from it (throttled: 10 a minute). */
+  submitPlacement: (answers: GrammarAnswer[]) => req<GrammarPlacementGraded>('POST', '/grammar/placement', { answers })
 };

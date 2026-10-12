@@ -599,11 +599,15 @@ function useWordbookState() {
     if (id) go('grammarLesson', { grammarId: id, study: null, grammarPractice: null });
     else go('grammar', { grammarPractice: null });
   };
-  /** Starts a full-screen practice set: one lesson, or 'mix' / 'mix-tenses' / 'mix-foundations'. Leaving it goes back to the page it was started from. */
+  /**
+   * Starts a full-screen practice set: one lesson, 'mix' / 'mix-tenses' / 'mix-foundations', 'daily' (today's practice) or
+   * 'placement' (the placement test). Leaving it goes back to the page it was started from (a lesson, the Dashboard or Grammar).
+   */
   const startGrammarPractice = (mode: string) => {
     stopSpeaking();
     const c = ref.current;
-    const back: Route = c.route === 'grammarPractice' ? c.grammarPractice?.back ?? 'grammar' : c.route === 'grammarLesson' ? 'grammarLesson' : 'grammar';
+    const back: Route = c.route === 'grammarPractice' ? c.grammarPractice?.back ?? 'grammar'
+      : c.route === 'grammarLesson' || c.route === 'dashboard' ? c.route : 'grammar';
     go('grammarPractice', { grammarPractice: { mode, back, run: (c.grammarPractice?.run ?? 0) + 1 } });
   };
   /** Leaves the practice session for the page it was started from. */
