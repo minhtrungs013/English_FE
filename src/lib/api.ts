@@ -248,9 +248,14 @@ export interface Note { id: string; type: NoteType; title: string; body: string;
 export interface NotePage { items: Note[]; hasMore: boolean; unread: number }
 
 /* ---------- grammar (foundations & tense lessons, practice) ---------- */
-/** The Foundations lessons (helping verbs) in the order they're taught; the cheat sheet is a reference page (no practice). */
-export type Foundation = 'be' | 'do' | 'have' | 'agreement' | 'aux-cheatsheet';
-export const FOUNDATIONS: readonly Foundation[] = ['be', 'do', 'have', 'agreement', 'aux-cheatsheet'];
+/**
+ * The Foundations lessons (helping verbs, then irregular verbs V1–V2–V3) in the order they're taught; the cheat sheet is a
+ * reference page (no practice).
+ */
+export type Foundation = 'be' | 'do' | 'have' | 'agreement' | 'irregular-verbs' | 'aux-cheatsheet';
+export const FOUNDATIONS: readonly Foundation[] = ['be', 'do', 'have', 'agreement', 'irregular-verbs', 'aux-cheatsheet'];
+/** The irregular verbs lesson: its tables (one per pattern) get search, pattern filters and 🔊; results link to it with `verb`. */
+export const IRREGULAR_LESSON = 'irregular-verbs' satisfies Foundation;
 /** Mixed practice with real-world texts (name the tense, fix the mistake, fill in a text): in the tenses group, but not a tense. */
 export type MixedLesson = 'mixed';
 export const MIXED_LESSON: MixedLesson = 'mixed';
@@ -310,8 +315,8 @@ export interface GrammarQuestion {
 }
 /** One answer: typed / picked text (identify: a tense id; fixError: the correction), the word picked (fixError), one text per blank (cloze). */
 export interface GrammarAnswer { id: string; answer?: string; pick?: number; answers?: string[] }
-/** One blank of a graded cloze text. */
-export interface GrammarBlankResult { yourAnswer: string; answer: string; correct: boolean; tense: string; tenseLabel: string; explain: string }
+/** One blank of a graded cloze text · verb: the base form when the answer is a form of an irregular verb (never be/have/do). */
+export interface GrammarBlankResult { yourAnswer: string; answer: string; correct: boolean; tense: string; tenseLabel: string; explain: string; verb?: string }
 /** mode: a lesson id, 'mix' / 'mix-tenses' / 'mix-foundations' (weaker lessons come up more often) or 'daily' (recent mistakes first, then weak lessons). */
 export interface GrammarPractice { mode: string; questions: GrammarQuestion[] }
 /**
@@ -321,6 +326,8 @@ export interface GrammarPractice { mode: string; questions: GrammarQuestion[] }
 export interface GrammarResult {
   id: string; kind?: GrammarKind; lesson: LessonId; tense: string; tenseLabel: string; prompt: string;
   yourAnswer: string; answer: string; correct: boolean; explain: string;
+  /** tense / tenseChoice / fixError: the base form (e.g. "write") when the answer is a form of an irregular verb (never be/have/do). */
+  verb?: string;
   /** identify: the prompt with its [[highlight]], and the names of the tenses picked / right. */
   highlight?: string; yourLabel?: string; answerLabel?: string;
   /** fixError: the words, the indexes of the wrong one(s), the word picked (null: none) and whether it was one of them. */

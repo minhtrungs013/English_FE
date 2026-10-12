@@ -53,6 +53,8 @@ interface UiState {
   unread: number;
   /** The grammar lesson open on 'grammarLesson' (a lesson id: a tense or a Foundations lesson). */
   grammarId: string;
+  /** The irregular verbs lesson: a verb to start its table search with (from a "See V1 – V2 – V3" link); '' for none. */
+  grammarVerb: string;
   /** The grammar practice session: a lesson id or a mix mode, the page to go back to, and a counter to start it over. */
   grammarPractice: { mode: string; back: Route; run: number } | null;
 }
@@ -78,7 +80,7 @@ function initialState(): State {
     route: 'dashboard', prevRoute: 'dashboard', sel: null, rail: false,
     filters: NO_FILTERS, menu: null, notif: false, account: false,
     form: emptyForm(), editForm: emptyForm(), formErr: '', aiBusy: false, aiStep: 0,
-    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: '', courseTab: '', study: null, unread: 0, grammarId: '', grammarPractice: null
+    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: '', courseTab: '', study: null, unread: 0, grammarId: '', grammarVerb: '', grammarPractice: null
   };
 }
 
@@ -593,10 +595,10 @@ function useWordbookState() {
   };
 
   /* ---------- grammar ---------- */
-  /** Opens a grammar lesson (or the Grammar page with no id). */
-  const openGrammar = (id?: string) => {
+  /** Opens a grammar lesson (or the Grammar page with no id); `verb` starts the irregular verbs table search with that verb. */
+  const openGrammar = (id?: string, verb = '') => {
     stopSpeaking();
-    if (id) go('grammarLesson', { grammarId: id, study: null, grammarPractice: null });
+    if (id) go('grammarLesson', { grammarId: id, grammarVerb: verb, study: null, grammarPractice: null });
     else go('grammar', { grammarPractice: null });
   };
   /**

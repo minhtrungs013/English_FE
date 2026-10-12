@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import {
-  api, ApiError, FOUNDATIONS, LESSON_IDS, MIXED_LESSON, TENSES, isLesson, isTense,
+  api, ApiError, FOUNDATIONS, IRREGULAR_LESSON, LESSON_IDS, MIXED_LESSON, TENSES, isLesson, isTense,
   type GrammarAnswer, type GrammarForm, type GrammarGraded, type GrammarGroup, type GrammarLesson, type GrammarList, type GrammarPerson,
   type GrammarPlacementGraded, type GrammarQuestion, type GrammarResult, type GrammarTable, type GrammarTense, type LessonId, type Tense
 } from '../lib/api';
@@ -26,6 +26,7 @@ export const LESSON_NAME: Record<LessonId, string> = {
   do: 'Do',
   have: 'Have',
   agreement: 'Subject–verb agreement',
+  'irregular-verbs': 'Irregular verbs: V1, V2, V3',
   'aux-cheatsheet': 'Cheat sheet',
   ...TENSE_NAME,
   mixed: 'Mixed practice: real-world English'
@@ -64,7 +65,7 @@ type MixMode = 'mix' | 'mix-tenses' | 'mix-foundations';
 const MIX_MODES: { id: MixMode; label: string; sub: string }[] = [
   { id: 'mix', label: 'All', sub: 'Helping verbs and tenses' },
   { id: 'mix-tenses', label: 'Tenses', sub: 'The seven tenses' },
-  { id: 'mix-foundations', label: 'Foundations', sub: 'Be, do, have and agreement' }
+  { id: 'mix-foundations', label: 'Foundations', sub: 'Be, do, have, agreement and irregular verbs' }
 ];
 const isMixMode = (m: unknown): m is MixMode => MIX_MODES.some((x) => x.id === m);
 const MIX_TITLE: Record<MixMode, string> = { mix: 'Mixed practice', 'mix-tenses': 'Mixed practice: tenses', 'mix-foundations': 'Mixed practice: foundations' };
@@ -419,12 +420,14 @@ function LessonTable({ t, id, level = 2 }: { t: GrammarTable; id: string; level?
           const to = link ? LESSON_NAME[link] : '';
           // Say where the link goes unless the row already names it ("Present simple" → Present simple).
           const showTo = !!link && !to.toLowerCase().startsWith(first.toLowerCase());
+          // A row of a short irregular verbs table opens the full one searched for that verb.
+          const go = () => link && a.openGrammar(link, link === IRREGULAR_LESSON ? r.label : '');
           return (
-            <tr key={k} className={link ? 'gtrow-link' : undefined} onClick={link ? () => a.openGrammar(link) : undefined}>
+            <tr key={k} className={link ? 'gtrow-link' : undefined} onClick={link ? go : undefined}>
               <th scope="row">
                 {r.label && r.label !== first && <span className="gt-lbl">{r.label}</span>}
                 {link ? (
-                  <button className="gt-go" onClick={(ev) => { ev.stopPropagation(); a.openGrammar(link); }}>
+                  <button className="gt-go" onClick={(ev) => { ev.stopPropagation(); go(); }}>
                     <span>{first}</span>
                     {showTo ? <small className="gt-to">Lesson: {to}</small> : <span className="c-sr"> — open the lesson</span>}
                     <Icon name="right" size="sm" />
@@ -437,6 +440,132 @@ function LessonTable({ t, id, level = 2 }: { t: GrammarTable; id: string; level?
         })}
       </tbody>
     </table>
+  );
+}
+
+/* ---------- irregular verbs: search, pattern filter, 🔊 ---------- */
+
+/** Lower case without Vietnamese accents ("Viết" → "viet"), so either spelling finds a meaning. */
+const fold = (x: string) => x.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').trim();
+/** A pattern chip's label: the bracket part of the table title ("V2 = V3 (A–B–B)" → "A–B–B"), else the title. */
+const patternOf = (title: string) => /\(([^)]+)\)/.exec(title)?.[1]?.trim() || title;
+/** "write, wrote, written" to say aloud ("was / were" → "was or were"). */
+const sayForms = (cells: string[]) => cells.slice(0, 3).map((c) => c.split(/\s*\/\s*/).join(' or ')).join(', ');
+
+/**
+ * Whether a row matches the search: any of V1 / V2 / V3 (each " / " variant too) contains it, or the Vietnamese meaning
+ * does (accents ignored from 3 letters on, so a short English search like "go" doesn't also find "gõ").
+ */
+function rowMatches(cells: string[], q: string): boolean {
+  if (!q) return true;
+  const ql = q.toLowerCase();
+  if (cells.slice(0, 3).some((c) => c.toLowerCase().includes(ql))) return true;
+  const meaning = cells[3] ?? '';
+  return q.length >= 3 ? fold(meaning).includes(fold(q)) : meaning.toLowerCase().includes(ql);
+}
+
+/**
+ * The irregular verbs lesson's tables (one per pattern) as a searchable list: a search over V1 / V2 / V3 / meaning, chips
+ * to show one pattern, and each verb with its three forms, meaning, example and a 🔊 that says the three forms. `verb`
+ * (from a result's "See V1 – V2 – V3" link) starts the search with it and scrolls here.
+ */
+function IrregularVerbs({ tables, verb }: { tables: GrammarTable[]; verb: string }) {
+  const [q, setQ] = useState(verb);
+  const [pat, setPat] = useState<number | null>(null);
+  const box = useRef<HTMLInputElement>(null);
+  const wrap = useRef<HTMLElement>(null);
+
+  // Opened from a result: show the table with the verb found, the focus in the search (it says what's filtered).
+  useEffect(() => {
+    if (!verb) return;
+    box.current?.focus({ preventScroll: true });
+    try { wrap.current?.scrollIntoView({ block: 'start' }); } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const query = q.trim();
+  const shown = tables
+    .map((t, k) => ({ t, k, rows: t.rows.filter((r) => rowMatches(r.cells, query)) }))
+    .filter((x) => pat === null || x.k === pat);
+  const count = shown.reduce((n, x) => n + x.rows.length, 0);
+  const clear = () => { setQ(''); box.current?.focus(); };
+
+  return (
+    <>
+      <section ref={wrap} className="card glsec ivsearch" aria-labelledby="iv-h">
+        <h2 id="iv-h" className="glh2"><Icon name="search" />Find a verb</h2>
+        <div className="search-wrap ivbox">
+          <span className="inicon"><Icon name="search" /></span>
+          <label htmlFor="iv-q" className="c-sr">Search irregular verbs by V1, V2, V3 or meaning</label>
+          <input id="iv-q" ref={box} className="input input-lg withicon ivq" type="search" value={q} placeholder="e.g. write, wrote, viết…"
+            autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={60} aria-describedby="iv-n"
+            onChange={(ev) => setQ(ev.target.value)}
+            onKeyDown={(ev) => { if (ev.key === 'Escape' && q) { ev.preventDefault(); ev.stopPropagation(); setQ(''); } }} />
+          {q && (
+            <button className="iconbtn sm ivclear" onClick={clear} aria-label="Clear search" title="Clear search"><Icon name="x" size="sm" /></button>
+          )}
+        </div>
+        <div className="ivbar">
+          <div className="chips ivchips" role="group" aria-label="Pattern">
+            <button className={'chip' + (pat === null ? ' on' : '')} aria-pressed={pat === null} onClick={() => setPat(null)}>All</button>
+            {tables.map((t, k) => (
+              <button key={k} className={'chip' + (pat === k ? ' on' : '')} aria-pressed={pat === k} onClick={() => setPat(k)} title={t.title}>
+                {patternOf(t.title)}
+              </button>
+            ))}
+          </div>
+          <span id="iv-n" className="muted sm ivcount" aria-live="polite" aria-atomic="true">{plural(count, 'verb')}</span>
+        </div>
+      </section>
+
+      {count === 0 ? (
+        <section className="card glsec ivempty" aria-label="No results">
+          <p className="glp">{query ? <>No verb matches “<b>{query}</b>”{pat !== null && <> in {patternOf(tables[pat].title)}</>}.</> : 'No verbs in this pattern.'}</p>
+          <div className="tact">
+            {query && <button className="btn btn-secondary" onClick={clear}><Icon name="x" size="sm" />Clear search</button>}
+            {pat !== null && <button className="btn btn-ghost" onClick={() => setPat(null)}>Show all patterns</button>}
+          </div>
+        </section>
+      ) : (
+        shown.filter((x) => x.rows.length > 0).map(({ t, k, rows }) => (
+          <section key={k} className="card glsec" aria-labelledby={'iv-t' + k}>
+            <div className="ivhead">
+              <h2 id={'iv-t' + k} className="glh2"><Icon name="grid" />{t.title}</h2>
+              <span className="muted xs">{query ? rows.length + ' of ' + t.rows.length : plural(t.rows.length, 'verb')}</span>
+            </div>
+            {t.note && <p className="gtnote" lang="vi"><span aria-hidden="true">💡</span><span>{t.note}</span></p>}
+            <div className="ivcols" aria-hidden="true"><span>V1</span><span>V2</span><span>V3</span><span>{t.columns[3] ?? 'Meaning'}</span></div>
+            <ul className="ivlist" aria-labelledby={'iv-t' + k}>
+              {rows.map((r) => {
+                const say = sayForms(r.cells);
+                return (
+                  <li key={r.label + r.cells[0]} className="ivrow">
+                    {['V1', 'V2', 'V3'].map((c, j) => (
+                      <span key={c} className={'ivf ivf' + (j + 1)} data-label={c}><span className="c-sr">{c}: </span>{r.cells[j] ?? ''}</span>
+                    ))}
+                    <span className="ivm" lang="vi"><span className="c-sr">Meaning: </span>{r.cells[3] ?? ''}</span>
+                    <button className="iconbtn sm ivplay" onClick={() => speak(say, 0.85)} aria-label={'Play ' + say} title="Listen">
+                      <Icon name="volume" size="sm" />
+                    </button>
+                    {r.cells[4] && <span className="ivx"><span className="c-sr">Example: </span>{r.cells[4]}</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))
+      )}
+    </>
+  );
+}
+
+/** "See V1 – V2 – V3 of “write”": opens the irregular verbs lesson with its search set to the verb. */
+function VerbLink({ verb }: { verb: string }) {
+  const { a } = useWB();
+  return (
+    <button className="linkbtn glink" onClick={() => a.openGrammar(IRREGULAR_LESSON, verb)}>
+      <span aria-hidden="true">🔤</span>See V1 – V2 – V3 of “{verb}”<Icon name="right" size="sm" />
+    </button>
   );
 }
 
@@ -472,8 +601,12 @@ export function GrammarLessonPage() {
     return () => { on = false; };
   }, [id, run]);
 
-  // A lesson opened (also from prev/next): say which one by moving focus to its title.
-  useEffect(() => { if (l) head.current?.focus({ preventScroll: true }); }, [l?.id]);
+  // A lesson opened (also from prev/next): say which one by moving focus to its title — unless it's the irregular verbs
+  // lesson opened for a verb: its search box takes the focus then (it shows the verb found).
+  useEffect(() => {
+    if (l && !(l.id === IRREGULAR_LESSON && s.grammarVerb && l.tables?.length)) head.current?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [l?.id]);
 
   const back = (
     <button className="back" onClick={() => a.openGrammar()}><Icon name="left" size="sm" />Grammar</button>
@@ -506,6 +639,8 @@ export function GrammarLessonPage() {
   const canPractise = l.drillCount > 0;
   /** Mixed practice: no theory of its own (no formula, uses or mistakes) — what it asks, then practise. */
   const isMixed = l.id === MIXED_LESSON;
+  /** Irregular verbs: its tables become one searchable list (search, pattern chips, 🔊). */
+  const isIrregular = l.id === IRREGULAR_LESSON;
 
   return (
     <article className="glesson" aria-labelledby="gl-title">
@@ -567,7 +702,9 @@ export function GrammarLessonPage() {
         </section>
       )}
 
-      {l.tables?.map((t, k) => (
+      {isIrregular && !!l.tables?.length && <IrregularVerbs tables={l.tables} verb={s.grammarVerb} />}
+
+      {!isIrregular && l.tables?.map((t, k) => (
         <section key={k} className="card glsec" aria-labelledby={'gl-t' + k}>
           <LessonTable t={t} id={'gl-t' + k} />
           {t.note && <p className="gtnote" lang="vi"><span aria-hidden="true">💡</span><span>{t.note}</span></p>}
@@ -881,6 +1018,7 @@ function ResultItem({ r, k }: { r: GrammarResult; k: number }) {
                 {!b.correct && <span>Answer: <b className="hw-ok">{b.answer}</b></span>}
               </div>
               <TenseNote label={b.tenseLabel} explain={b.explain} tense={b.correct ? undefined : b.tense} />
+              {!b.correct && b.verb && <VerbLink verb={b.verb} />}
             </li>
           ))}
         </ol>
@@ -911,6 +1049,8 @@ function ResultItem({ r, k }: { r: GrammarResult; k: number }) {
             <span aria-hidden="true">📖</span>Review the lesson<span className="c-sr">: {nameOf(review)}</span>
           </button>
         )}
+        {/* A form of an irregular verb: its three forms in the irregular verbs lesson (cloze blanks link their own). */}
+        {!r.correct && kind !== 'cloze' && kind !== 'identify' && r.verb && <VerbLink verb={r.verb} />}
       </div>
     </li>
   );
