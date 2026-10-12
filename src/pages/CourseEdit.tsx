@@ -7,6 +7,7 @@ import { TOPIC_LABEL } from './Library';
 import { BackToCourses, CourseLoading, useCourse } from './Course';
 import { ConfirmDialog, DictationPerDayPicker, JoinCode, StartDatePicker, VisibilityPicker, WordsPerDayPicker, errText, startDateOf, startPickOf, startText, type StartPick } from './Courses';
 import { QuestionBank } from './CourseQuestions';
+import { AutoFillDialog } from './CourseAutoFill';
 
 const TOPICS: Topic[] = ['it', 'interview', 'customer', 'leader', 'toeic', 'other'];
 const SOURCE_LABEL: Record<CourseWord['source'], string> = { library: 'Library', ai: 'AI', manual: 'Manual' };
@@ -253,6 +254,7 @@ export function CourseEdit() {
   const [quota, setQuota] = useState<Quota | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [delBusy, setDelBusy] = useState(false);
+  const [filling, setFilling] = useState(false);
 
   // Start on the first day that still needs words.
   const [picked, setPicked] = useState(false);
@@ -335,6 +337,7 @@ export function CourseEdit() {
         <div className="rowb" style={{ flexWrap: 'wrap' }}>
           <h2 className="h2">Days</h2>
           <span className="muted sm">{c.readyDays} of {c.totalDays} days have words · up to {c.wordsPerDay} words a day</span>
+          <button className="btn btn-secondary btn-sm" onClick={() => setFilling(true)}><Icon name="layers" size="sm" />Auto-fill days</button>
         </div>
         <div className="daypick" role="group" aria-label="Choose a day">
           {c.days.map((x) => {
@@ -386,6 +389,7 @@ export function CourseEdit() {
         </div>
       </div>
 
+      {filling && <AutoFillDialog c={c} onDone={setC} onClose={() => setFilling(false)} />}
       {deleting && (
         <ConfirmDialog title={'Delete “' + c.title + '”?'} text="The course and everyone’s progress in it will be removed. Words learners already saved stay in their vocabulary. This cannot be undone."
           confirm="Delete course" danger busy={delBusy} onConfirm={del} onClose={() => setDeleting(false)} />

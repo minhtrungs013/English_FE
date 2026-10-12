@@ -2,6 +2,9 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, type CourseSummary } from '../lib/api';
 import { useWB } from '../state/WordbookContext';
 import { EmptyState, Icon, PageHead } from '../components/ui';
+import type { Topic } from '../lib/api';
+import type { Level } from '../lib/data';
+import { AutoFillOptions, autoFill, autoFillToast } from './CourseAutoFill';
 
 export const WPD_CHOICES = [3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -189,6 +192,9 @@ function CreateCourse({ onClose }: { onClose: () => void }) {
   const [start, setStart] = useState<StartPick>({ fixed: false, date: '' });
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [fill, setFill] = useState(false);
+  const [levels, setLevels] = useState<Level[]>([]);
+  const [topics, setTopics] = useState<Topic[]>([]);
   const create = async () => {
     if (busy) return;
     if (!title.trim()) { setErr('Please give the course a title.'); return; }
@@ -197,7 +203,12 @@ function CreateCourse({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       const c = await api.createCourse({ title: title.trim(), description: description.trim(), wordsPerDay: wpd, dictationPerDay: dpd, visibility, startDate: sd.startDate });
-      a.showToast('Course “' + c.title + '” created. Now add words to each day.');
+      let msg = 'Course “' + c.title + '” created. Now add words to each day.';
+      if (fill) {
+        try { msg = 'Course “' + c.title + '” created. ' + autoFillToast(await autoFill(c.id, levels, topics)); }
+        catch (e) { a.showToast('Course created, but auto-fill failed: ' + errText(e), 'bad'); a.openCourse(c.id, true); return; }
+      }
+      a.showToast(msg);
       a.openCourse(c.id, true);
     } catch (e) {
       setErr(errText(e));
@@ -231,6 +242,11 @@ function CreateCourse({ onClose }: { onClose: () => void }) {
         <span className="hint">{visibility === 'public' ? 'Anyone can find it in Explore. You can also share the join code.' : 'Only people with the join code can join.'}</span>
       </div>
       <StartDatePicker idBase="nc-start" value={start} onChange={(p) => { setStart(p); setErr(''); }} />
+      <div className="field">
+        <label className="checkrow"><input type="checkbox" checked={fill} onChange={(e) => setFill(e.target.checked)} />Fill the 30 days with library words now</label>
+        {fill && <AutoFillOptions levels={levels} setLevels={setLevels} topics={topics} setTopics={setTopics} />}
+        {fill && <span className="hint">Up to {wpd * 30} words ({wpd} words × 30 days). You can change any day afterwards.</span>}
+      </div>
       {err && <span className="errtxt" role="alert"><Icon name="alert" size="sm" />{err}</span>}
       <div className="mfoot">
         <button className="btn btn-secondary" onClick={onClose}>Cancel</button>

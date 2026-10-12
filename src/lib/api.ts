@@ -415,6 +415,9 @@ export const api = {
   getCourse: (id: string) => req<CourseDetail>('GET', '/courses/' + id),
   updateCourse: (id: string, c: Partial<CourseInput>) => req<CourseDetail>('PATCH', '/courses/' + id, c),
   deleteCourse: (id: string) => req<void>('DELETE', '/courses/' + id),
+  /** Fills days with random library words (no AI). 'replace' fails with 409 once anyone has joined. */
+  autoFillCourse: (id: string, body: { levels?: ('A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2')[]; topics?: Topic[]; mode?: 'empty' | 'replace' }) =>
+    req<{ added: number; missing: number; course: CourseDetail }>('POST', '/courses/' + id + '/auto-fill', body),
   /** Replaces one day's words (at most wordsPerDay, no duplicates). */
   setCourseDay: (id: string, day: number, words: CourseWord[]) => req<CourseDetail>('PUT', '/courses/' + id + '/days/' + day, { words }),
   /** Library entry for the word, or a generated one (daily limit). Not saved: add it to a day and PUT the day. */
