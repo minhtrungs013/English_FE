@@ -1,23 +1,18 @@
 import { useEffect, useState } from 'react';
 import { dayKey, fmtAgo } from '../lib/data';
-import { api, type GrammarList } from '../lib/api';
+import { api, type CourseSummary, type DictationList, type GrammarList } from '../lib/api';
+import { StyleArt } from '../components/StyleArt';
 import { useWB } from '../state/WordbookContext';
 import { currentStreak, getStats, reviewedToday } from '../state/selectors';
-import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/ui';
+import { EmptyState, Icon, LevelBadge, PosBadge } from '../components/ui';
 import { PLACEMENT, MasteryBadge, placementSkipped, weakestTense } from './Grammar';
 
 /**
  * Grammar at a glance: my weakest practised tense (review it or practise it), or — before any tense is practised — a way
  * in through the placement test (hidden once it's skipped). Loaded once per visit; nothing shows if it fails.
  */
-function WeakestTenseCard() {
+function WeakestTenseCard({ g }: { g: GrammarList | null }) {
   const { s, a } = useWB();
-  const [g, setG] = useState<GrammarList | null>(null);
-  useEffect(() => {
-    let on = true;
-    api.grammar().then((r) => { if (on) setG(r); }).catch(() => { /* optional card: stay hidden */ });
-    return () => { on = false; };
-  }, []);
   if (!g) return null;
   const w = weakestTense(g.tenses);
   if (w) {
@@ -95,6 +90,79 @@ function ProgressChart() {
   );
 }
 
+/** Motivating lines for the greeting banner: one per day, the same all day. */
+const LINES = [
+  'A few words a day add up to a whole language.',
+  'Small steps every day beat one big push.',
+  'Today’s practice is tomorrow’s confidence.',
+  'Say it out loud — your ears learn too.',
+  'Mistakes are just practice in disguise.',
+  'Five focused minutes still count.',
+  'Every review makes a word stick a little longer.',
+  'Keep the streak warm — one session is enough.'
+];
+
+/** Where "Continue learning" goes: today's course day (if not done), else due review, else today's grammar practice. */
+function nextCourseDay(courses: CourseSummary[] | null) {
+  for (const c of courses ?? []) {
+    const e = c.enrollment;
+    if (e && e.currentDay >= 1 && e.currentDay <= c.totalDays && !e.learned.includes(e.currentDay)) return { id: c.id, day: e.currentDay, title: c.title };
+  }
+  return null;
+}
+
+function Greeting({ courses, streak, due }: { courses: CourseSummary[] | null; streak: number; due: number }) {
+  const { s, a } = useWB();
+  const now = new Date();
+  const hour = now.getHours();
+  const first = (s.settings.name || '').trim().split(/\s+/)[0] || 'there';
+  const hello = (hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening') + ', ' + first;
+  const doy = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000);
+  const line = LINES[doy % LINES.length];
+  const next = nextCourseDay(courses);
+  const go = next ? () => a.openStudy(next.id, next.day) : due ? a.startDue : () => a.startGrammarPractice('daily');
+  const hint = next ? 'Day ' + next.day + ' of ' + next.title : due ? 'Review ' + due + (due === 1 ? ' word' : ' words') : 'Today’s grammar practice';
+  return (
+    <section className="greet" aria-labelledby="greet-t">
+      <div className="greet-b">
+        <h1 id="greet-t" className="greet-t">{hello}</h1>
+        <p className="greet-line">{line}</p>
+        <div className="greet-act">
+          <button className="btn btn-primary btn-lg" onClick={go}>Continue learning<Icon name="right" size="sm" /></button>
+          <button className="btn btn-secondary" onClick={a.goNew}><Icon name="plus" size="sm" />Add Vocabulary</button>
+        </div>
+        <p className="greet-meta">
+          <span>{hint}</span>
+          <span className="greet-stat">{streak ? <>🔥 {streak} {streak === 1 ? 'day' : 'days'} streak</> : <>{due} {due === 1 ? 'word' : 'words'} due</>}</span>
+        </p>
+      </div>
+      <StyleArt style={s.settings.style} />
+    </section>
+  );
+}
+
+function Shortcuts({ total, due, g, dict }: { total: number; due: number; g: GrammarList | null; dict: DictationList | null }) {
+  const { a } = useWB();
+  const avg = g && g.tenses.length ? Math.round(g.tenses.reduce((x, t) => x + t.mastery, 0) / g.tenses.length) : null;
+  const tiles = [
+    { n: 1, icon: 'layers' as const, title: 'Vocabulary', sub: total + (total === 1 ? ' word' : ' words') + ' saved', go: () => a.go('vocab') },
+    { n: 2, icon: 'book' as const, title: 'Grammar', sub: g ? g.tenses.length + ' lessons' + (avg !== null ? ' · ' + avg + '% mastery' : '') : 'Tenses and practice', go: () => a.openGrammar() },
+    { n: 3, icon: 'headphones' as const, title: 'Dictation', sub: dict ? (dict.practisedToday ? 'Practised today ✓' : dict.sets.length + ' sets to listen and type') : 'Listen and type', go: () => a.go('dictation') },
+    { n: 4, icon: 'refresh' as const, title: 'Review', sub: due ? due + (due === 1 ? ' word' : ' words') + ' due today' : 'All caught up', go: a.startDue }
+  ];
+  return (
+    <nav className="tiles" aria-label="Shortcuts">
+      {tiles.map((t) => (
+        <button key={t.n} className={'tile tile' + t.n} onClick={t.go}>
+          <span className="tile-ic" aria-hidden="true"><Icon name={t.icon} /></span>
+          <span className="tile-t">{t.title}</span>
+          <span className="tile-s">{t.sub}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
 export function Dashboard() {
   const { s, a } = useWB();
   const stats = getStats(s.words);
@@ -102,16 +170,23 @@ export function Dashboard() {
   const done = reviewedToday(s.progress);
   const dayTotal = done + stats.due;
   const pct = dayTotal ? Math.round((done / dayTotal) * 100) : 100;
-  const hour = new Date().getHours();
-  const greeting = (hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening') + ', ' + (s.settings.name || 'there');
   const recent = s.words.slice().sort((x, y) => y.addedAt - x.addedAt).slice(0, 5);
+  const [g, setG] = useState<GrammarList | null>(null);
+  const [dict, setDict] = useState<DictationList | null>(null);
+  const [courses, setCourses] = useState<CourseSummary[] | null>(null);
+  useEffect(() => {
+    let on = true;
+    // Optional extras: each stays hidden / generic if it fails.
+    api.grammar().then((r) => { if (on) setG(r); }).catch(() => {});
+    api.dictation().then((r) => { if (on) setDict(r); }).catch(() => {});
+    api.listCourses('joined').then((r) => { if (on) setCourses(r); }).catch(() => {});
+    return () => { on = false; };
+  }, []);
 
   return (
     <>
-      <PageHead title={greeting} sub="Keep learning a few words today.">
-        <button className="btn btn-secondary" onClick={a.startDue}><Icon name="refresh" size="sm" />Start Review</button>
-        <button className="btn btn-primary" onClick={a.goNew}><Icon name="plus" size="sm" />Add Vocabulary</button>
-      </PageHead>
+      <Greeting courses={courses} streak={streak} due={stats.due} />
+      <Shortcuts total={stats.total} due={stats.due} g={g} dict={dict} />
 
       <div className="grid4">
         <div className="card stat">
@@ -155,7 +230,7 @@ export function Dashboard() {
         <ProgressChart />
       </div>
 
-      <WeakestTenseCard />
+      <WeakestTenseCard g={g} />
 
       <div className="card">
         <div className="cardhead">
