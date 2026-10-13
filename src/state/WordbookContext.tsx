@@ -6,6 +6,7 @@ import {
 import type { IconName } from '../lib/icons';
 import { api, ApiError, getToken, setToken, setUnauthorizedHandler, type AuthResponse, type CourseDetail, type CourseSaveResult, type LibraryWord, type Note, type Topic } from '../lib/api';
 import { stopSpeaking } from '../lib/speech';
+import { cacheStyle, cachedStyle, isAppStyle, type AppStyle } from '../lib/appStyle';
 
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
 
@@ -68,7 +69,7 @@ const NOTE_POLL_MS = 3 * 60_000;
 const NO_FILTERS: Filters = { q: '', level: 'all', status: 'all', cat: 'all', tag: 'all' };
 const EMPTY_DATA: Data = {
   words: [], cats: [], tags: [], shared: [], userId: '', autofill: { used: 0, limit: 3 },
-  settings: { name: '', email: '', goal: '20', dir: 'en-vi', autoplay: true, showEx: true, theme: 'light', accent: 'indigo', voice: '', rate: 0.9, pitch: 1, mute: [] },
+  settings: { name: '', email: '', goal: '20', dir: 'en-vi', autoplay: true, showEx: true, theme: 'light', accent: 'indigo', style: cachedStyle(), voice: '', rate: 0.9, pitch: 1, mute: [] },
   progress: { streak: 0, lastStreakDay: '', reviewedDay: '', reviewedToday: 0 }
 };
 
@@ -100,7 +101,7 @@ function useWordbookState() {
     try {
       const d = await api.bootstrap();
       // An older server may not send autofill or mute yet; keep the defaults then.
-      set({ ...d, autofill: d.autofill ?? EMPTY_DATA.autofill, settings: { ...d.settings, mute: d.settings.mute ?? [] }, status: 'ready' });
+      set({ ...d, autofill: d.autofill ?? EMPTY_DATA.autofill, settings: { ...d.settings, mute: d.settings.mute ?? [], style: isAppStyle(d.settings.style) ? d.settings.style : 'classic' }, status: 'ready' });
     } catch (e) {
       // A rejected session has already logged out (see setUnauthorizedHandler); keep the login screen.
       if (e instanceof ApiError && e.status === 401) return;
@@ -533,6 +534,18 @@ function useWordbookState() {
       if (Object.keys(prefs).length) void call(api.updateSettings(prefs));
     }, 500);
   };
+  /** Applies a style at once and saves it; on failure goes back to the previous one. */
+  const setStyle = async (style: AppStyle) => {
+    const prevStyle = s.settings.style;
+    if (style === prevStyle) return;
+    set((prev) => ({ settings: { ...prev.settings, style } }));
+    cacheStyle(style);
+    const ok = await call(api.updateSettings({ style }));
+    if (!ok) {
+      set((prev) => (prev.settings.style === style ? { settings: { ...prev.settings, style: prevStyle } } : {}));
+      cacheStyle(prevStyle);
+    }
+  };
   /* ---------- library ---------- */
   /** Copies a library word into my vocabulary. Returns the new word, or undefined on failure. */
   const saveFromLibrary = async (lw: LibraryWord): Promise<Word | undefined> => {
@@ -665,7 +678,7 @@ function useWordbookState() {
     startPractice, pUpdate, pPick, pCheck, pNext,
     setF, addChip, generate, save, openEdit, goNew, formCancel,
     askDeleteWord, confirmModal, submitModal, patchModal,
-    exportData, setSettings, setFilters, showWordsWith, reload: load, login, register, logout, saveFromLibrary, shareWord, learnCourseDay, saveCourseWords, openCourse, openStudy,
+    exportData, setSettings, setStyle, setFilters, showWordsWith, reload: load, login, register, logout, saveFromLibrary, shareWord, learnCourseDay, saveCourseWords, openCourse, openStudy,
     openGrammar, startGrammarPractice, exitGrammarPractice,
     startDictation, exitDictation,
     markNotesRead, deleteNote, openNote,

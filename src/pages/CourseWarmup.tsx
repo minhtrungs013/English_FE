@@ -116,7 +116,7 @@ export function WarmupSection({ c, day, embedded, onDone, onClose }: {
       </section>
     );
   }
-  if (!w) return <div className="sk wucard" style={{ height: 120, borderRadius: 16 }} aria-busy="true" aria-label="Loading warm-up" />;
+  if (!w) return <div className="sk wucard" style={{ height: 120, borderRadius: 'var(--r-lg)' }} aria-busy="true" aria-label="Loading warm-up" />;
   if (!w.recap && !w.words.length) return embedded ? nothing : null;
 
   const hid = 'wu-' + day;

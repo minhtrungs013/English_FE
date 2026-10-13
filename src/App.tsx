@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { useWB } from './state/WordbookContext';
 import { BottomNav, Sidebar, Topbar } from './components/Layout';
 import { Modals, ToastView } from './components/Overlays';
@@ -12,6 +12,7 @@ import { Tags } from './pages/Tags';
 import { Settings } from './pages/Settings';
 import { Session } from './sessions/Session';
 import { setVoicePrefs } from './lib/speech';
+import { cacheStyle, loadStyleFont, styleClass } from './lib/appStyle';
 import { EmptyState, Icon } from './components/ui';
 import { AuthPage } from './pages/Auth';
 import { Library } from './pages/Library';
@@ -53,10 +54,10 @@ function LoadingSkeleton() {
       <div className="sk" style={{ width: 280, height: 34, marginBottom: 36 }} />
       <div className="grid4">{statCard}{statCard}{statCard}{statCard}</div>
       <div className="dash2">
-        <div className="sk" style={{ height: 300, borderRadius: 18 }} />
-        <div className="sk" style={{ height: 300, borderRadius: 16 }} />
+        <div className="sk" style={{ height: 300, borderRadius: 'var(--r-xl)' }} />
+        <div className="sk" style={{ height: 300, borderRadius: 'var(--r-lg)' }} />
       </div>
-      <div className="sk" style={{ height: 280, borderRadius: 16 }} />
+      <div className="sk" style={{ height: 280, borderRadius: 'var(--r-lg)' }} />
     </div>
   );
 }
@@ -109,14 +110,20 @@ export default function App() {
   const { voice, rate, pitch, accent } = s.settings;
   useEffect(() => { setVoicePrefs({ voice, rate, pitch }); }, [voice, rate, pitch]);
 
-  useEffect(() => {
-    document.body.style.background = dark ? '#111318' : '#F5F6F8';
+  const style = s.settings.style || 'classic';
+  useEffect(() => { loadStyleFont(style); cacheStyle(style); }, [style]);
+
+  useLayoutEffect(() => {
+    // The page behind the app follows the active style's background token.
+    const el = document.querySelector('.shell > .app');
+    const bg = el ? getComputedStyle(el).getPropertyValue('--bg').trim() : '';
+    document.body.style.background = bg || (dark ? '#111318' : '#F5F6F8');
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
-  }, [dark]);
+  }, [dark, style]);
 
   return (
     <div className="shell">
-      <div className={'app accent-' + (accent || 'indigo') + (dark ? ' dark' : '') + (s.rail ? ' rail' : '')}>
+      <div className={'app' + (style === 'classic' ? ' accent-' + (accent || 'indigo') : styleClass(style)) + (dark ? ' dark' : '') + (s.rail ? ' rail' : '')}>
         {s.status === 'auth' ? <AuthPage /> : inSession ? <Session /> : inStudy ? <CourseStudy key={s.courseId + ':' + s.study!.day} /> : inGrammar ? <GrammarPractice key={'gp' + s.grammarPractice!.run} /> : inDictation ? <DictationPractice key={'dp' + s.dictation!.run} /> : (
           <>
             <Sidebar />

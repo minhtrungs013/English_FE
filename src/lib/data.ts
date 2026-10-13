@@ -1,3 +1,4 @@
+import type { AppStyle } from './appStyle';
 import type { IconName } from './icons';
 
 export type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
@@ -40,6 +41,8 @@ export interface Settings {
   showEx: boolean;
   theme: Theme;
   accent: Accent;
+  /** App style (design tokens); accent applies only to classic. */
+  style: AppStyle;
   /** Speech voice (voiceURI); '' = browser default English voice. */
   voice: string;
   /** Speaking speed and pitch, 0.5–1.5. */

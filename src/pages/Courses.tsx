@@ -263,7 +263,7 @@ function CourseCard({ c, onJoin }: { c: CourseSummary; onJoin?: () => void }) {
   return (
     <div className="card ccard">
       <div className="rowb" style={{ alignItems: 'flex-start' }}>
-        <span className="cat-ic t-indigo" style={{ width: 42, height: 42, borderRadius: 12 }}><Icon name="cap" /></span>
+        <span className="cat-ic t-indigo" style={{ width: 42, height: 42, borderRadius: 'var(--r-md)' }}><Icon name="cap" /></span>
         {c.isOwner && <VisibilityBadge v={c.visibility} />}
       </div>
       <button className="wordlink ccard-title" onClick={() => a.openCourse(c.id)}>{c.title}</button>
@@ -380,7 +380,7 @@ export function Courses() {
   } else if (!lists) {
     body = (
       <div className="cgrid" aria-busy="true" aria-label="Loading courses">
-        {[1, 2, 3].map((i) => <div key={i} className="sk" style={{ height: 220, borderRadius: 16 }} />)}
+        {[1, 2, 3].map((i) => <div key={i} className="sk" style={{ height: 220, borderRadius: 'var(--r-lg)' }} />)}
       </div>
     );
   } else {

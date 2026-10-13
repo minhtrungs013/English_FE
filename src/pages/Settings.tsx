@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { api, type NoteType } from '../lib/api';
 import type { Accent, Settings as SettingsData, Theme } from '../lib/data';
+import { APP_STYLES, styleClass } from '../lib/appStyle';
 import { canSpeak, speak, useEnglishVoices } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { Icon, PageHead } from '../components/ui';
@@ -98,6 +99,51 @@ function VoiceSettings() {
   );
 }
 
+/** Style cards: a radio group (roving tabindex, arrow keys move and select). Each preview uses that style's own tokens. */
+function StylePicker() {
+  const { s, a } = useWB();
+  const cur = s.settings.style || 'classic';
+  const sysDark = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+  const dark = s.settings.theme === 'dark' || (s.settings.theme === 'system' && sysDark);
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const onKey = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
+    const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    const n = (i + d + APP_STYLES.length) % APP_STYLES.length;
+    refs.current[n]?.focus();
+    void a.setStyle(APP_STYLES[n].id);
+  };
+  return (
+    <div className="stylegrid" role="radiogroup" aria-labelledby="style-lbl">
+      {APP_STYLES.map((x, i) => {
+        const on = cur === x.id;
+        const prevCls = 'app' + (x.id === 'classic' ? ' accent-' + (s.settings.accent || 'indigo') : styleClass(x.id)) + (dark ? ' dark' : '');
+        return (
+          <button key={x.id} ref={(el) => { refs.current[i] = el; }} type="button" role="radio" aria-checked={on} tabIndex={on ? 0 : -1}
+            className={'stylecard' + (on ? ' on' : '')} onClick={() => void a.setStyle(x.id)} onKeyDown={(e) => onKey(e, i)} aria-describedby={'sd-' + x.id}>
+            <span className="scprev" aria-hidden="true">
+              <span className={prevCls}>
+                <span className="sp-bar"><span className="sp-dot" /><span className="sp-line" /></span>
+                <span className="sp-body">
+                  <span className="sp-card">
+                    <span className="sp-title">Aa Word</span>
+                    <span className="sp-text">An example card</span>
+                    <span className="sp-btn">Review</span>
+                  </span>
+                </span>
+              </span>
+            </span>
+            <span className="sc-name">{x.name}</span>
+            <span className="sc-desc" id={'sd-' + x.id}>{x.desc}</span>
+            {on && <span className="sc-check" aria-hidden="true"><Icon name="check" size="sm" /></span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function Switch({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
   return <button className={'switch' + (on ? ' on' : '')} role="switch" aria-checked={on} aria-label={label} onClick={onToggle} />;
 }
@@ -136,7 +182,8 @@ function NotificationSettings() {
 export function Settings() {
   const { s, a } = useWB();
   const st = s.settings;
-  const initial = (st.name || '?').trim().charAt(0).toUpperCase() || '?';
+  const style = st.style || 'classic';
+  const initial =(st.name || '?').trim().charAt(0).toUpperCase() || '?';
   return (
     <>
       <PageHead title="Settings" sub="Manage your profile and how you learn." />
@@ -188,15 +235,21 @@ export function Settings() {
               </label>
             ))}
           </div>
+          <span className="label" id="style-lbl" style={{ display: 'block', margin: '22px 0 10px' }}>Style</span>
+          <StylePicker />
           <span className="label" style={{ display: 'block', margin: '22px 0 10px' }}>Accent color</span>
-          <div className="swatches" role="radiogroup" aria-label="Accent color">
-            {ACCENTS.map(([v, label, hex]) => (
-              <button key={v} type="button" role="radio" aria-checked={st.accent === v} className={'swatch' + (st.accent === v ? ' on' : '')} onClick={() => a.setSettings({ accent: v })}>
-                <span className="dotc" style={{ background: hex }}>{st.accent === v && <Icon name="check" size="sm" />}</span>
-                {label}
-              </button>
-            ))}
-          </div>
+          {style !== 'classic' ? (
+            <p className="setnote">The {APP_STYLES.find((x) => x.id === style)?.name} style has its own colors. Switch to Classic to pick an accent.</p>
+          ) : (
+            <div className="swatches" role="radiogroup" aria-label="Accent color">
+              {ACCENTS.map(([v, label, hex]) => (
+                <button key={v} type="button" role="radio" aria-checked={st.accent === v} className={'swatch' + (st.accent === v ? ' on' : '')} onClick={() => a.setSettings({ accent: v })}>
+                  <span className="dotc" style={{ background: hex }}>{st.accent === v && <Icon name="check" size="sm" />}</span>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <VoiceSettings />

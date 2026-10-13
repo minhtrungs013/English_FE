@@ -28,7 +28,7 @@ export function CourseLoading() {
     <div aria-busy="true" aria-label="Loading course">
       <div className="sk" style={{ width: 300, height: 34, marginBottom: 14 }} />
       <div className="sk" style={{ width: 220, height: 16, marginBottom: 28 }} />
-      <div className="sk" style={{ height: 300, borderRadius: 16 }} />
+      <div className="sk" style={{ height: 300, borderRadius: 'var(--r-lg)' }} />
     </div>
   );
 }

@@ -74,7 +74,7 @@ export function Modals() {
   } else {
     body = (
       <div className="modal" role="dialog" aria-modal="true" aria-label={m.title}>
-        <div className="empty-ic t-red" style={{ width: 48, height: 48, borderRadius: 14, margin: 0 }}><Icon name="trash" size="lg" /></div>
+        <div className="empty-ic t-red" style={{ width: 48, height: 48, borderRadius: 'var(--r-ml)', margin: 0 }}><Icon name="trash" size="lg" /></div>
         <h2>{m.title}</h2>
         <p>{CONFIRM_BODY[m.kind]}</p>
         <div className="mfoot">

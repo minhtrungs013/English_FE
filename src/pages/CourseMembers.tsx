@@ -74,7 +74,7 @@ export function CourseMembers({ c }: { c: CourseDetail }) {
     );
   } else if (!data) {
     status = 'Loading members…';
-    body = <div className="sk" style={{ height: 220, borderRadius: 12 }} aria-hidden="true" />;
+    body = <div className="sk" style={{ height: 220, borderRadius: 'var(--r-md)' }} aria-hidden="true" />;
   } else if (!data.members.length) {
     status = 'No one has joined yet.';
     body = (
@@ -288,7 +288,7 @@ function MemberDetail({ c, userId, totalDays, onClose, onRemoved }: {
       </div>
     );
   } else if (!m) {
-    body = <div className="sk" style={{ height: 260, borderRadius: 12 }} aria-busy="true" aria-label="Loading" />;
+    body = <div className="sk" style={{ height: 260, borderRadius: 'var(--r-md)' }} aria-busy="true" aria-label="Loading" />;
   } else {
     const open = m.days.filter((d) => d.open && d.words);
     const handed = open.filter((d) => d.homework && 'score' in d.homework);

@@ -60,7 +60,7 @@ export function CourseLeaderboard({ c, version }: { c: CourseDetail; version: nu
       </div>
     );
   } else if (!lb) {
-    body = <div className="sk" style={{ height: 180, borderRadius: 12 }} aria-busy="true" aria-label="Loading leaderboard" />;
+    body = <div className="sk" style={{ height: 180, borderRadius: 'var(--r-md)' }} aria-busy="true" aria-label="Loading leaderboard" />;
   } else if (tab === 'day') {
     body = (
       <BoardList board={lb.dayBoard} label={'Day ' + lb.day + ' leaderboard'} empty={'No one has handed in day ' + lb.day + ' yet.'}

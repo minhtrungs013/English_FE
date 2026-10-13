@@ -313,7 +313,7 @@ export function GrammarHome() {
               </div>
               {!items ? (
                 <div className="ggrid" aria-busy="true" aria-label="Loading lessons">
-                  {g.ids.map((t) => <div key={t} className="sk" style={{ height: 178, borderRadius: 16 }} />)}
+                  {g.ids.map((t) => <div key={t} className="sk" style={{ height: 178, borderRadius: 'var(--r-lg)' }} />)}
                 </div>
               ) : (
                 <ul className="ggrid" aria-labelledby={'gs-' + g.id}>
@@ -387,8 +387,8 @@ function LessonLoading() {
       <div className="sk" style={{ width: 120, height: 20, marginBottom: 16 }} />
       <div className="sk" style={{ width: 300, height: 34, marginBottom: 12 }} />
       <div className="sk" style={{ width: '80%', height: 18, marginBottom: 28 }} />
-      <div className="sk" style={{ height: 260, borderRadius: 16, marginBottom: 20 }} />
-      <div className="sk" style={{ height: 320, borderRadius: 16 }} />
+      <div className="sk" style={{ height: 260, borderRadius: 'var(--r-lg)', marginBottom: 20 }} />
+      <div className="sk" style={{ height: 320, borderRadius: 'var(--r-lg)' }} />
     </div>
   );
 }
@@ -1191,7 +1191,7 @@ export function GrammarPractice() {
     body = (
       <div aria-busy="true" aria-label="Loading questions" className="stack" style={{ gap: 14 }}>
         <div className="sk" style={{ height: 30, width: 220 }} />
-        <div className="sk" style={{ height: 220, borderRadius: 20 }} />
+        <div className="sk" style={{ height: 220, borderRadius: 'var(--r-2xl)' }} />
       </div>
     );
   } else if (phase === 'error') {

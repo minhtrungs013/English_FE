@@ -523,7 +523,7 @@ export function DialogueBank({ c, day, items, setItems, reload }: {
       )}
 
       {!items ? (
-        <div className="sk" style={{ height: 70, borderRadius: 12 }} aria-busy="true" aria-label="Loading dialogues" />
+        <div className="sk" style={{ height: 70, borderRadius: 'var(--r-md)' }} aria-busy="true" aria-label="Loading dialogues" />
       ) : !sorted.length ? (
         <p className="muted sm" style={{ margin: 0 }}>No dialogue for day {day.day} yet. Generate one, write it, or import it.</p>
       ) : (

@@ -207,7 +207,7 @@ export function DictationHub() {
           </div>
         ) : !sets ? (
           <div className="ggrid dc-grid" aria-busy="true" aria-label="Loading dictation sets">
-            {[0, 1, 2].map((k) => <div key={k} className="sk" style={{ height: 140, borderRadius: 16 }} />)}
+            {[0, 1, 2].map((k) => <div key={k} className="sk" style={{ height: 140, borderRadius: 'var(--r-lg)' }} />)}
           </div>
         ) : !sets.length ? (
           <p className="muted sm">No sets in {filterTitle} yet.</p>
@@ -486,7 +486,7 @@ export function DictationPractice() {
     body = (
       <div aria-busy="true" aria-label="Loading the dictation" className="stack" style={{ gap: 14 }}>
         <div className="sk" style={{ height: 30, width: 220 }} />
-        <div className="sk" style={{ height: 260, borderRadius: 20 }} />
+        <div className="sk" style={{ height: 260, borderRadius: 'var(--r-2xl)' }} />
       </div>
     );
   } else if (phase === 'error') {

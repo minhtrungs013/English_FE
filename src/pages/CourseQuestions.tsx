@@ -393,7 +393,7 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
       {failed ? (
         <span className="errtxt" role="alert"><Icon name="alert" size="sm" />{failed} <button className="linkbtn" onClick={load}>Try again</button></span>
       ) : !questions ? (
-        <div className="sk" style={{ height: 90, borderRadius: 12 }} aria-busy="true" aria-label="Loading questions" />
+        <div className="sk" style={{ height: 90, borderRadius: 'var(--r-md)' }} aria-busy="true" aria-label="Loading questions" />
       ) : !questions.length ? (
         <p className="muted sm" style={{ margin: 0 }}>No tense questions for day {day.day} yet. Generate some, or write your own.</p>
       ) : GROUPS.map(({ status, title }) => {
