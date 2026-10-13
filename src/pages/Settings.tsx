@@ -256,7 +256,7 @@ export function Settings() {
           <span className="label" id="style-lbl" style={{ display: 'block', margin: '22px 0 10px' }}>Style</span>
           <StylePicker />
           <div className="setrow" style={{ marginTop: 14 }}>
-            <div className="setlbl"><b>Seasonal decorations</b><span className="muted sm">Tết, Mid-Autumn, Christmas and New Year touches on the dashboard (this device)</span></div>
+            <div className="setlbl"><b>Seasonal decorations</b><span className="muted sm">Tết, Mid-Autumn and Christmas banner pictures on the dashboard (this device)</span></div>
             <Switch on={seasonal} label="Seasonal decorations" onToggle={() => { setSeasonalOn(!seasonal); setSeasonal(!seasonal); }} />
           </div>
           <span className="label" style={{ display: 'block', margin: '22px 0 10px' }}>Accent color</span>

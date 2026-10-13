@@ -22,3 +22,16 @@ export function seasonFor(now: Date): Season | null {
   if (m === 12 && d >= 18 && d <= 26) return 'xmas';
   return null;
 }
+
+/** Illustrated banner image names (files in public/banners: `<name>.webp` 1600w and `<name>-sm.webp` 800w). */
+export type Banner = 'classic' | 'midnight' | 'mono' | 'royal' | 'autumn' | 'spring' | 'summer' | 'winter' | 'tet' | 'midautumn' | 'xmas';
+
+const STYLE_BANNER: Record<string, Banner> = {
+  classic: 'classic', midnight: 'midnight', mono: 'mono', royal: 'royal', warm: 'autumn', sakura: 'spring', ocean: 'summer', aurora: 'winter'
+};
+
+/** The dashboard banner: the season's image when one applies (New Year has none), else the style's. */
+export function bannerFor(style: string, season: Season | null): Banner {
+  if (season === 'tet' || season === 'midautumn' || season === 'xmas') return season;
+  return STYLE_BANNER[style] ?? 'classic';
+}

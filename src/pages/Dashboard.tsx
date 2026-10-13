@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { dayKey, fmtAgo } from '../lib/data';
 import { api, type CourseSummary, type DictationList, type GrammarList } from '../lib/api';
-import { SeasonArt, StyleArt } from '../components/StyleArt';
 import { isDuoStyle, seasonalOn } from '../lib/appStyle';
-import { seasonFor, type Season } from '../lib/season';
+import { bannerFor, seasonFor, type Season } from '../lib/season';
 import { useWB } from '../state/WordbookContext';
 import { currentStreak, getStats, reviewedToday } from '../state/selectors';
 import { EmptyState, Icon, LevelBadge, NavIcon, PosBadge } from '../components/ui';
@@ -122,25 +121,25 @@ function Greeting({ courses, streak, due, season }: { courses: CourseSummary[] |
   const doy = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000);
   const line = LINES[doy % LINES.length];
   const next = nextCourseDay(courses);
+  const banner = bannerFor(s.settings.style || 'classic', season);
   const go = next ? () => a.openStudy(next.id, next.day) : due ? a.startDue : () => a.startGrammarPractice('daily');
   const hint = next ? 'Day ' + next.day + ' of ' + next.title : due ? 'Review ' + due + (due === 1 ? ' word' : ' words') : 'Today’s grammar practice';
   return (
     <section className="greet" aria-labelledby="greet-t">
+      <img className="greet-img" src={'/banners/' + banner + '.webp'} srcSet={'/banners/' + banner + '-sm.webp 800w, /banners/' + banner + '.webp 1600w'}
+        sizes="(max-width: 900px) 100vw, 1100px" alt="" aria-hidden="true" loading="eager" decoding="async" />
       <div className="greet-b">
-        {season === 'tet' && <span className="season-hi" lang="vi">Chúc mừng năm mới!</span>}
-        <h1 id="greet-t" className="greet-t">{hello}</h1>
-        <p className="greet-line">{line}</p>
+        {season === 'tet' ? <p className="greet-hi" lang="vi">Chúc mừng năm mới! 🧧</p> : <p className="greet-hi">{hello} 👋</p>}
+        <h1 id="greet-t" className="greet-t">{line}</h1>
+        <p className="greet-line">{hint}</p>
         <div className="greet-act">
-          <button className="btn btn-primary btn-lg" onClick={go}>Continue learning<Icon name="right" size="sm" /></button>
-          <button className="btn btn-secondary" onClick={a.goNew}><Icon name="plus" size="sm" />Add Vocabulary</button>
+          <button className="greet-go" onClick={go}>Continue learning<Icon name="right" size="sm" /></button>
+          <button className="greet-add" onClick={a.goNew}><Icon name="plus" size="sm" />Add Vocabulary</button>
         </div>
         <p className="greet-meta">
-          <span>{hint}</span>
           <span className="greet-stat">{streak ? <>🔥 {streak} {streak === 1 ? 'day' : 'days'} streak</> : <>{due} {due === 1 ? 'word' : 'words'} due</>}</span>
         </p>
       </div>
-      <StyleArt style={s.settings.style} />
-      {season && <SeasonArt season={season} />}
     </section>
   );
 }
@@ -191,7 +190,6 @@ export function Dashboard() {
 
   return (
     <>
-      {season && <div className={'season-bg s-' + season} aria-hidden="true" />}
       <Greeting courses={courses} streak={streak} due={stats.due} season={season} />
       <Shortcuts total={stats.total} due={stats.due} g={g} dict={dict} />
 
