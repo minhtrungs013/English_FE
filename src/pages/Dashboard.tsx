@@ -129,16 +129,16 @@ function Greeting({ courses, streak, due, season }: { courses: CourseSummary[] |
       <img className="greet-img" src={'/banners/' + banner + '.webp'} srcSet={'/banners/' + banner + '-sm.webp 800w, /banners/' + banner + '.webp 1600w'}
         sizes="(max-width: 900px) 100vw, 1100px" alt="" aria-hidden="true" loading="eager" decoding="async" />
       <div className="greet-b">
-        {season === 'tet' ? <p className="greet-hi" lang="vi">Chúc mừng năm mới! 🧧</p> : <p className="greet-hi">{hello} 👋</p>}
+        <div className="greet-top">
+          {season === 'tet' ? <p className="greet-hi" lang="vi">Chúc mừng năm mới! 🧧</p> : <p className="greet-hi">{hello} 👋</p>}
+          <span className="greet-stat">{streak ? <>🔥 {streak} {streak === 1 ? 'day' : 'days'} streak</> : <>{due} {due === 1 ? 'word' : 'words'} due</>}</span>
+        </div>
         <h1 id="greet-t" className="greet-t">{line}</h1>
         <p className="greet-line">{hint}</p>
         <div className="greet-act">
           <button className="greet-go" onClick={go}>Continue learning<Icon name="right" size="sm" /></button>
-          <button className="greet-add" onClick={a.goNew}><Icon name="plus" size="sm" />Add Vocabulary</button>
+          <button className="greet-add" onClick={a.goNew} aria-label="Add vocabulary"><Icon name="plus" size="sm" /><span className="greet-add-t" aria-hidden="true">Add Vocabulary</span></button>
         </div>
-        <p className="greet-meta">
-          <span className="greet-stat">{streak ? <>🔥 {streak} {streak === 1 ? 'day' : 'days'} streak</> : <>{due} {due === 1 ? 'word' : 'words'} due</>}</span>
-        </p>
       </div>
     </section>
   );
