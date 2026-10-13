@@ -1395,7 +1395,7 @@ button.tmini-row:hover{border-color:var(--primary)}
 .gdots{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
 .gdot{width:32px;height:32px;border-radius:9px;border:1.5px solid var(--border);background:var(--surface);color:var(--muted);font:inherit;font-size:12.5px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums}
 .gdot:hover:not(:disabled){border-color:var(--primary)}
-.gdot.done{background:var(--primary-soft);border-color:var(--primary-soft);color:var(--primary-ink)}
+.gdot.is-done{background:var(--primary-soft);border-color:var(--primary-soft);color:var(--primary-ink)}
 .gdot.on{border-color:var(--primary);background:var(--primary);color:#fff}
 .gdot:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 .gqk{margin:0;outline:none;border-radius:4px}
@@ -1464,7 +1464,7 @@ button.tmini-row:hover{border-color:var(--primary)}
 .gplace{border-color:var(--bar);background:var(--primary-soft)}
 .gplace-ic,.gday-ic,.gweak-ic{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--surface);color:var(--primary-ink)}
 .gday-ic,.gweak-ic{background:var(--primary-soft)}
-.gday.done .gday-ic{background:var(--success-soft);color:var(--success)}
+.gday.is-done .gday-ic{background:var(--success-soft);color:var(--success)}
 .gplace-b,.gday-b,.gweak-b{flex:1 1 240px;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 .gplace-t,.gday-t,.gweak-t{margin:0;font-size:18px;font-weight:800;letter-spacing:-.01em;line-height:1.35}
 .gplace-s,.gday-s{margin:0;line-height:1.55}

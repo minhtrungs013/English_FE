@@ -239,7 +239,7 @@ export function GrammarHome() {
         </section>
       )}
 
-      <section className={'card gday' + (doneToday ? ' done' : '')} aria-labelledby="gday-t">
+      <section className={'card gday' + (doneToday ? ' is-done' : '')} aria-labelledby="gday-t">
         <span className="gday-ic" aria-hidden="true"><Icon name={doneToday ? 'checkc' : 'calendar'} size="lg" /></span>
         <div className="gday-b">
           <h2 id="gday-t" className="gday-t">Today’s practice</h2>
@@ -1261,7 +1261,7 @@ export function GrammarPractice() {
             const done = isAnswered(x, drafts[k]);
             return (
               <li key={k}>
-                <button className={'gdot' + (k === i ? ' on' : '') + (done ? ' done' : '')} onClick={() => goTo(k)} disabled={sending}
+                <button className={'gdot' + (k === i ? ' on' : '') + (done ? ' is-done' : '')} onClick={() => goTo(k)} disabled={sending}
                   aria-current={k === i ? 'step' : undefined} aria-label={'Question ' + (k + 1) + (done ? ', answered' : ', not answered')}>
                   {k + 1}
                 </button>

@@ -154,7 +154,7 @@ export function DictationHub() {
       <PageHead title="Dictation" sub="Listen to a sentence and type exactly what you hear." />
 
       <div className="dc-top">
-        <section className={'card dc-tcard' + (doneToday ? ' done' : '')} aria-labelledby="dc-day-t">
+        <section className={'card dc-tcard' + (doneToday ? ' is-done' : '')} aria-labelledby="dc-day-t">
           <span className={'stat-ic ' + (doneToday ? 't-green' : 't-indigo')} aria-hidden="true"><Icon name={doneToday ? 'checkc' : 'calendar'} size="lg" /></span>
           <div className="dc-tcard-b">
             <h2 id="dc-day-t" className="dc-tcard-t">
