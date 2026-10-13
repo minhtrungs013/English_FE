@@ -190,7 +190,7 @@ export function Topbar() {
             <button className={'mitem' + (s.route === 'notifications' ? ' on' : '')} onClick={() => a.go('notifications')}>
               <Icon name="bell" size="sm" /><span className="grow">Notifications</span>{s.unread > 0 && <span className="count">{s.unread > 9 ? '9+' : s.unread}</span>}
             </button>
-            <button className="mitem" onClick={() => a.go('settings')}><Icon name="sliders" size="sm" />Settings</button>
+            <button className="mitem" onClick={() => a.go('settings', { settingsTab: 'account' })}><Icon name="sliders" size="sm" />Settings</button>
             <div className="msep" />
             <button className="mitem danger" onClick={() => a.logout()}>
               <Icon name="logout" size="sm" />Log out

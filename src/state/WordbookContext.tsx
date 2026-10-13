@@ -10,6 +10,7 @@ import { cacheStyle, cachedStyle, isAppStyle, type AppStyle } from '../lib/appSt
 
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
 
+export type SettingsTab = 'account' | 'appearance' | 'learning' | 'voice' | 'notifications' | 'data';
 export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy' | 'notifications' | 'grammar' | 'grammarLesson' | 'grammarPractice' | 'dictation' | 'dictationPractice';
 export type CourseTab = 'today' | 'map' | 'board' | 'members';
 /** A step of a course day in the study session. */
@@ -48,6 +49,8 @@ interface UiState {
   courseId: string;
   /** The tab the course page opens on ('' = its default). */
   courseTab: CourseTab | '';
+  /** The open Settings section (deep link: go('settings', { settingsTab: 'notifications' })). */
+  settingsTab: SettingsTab;
   /** The day open in the study session, and the step to start on (null = the first unfinished one). */
   study: { day: number; step: StudyStep | null } | null;
   /** Unread notifications (from the server; checked every few minutes). */
@@ -83,7 +86,7 @@ function initialState(): State {
     route: 'dashboard', prevRoute: 'dashboard', sel: null, rail: false,
     filters: NO_FILTERS, menu: null, notif: false, account: false,
     form: emptyForm(), editForm: emptyForm(), formErr: '', aiBusy: false, aiStep: 0,
-    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: '', courseTab: '', study: null, unread: 0, grammarId: '', grammarVerb: '', grammarPractice: null, dictation: null
+    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: '', courseTab: '', settingsTab: 'account', study: null, unread: 0, grammarId: '', grammarVerb: '', grammarPractice: null, dictation: null
   };
 }
 

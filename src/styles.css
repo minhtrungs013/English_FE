@@ -239,7 +239,6 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 .ipick{height:48px;border-radius:var(--r);border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
 .ipick.on{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-ink)}
 /* settings */
-.setgrid{display:flex;flex-direction:column;gap:20px;max-width:760px}
 .setrow{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 0;border-top:1px solid var(--border)}
 .setrow:first-of-type{border-top:none}
 .setrow .input{max-width:260px}
@@ -1708,10 +1707,31 @@ button.tmini-row:hover{border-color:var(--primary)}
 .stylecard .sc-bar>span{display:block;height:100%;background:var(--primary)}
 
 /* Duotone navigation icons: a tinted blob behind the stroke glyph */
-.ic.duo .duo-bg{fill:var(--primary-soft);stroke:none}
-.navitem.on .ic.duo .duo-bg{fill:var(--bar)}
-.tile .ic.duo .duo-bg{fill:var(--bar)}
-.app.style-royal .ic.duo .duo-bg{fill:color-mix(in srgb,var(--gold) 28%,var(--surface))}
 
 .greet{position:relative}
-.bitem.on .ic.duo .duo-bg{fill:var(--bar)}
+
+/* Settings: left sub-navigation + section panel (tab row on phones) */
+.setlayout{display:grid;grid-template-columns:210px minmax(0,1fr);gap:24px;align-items:start;max-width:1000px}
+.setnav{position:sticky;top:16px}
+.setnav-list{display:flex;flex-direction:column;gap:2px}
+.setnav-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:0;border-radius:var(--r);background:transparent;color:var(--muted);font:inherit;font-weight:600;font-size:14px;text-align:left;cursor:pointer;white-space:nowrap}
+.setnav-item:hover{background:var(--surface2);color:var(--text)}
+.setnav-item.on{background:var(--primary-soft);color:var(--primary-ink)}
+.setnav-item:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.setpanel{display:flex;flex-direction:column;gap:16px;min-width:0}
+.setpanel-head .h2{font-size:20px}
+.setpanel-head p{margin:4px 0 0}
+.setcard .h2{margin:0}
+.setcard-desc{margin:4px 0 8px}
+.setcard > .h2 + *:not(.setcard-desc){margin-top:14px}
+.setcard-desc + .setrow{border-top:none}
+.setcard.danger{border-color:var(--danger)}
+.setcard.danger > .h2{color:var(--danger)}
+@media (max-width:760px){
+.setlayout{grid-template-columns:minmax(0,1fr);gap:16px}
+.setnav{position:static;margin:0 -16px;padding:0 16px;overflow-x:auto;scrollbar-width:none}
+.setnav::-webkit-scrollbar{display:none}
+.setnav-list{flex-direction:row;gap:6px;padding-bottom:2px}
+.setnav-item{width:auto;flex:none;padding:8px 14px;border:1px solid var(--border);border-radius:999px;background:var(--surface)}
+.setnav-item.on{border-color:transparent}
+}

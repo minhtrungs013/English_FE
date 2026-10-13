@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { api, type NoteType } from '../lib/api';
 import type { Accent, Settings as SettingsData, Theme } from '../lib/data';
 import { APP_STYLES, STYLE_UNLOCKS, isUnlocked, seasonalOn, setSeasonalOn, styleClass, unlockStreak, type AppStyle } from '../lib/appStyle';
 import { canSpeak, speak, useEnglishVoices } from '../lib/speech';
-import { useWB } from '../state/WordbookContext';
+import { useWB, type SettingsTab } from '../state/WordbookContext';
 import { Icon, PageHead } from '../components/ui';
+import type { IconName } from '../lib/icons';
 import { NOTE_GROUPS, NOTE_META } from '../components/Notifications';
 import { PasswordInput } from './Auth';
 
@@ -33,8 +34,7 @@ function ChangePassword() {
     }
   };
   return (
-    <form className="card pad stack" style={{ gap: 16 }} onSubmit={submit} noValidate>
-      <h2 className="h2">Password</h2>
+    <form className="stack" style={{ gap: 16 }} onSubmit={submit} noValidate aria-label="Change password">
       {err && <div className="formerr" role="alert"><Icon name="alert" size="sm" />{err}</div>}
       <div className="form2">
         <div className="field"><label className="label" htmlFor="s-cur">Current password</label><PasswordInput id="s-cur" value={cur} onChange={setCur} autoComplete="current-password" /></div>
@@ -58,8 +58,7 @@ function VoiceSettings() {
   const supported = canSpeak();
   const missing = !!st.voice && voices.length > 0 && !voices.some((v) => v.voiceURI === st.voice);
   return (
-    <div className="card pad">
-      <h2 className="h2" style={{ marginBottom: 6 }}>Pronunciation voice</h2>
+    <div>
       {!supported ? (
         <p className="muted sm" style={{ margin: '10px 0 0' }}>This browser can’t play speech, so voice settings aren’t available here.</p>
       ) : (
@@ -178,9 +177,7 @@ function NotificationSettings() {
     a.setSettings({ mute: latest.current });
   };
   return (
-    <div className="card pad">
-      <h2 className="h2" style={{ marginBottom: 6 }}>Notifications</h2>
-      <p className="muted sm" style={{ margin: 0 }}>Choose what shows up under the bell. Turning one off stops new ones; existing ones stay.</p>
+    <div>
       {NOTE_GROUPS.map((g) => (
         <section key={g.title} className="nset" aria-labelledby={'nset-' + g.types[0]}>
           <h3 id={'nset-' + g.types[0]} className="nset-h">{g.title}</h3>
@@ -196,112 +193,179 @@ function NotificationSettings() {
   );
 }
 
+
+const SECTIONS: { id: SettingsTab; label: string; icon: IconName; sub: string }[] = [
+  { id: 'account', label: 'Account', icon: 'users', sub: 'Your profile, password and sign-in.' },
+  { id: 'appearance', label: 'Appearance', icon: 'sparkle', sub: 'Style, theme, accent color and decorations.' },
+  { id: 'learning', label: 'Learning', icon: 'cap', sub: 'How review sessions and flashcards work.' },
+  { id: 'voice', label: 'Voice', icon: 'volume', sub: 'The voice used to read words and sentences.' },
+  { id: 'notifications', label: 'Notifications', icon: 'bell', sub: 'Choose what shows up under the bell.' },
+  { id: 'data', label: 'Data & privacy', icon: 'download', sub: 'Export your words or remove your data.' }
+];
+
+/** A titled settings card; `hid` overrides the heading id (used as a label elsewhere). */
+function Card({ title, desc, danger, hid, children }: { title: string; desc?: string; danger?: boolean; hid?: string; children: ReactNode }) {
+  const id = hid ?? 'sc-' + title.toLowerCase().replace(/[^a-z]+/g, '-');
+  return (
+    <section className={'card pad setcard' + (danger ? ' danger' : '')} aria-labelledby={id}>
+      <h3 className="h2" id={id}>{title}</h3>
+      {desc && <p className="muted sm setcard-desc">{desc}</p>}
+      {children}
+    </section>
+  );
+}
+
 export function Settings() {
   const { s, a } = useWB();
   const st = s.settings;
   const style = st.style || 'classic';
   const [seasonal, setSeasonal] = useState(seasonalOn);
-  const initial =(st.name || '?').trim().charAt(0).toUpperCase() || '?';
+  const initial = (st.name || '?').trim().charAt(0).toUpperCase() || '?';
+  const tab: SettingsTab = SECTIONS.some((x) => x.id === s.settingsTab) ? s.settingsTab : 'account';
+  const cur = SECTIONS.find((x) => x.id === tab)!;
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const open = (id: SettingsTab) => a.set({ settingsTab: id });
+  // Keep the active tab visible in the scrolling phone tab row.
+  useEffect(() => { tabRefs.current[SECTIONS.findIndex((x) => x.id === tab)]?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); }, [tab]);
+  const onKey = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
+    const n = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? (i + 1) % SECTIONS.length
+      : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? (i - 1 + SECTIONS.length) % SECTIONS.length
+      : e.key === 'Home' ? 0 : e.key === 'End' ? SECTIONS.length - 1 : -1;
+    if (n < 0) return;
+    e.preventDefault();
+    tabRefs.current[n]?.focus();
+    open(SECTIONS[n].id);
+  };
+
+  let body: ReactNode;
+  if (tab === 'account') body = (
+    <>
+      <Card title="Profile" desc="Your name is shown across the app.">
+        <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span className="avatar lg" aria-hidden="true">{initial}</span>
+          <div className="form2" style={{ flexGrow: 1, minWidth: 240 }}>
+            <div className="field"><label className="label" htmlFor="s-name">Name</label><input id="s-name" className="input" value={st.name} onChange={(e) => a.setSettings({ name: e.target.value })} /></div>
+            <div className="field"><label className="label" htmlFor="s-mail">Email</label><input id="s-mail" className="input" type="email" value={st.email} readOnly aria-describedby="s-mail-hint" style={{ color: 'var(--muted)' }} /><span id="s-mail-hint" className="hint">Used to log in; can’t be changed.</span></div>
+          </div>
+        </div>
+      </Card>
+      <Card title="Password" desc="Change the password you log in with."><ChangePassword /></Card>
+      <Card title="Sign out">
+        <div className="setrow">
+          <div className="setlbl"><b>Log out</b><span className="muted sm">Signed in as {st.email}</span></div>
+          <button className="btn btn-secondary" onClick={() => a.logout()}><Icon name="logout" size="sm" />Log Out</button>
+        </div>
+      </Card>
+    </>
+  );
+  else if (tab === 'appearance') body = (
+    <>
+      <Card title="Style" hid="style-lbl" desc="The look of the whole app. Bonus styles unlock with your review streak.">
+        <StylePicker />
+      </Card>
+      <Card title="Theme" desc="Light, dark, or follow your device.">
+        <div className="radios" role="radiogroup" aria-label="Theme">
+          {THEMES.map(([v, label]) => (
+            <label key={v} className={'radio' + (st.theme === v ? ' on' : '')}>
+              <input type="radio" name="theme" checked={st.theme === v} onChange={() => a.setSettings({ theme: v })} />
+              {label}
+            </label>
+          ))}
+        </div>
+      </Card>
+      <Card title="Accent color" desc="The highlight color of the Classic style.">
+        {style !== 'classic' ? (
+          <p className="setnote">The {APP_STYLES.find((x) => x.id === style)?.name} style has its own colors. Switch to Classic to pick an accent.</p>
+        ) : (
+          <div className="swatches" role="radiogroup" aria-label="Accent color">
+            {ACCENTS.map(([v, label, hex]) => (
+              <button key={v} type="button" role="radio" aria-checked={st.accent === v} className={'swatch' + (st.accent === v ? ' on' : '')} onClick={() => a.setSettings({ accent: v })}>
+                <span className="dotc" style={{ background: hex }}>{st.accent === v && <Icon name="check" size="sm" />}</span>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </Card>
+      <Card title="Decorations">
+        <div className="setrow">
+          <div className="setlbl"><b>Seasonal decorations</b><span className="muted sm">Tết, Mid-Autumn and Christmas banner pictures on the dashboard (this device)</span></div>
+          <Switch on={seasonal} label="Seasonal decorations" onToggle={() => { setSeasonalOn(!seasonal); setSeasonal(!seasonal); }} />
+        </div>
+      </Card>
+    </>
+  );
+  else if (tab === 'learning') body = (
+    <Card title="Review & flashcards" desc="These apply to every review session.">
+      <div className="setrow">
+        <div className="setlbl"><b>Daily review goal</b><span className="muted sm">The most words one review session will show</span></div>
+        <select className="input" value={st.goal} onChange={(e) => a.setSettings({ goal: e.target.value })} aria-label="Daily review goal">
+          {['10', '20', '30', '50'].map((g) => <option key={g} value={g}>{g} words</option>)}
+        </select>
+      </div>
+      <div className="setrow">
+        <div className="setlbl"><b>Default review direction</b><span className="muted sm">What appears on the front of a flashcard</span></div>
+        <select className="input" value={st.dir} onChange={(e) => a.setSettings({ dir: e.target.value as SettingsData['dir'] })} aria-label="Default review direction">
+          <option value="en-vi">English → Vietnamese</option>
+          <option value="vi-en">Vietnamese → English</option>
+        </select>
+      </div>
+      <div className="setrow">
+        <div className="setlbl"><b>Auto-play pronunciation</b><span className="muted sm">Speak each word when a flashcard appears</span></div>
+        <Switch on={st.autoplay} label="Auto-play pronunciation" onToggle={() => a.setSettings({ autoplay: !st.autoplay })} />
+      </div>
+      <div className="setrow">
+        <div className="setlbl"><b>Show example sentence</b><span className="muted sm">Include the example on the back of each card</span></div>
+        <Switch on={st.showEx} label="Show example sentence" onToggle={() => a.setSettings({ showEx: !st.showEx })} />
+      </div>
+    </Card>
+  );
+  else if (tab === 'voice') body = <Card title="Pronunciation voice" desc="Voices come from this device and browser."><VoiceSettings /></Card>;
+  else if (tab === 'notifications') body = <Card title="In-app notifications" desc="Turning one off stops new ones; existing ones stay."><NotificationSettings /></Card>;
+  else body = (
+    <>
+      <Card title="Your data">
+        <div className="setrow">
+          <div className="setlbl"><b>Export vocabulary</b><span className="muted sm">Download all {s.words.length} words as a JSON file</span></div>
+          <button className="btn btn-secondary" onClick={a.exportData}><Icon name="download" size="sm" />Export Vocabulary</button>
+        </div>
+      </Card>
+      <Card title="Danger zone" desc="These actions can’t be undone." danger>
+        <div className="setrow">
+          <div className="setlbl"><b>Delete all data</b><span className="muted sm">Remove every word, category and tag but keep your account</span></div>
+          <button className="btn btn-danger-soft" onClick={() => a.set({ modal: { kind: 'delAll', title: 'Delete all data?' } })}><Icon name="trash" size="sm" />Delete All Data</button>
+        </div>
+        <div className="setrow">
+          <div className="setlbl"><b>Delete account</b><span className="muted sm">Permanently remove your account and all of your words</span></div>
+          <button className="btn btn-danger-soft" onClick={() => a.set({ modal: { kind: 'delAccount', title: 'Delete your account?' } })}><Icon name="trash" size="sm" />Delete Account</button>
+        </div>
+      </Card>
+    </>
+  );
+
   return (
     <>
       <PageHead title="Settings" sub="Manage your profile and how you learn." />
-      <div className="setgrid">
-        <div className="card pad">
-          <h2 className="h2" style={{ marginBottom: 18 }}>Profile</h2>
-          <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span className="avatar lg">{initial}</span>
-            <div className="form2" style={{ flexGrow: 1, minWidth: 240 }}>
-              <div className="field"><label className="label" htmlFor="s-name">Name</label><input id="s-name" className="input" value={st.name} onChange={(e) => a.setSettings({ name: e.target.value })} /></div>
-              <div className="field"><label className="label" htmlFor="s-mail">Email</label><input id="s-mail" className="input" type="email" value={st.email} readOnly aria-describedby="s-mail-hint" style={{ color: 'var(--muted)' }} /><span id="s-mail-hint" className="hint">Used to log in; can’t be changed.</span></div>
-            </div>
-          </div>
-        </div>
-
-        <div className="card pad">
-          <h2 className="h2" style={{ marginBottom: 6 }}>Learning preferences</h2>
-          <div className="setrow">
-            <div className="setlbl"><b>Daily review goal</b><span className="muted sm">The most words one review session will show</span></div>
-            <select className="input" value={st.goal} onChange={(e) => a.setSettings({ goal: e.target.value })} aria-label="Daily review goal">
-              {['10', '20', '30', '50'].map((g) => <option key={g} value={g}>{g} words</option>)}
-            </select>
-          </div>
-          <div className="setrow">
-            <div className="setlbl"><b>Default review direction</b><span className="muted sm">What appears on the front of a flashcard</span></div>
-            <select className="input" value={st.dir} onChange={(e) => a.setSettings({ dir: e.target.value as SettingsData['dir'] })} aria-label="Default review direction">
-              <option value="en-vi">English → Vietnamese</option>
-              <option value="vi-en">Vietnamese → English</option>
-            </select>
-          </div>
-          <div className="setrow">
-            <div className="setlbl"><b>Auto-play pronunciation</b><span className="muted sm">Speak each word when a flashcard appears</span></div>
-            <Switch on={st.autoplay} label="Auto-play pronunciation" onToggle={() => a.setSettings({ autoplay: !st.autoplay })} />
-          </div>
-          <div className="setrow">
-            <div className="setlbl"><b>Show example sentence</b><span className="muted sm">Include the example on the back of each card</span></div>
-            <Switch on={st.showEx} label="Show example sentence" onToggle={() => a.setSettings({ showEx: !st.showEx })} />
-          </div>
-        </div>
-
-        <div className="card pad">
-          <h2 className="h2" style={{ marginBottom: 16 }}>Appearance</h2>
-          <span className="label" style={{ display: 'block', marginBottom: 10 }}>Theme</span>
-          <div className="radios" role="radiogroup" aria-label="Theme">
-            {THEMES.map(([v, label]) => (
-              <label key={v} className={'radio' + (st.theme === v ? ' on' : '')}>
-                <input type="radio" name="theme" checked={st.theme === v} onChange={() => a.setSettings({ theme: v })} />
-                {label}
-              </label>
-            ))}
-          </div>
-          <span className="label" id="style-lbl" style={{ display: 'block', margin: '22px 0 10px' }}>Style</span>
-          <StylePicker />
-          <div className="setrow" style={{ marginTop: 14 }}>
-            <div className="setlbl"><b>Seasonal decorations</b><span className="muted sm">Tết, Mid-Autumn and Christmas banner pictures on the dashboard (this device)</span></div>
-            <Switch on={seasonal} label="Seasonal decorations" onToggle={() => { setSeasonalOn(!seasonal); setSeasonal(!seasonal); }} />
-          </div>
-          <span className="label" style={{ display: 'block', margin: '22px 0 10px' }}>Accent color</span>
-          {style !== 'classic' ? (
-            <p className="setnote">The {APP_STYLES.find((x) => x.id === style)?.name} style has its own colors. Switch to Classic to pick an accent.</p>
-          ) : (
-            <div className="swatches" role="radiogroup" aria-label="Accent color">
-              {ACCENTS.map(([v, label, hex]) => (
-                <button key={v} type="button" role="radio" aria-checked={st.accent === v} className={'swatch' + (st.accent === v ? ' on' : '')} onClick={() => a.setSettings({ accent: v })}>
-                  <span className="dotc" style={{ background: hex }}>{st.accent === v && <Icon name="check" size="sm" />}</span>
-                  {label}
+      <div className="setlayout">
+        <nav className="setnav" aria-label="Settings sections">
+          <div role="tablist" aria-orientation="vertical" className="setnav-list">
+            {SECTIONS.map((x, i) => {
+              const on = x.id === tab;
+              return (
+                <button key={x.id} ref={(el) => { tabRefs.current[i] = el; }} type="button" role="tab" id={'stab-' + x.id} aria-selected={on} aria-current={on ? 'page' : undefined}
+                  aria-controls="set-panel" tabIndex={on ? 0 : -1} className={'setnav-item' + (on ? ' on' : '')} onClick={() => open(x.id)} onKeyDown={(e) => onKey(e, i)}>
+                  <Icon name={x.icon} size="sm" />{x.label}
                 </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <VoiceSettings />
-
-        <NotificationSettings />
-
-        <div className="card pad">
-          <h2 className="h2" style={{ marginBottom: 6 }}>Data</h2>
-          <div className="setrow">
-            <div className="setlbl"><b>Export vocabulary</b><span className="muted sm">Download all {s.words.length} words as a JSON file</span></div>
-            <button className="btn btn-secondary" onClick={a.exportData}><Icon name="download" size="sm" />Export Vocabulary</button>
+              );
+            })}
           </div>
-          <div className="setrow">
-            <div className="setlbl"><b>Delete all data</b><span className="muted sm">Remove every word, category and tag but keep your account</span></div>
-            <button className="btn btn-danger-soft" onClick={() => a.set({ modal: { kind: 'delAll', title: 'Delete all data?' } })}><Icon name="trash" size="sm" />Delete All Data</button>
-          </div>
-        </div>
-
-        <ChangePassword />
-
-        <div className="card pad">
-          <h2 className="h2" style={{ marginBottom: 6 }}>Account</h2>
-          <div className="setrow">
-            <div className="setlbl"><b>Log out</b><span className="muted sm">Signed in as {st.email}</span></div>
-            <button className="btn btn-secondary" onClick={() => a.logout()}><Icon name="logout" size="sm" />Log Out</button>
-          </div>
-          <div className="setrow">
-            <div className="setlbl"><b>Delete account</b><span className="muted sm">Permanently remove your account and all of your words</span></div>
-            <button className="btn btn-danger-soft" onClick={() => a.set({ modal: { kind: 'delAccount', title: 'Delete your account?' } })}><Icon name="trash" size="sm" />Delete Account</button>
-          </div>
+        </nav>
+        <div className="setpanel" role="tabpanel" id="set-panel" aria-labelledby={'stab-' + tab}>
+          <header className="setpanel-head">
+            <h2 className="h2">{cur.label}</h2>
+            <p className="muted sm">{cur.sub}</p>
+          </header>
+          {body}
         </div>
       </div>
     </>
