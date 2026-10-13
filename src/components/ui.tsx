@@ -14,6 +14,24 @@ export function Icon({ name, size, style, className }: { name: IconName; size?: 
   );
 }
 
+/** Soft blob drawn behind a duotone icon's glyph (24×24 viewBox, offset down-right so it reads hand-drawn). */
+const DUO_BLOB = 'M9.5 5.5c3-.9 7.6-.6 9.6 1.6 2 2.2 1.9 6.6 1 9.4-.9 2.8-3.6 4.2-6.6 4.4-3 .2-6.9-.4-8.6-2.6-1.7-2.2-1.5-6.3-.4-8.7.9-2 2.6-3.4 5-4.1z';
+
+/**
+ * A navigation icon: the plain line icon, or (duo) the same glyph over a tinted blob in the style's soft colour.
+ * Decorative; same size and alignment as Icon.
+ */
+export function NavIcon({ name, duo, size }: { name: IconName; duo?: boolean; size?: Size }) {
+  if (!duo) return <Icon name={name} size={size} />;
+  const cls = ['ic', 'duo', size ? 'ic-' + size : ''].filter(Boolean).join(' ');
+  return (
+    <svg className={cls} viewBox="0 0 24 24" aria-hidden="true">
+      <path className="duo-bg" d={DUO_BLOB} />
+      <path d={IC[name]} />
+    </svg>
+  );
+}
+
 export const LevelBadge = ({ level }: { level: Level }) => <span className={'badge lv-' + level}>{level}</span>;
 export const StatusBadge = ({ status }: { status: Status }) => <span className={'badge st st-' + status}>{ST_LABEL[status]}</span>;
 export const PosBadge = ({ children }: { children: ReactNode }) => <span className="badge pos">{children}</span>;

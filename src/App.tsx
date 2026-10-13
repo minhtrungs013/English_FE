@@ -12,7 +12,7 @@ import { Tags } from './pages/Tags';
 import { Settings } from './pages/Settings';
 import { Session } from './sessions/Session';
 import { setVoicePrefs } from './lib/speech';
-import { cacheStyle, loadStyleFont, styleClass } from './lib/appStyle';
+import { APP_STYLES, STYLE_UNLOCKS, cacheStyle, isUnlocked, loadStyleFont, markUnlocksShown, shownUnlocks, styleClass, unlockStreak } from './lib/appStyle';
 import { EmptyState, Icon } from './components/ui';
 import { AuthPage } from './pages/Auth';
 import { Library } from './pages/Library';
@@ -112,6 +112,20 @@ export default function App() {
 
   const style = s.settings.style || 'classic';
   useEffect(() => { loadStyleFont(style); cacheStyle(style); }, [style]);
+
+  // Celebrate each bonus style once per user (remembered on this device) when the streak first reaches it.
+  const best = unlockStreak(s.progress);
+  const ready = s.status === 'ready' && !!s.userId;
+  useEffect(() => {
+    if (!ready) return;
+    const shown = shownUnlocks(s.userId);
+    const fresh = APP_STYLES.filter((x) => STYLE_UNLOCKS[x.id] && isUnlocked(x.id, best) && !shown.includes(x.id));
+    if (!fresh.length) return;
+    markUnlocksShown(s.userId, [...shown, ...fresh.map((x) => x.id)]);
+    const top = fresh[fresh.length - 1];
+    a.showToast('New style unlocked: ' + top.name + ' — try it in Settings');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, s.userId, best]);
 
   useLayoutEffect(() => {
     // The page behind the app follows the active style's background token.

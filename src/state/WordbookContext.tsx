@@ -239,6 +239,7 @@ function useWordbookState() {
         const y = new Date(); y.setDate(y.getDate() - 1);
         progress.streak = p.lastStreakDay === dayKey(y) ? p.streak + 1 : 1;
         progress.lastStreakDay = today;
+        progress.bestStreak = Math.max(p.bestStreak ?? 0, progress.streak);
       }
       patch.progress = progress;
     }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { api, type NoteType } from '../lib/api';
 import type { Accent, Settings as SettingsData, Theme } from '../lib/data';
-import { APP_STYLES, styleClass } from '../lib/appStyle';
+import { APP_STYLES, STYLE_UNLOCKS, isUnlocked, seasonalOn, setSeasonalOn, styleClass, unlockStreak, type AppStyle } from '../lib/appStyle';
 import { canSpeak, speak, useEnglishVoices } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { Icon, PageHead } from '../components/ui';
@@ -106,22 +106,32 @@ function StylePicker() {
   const sysDark = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches;
   const dark = s.settings.theme === 'dark' || (s.settings.theme === 'system' && sysDark);
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const best = unlockStreak(s.progress);
+  const lockMsg = (id: AppStyle) => 'Keep a ' + STYLE_UNLOCKS[id] + '-day review streak to unlock ' + (APP_STYLES.find((x) => x.id === id)?.name ?? 'this style') + '.';
+  /** Locked styles only explain themselves: no request is sent. */
+  const pick = (id: AppStyle) => {
+    if (!isUnlocked(id, best)) { a.showToast(lockMsg(id), 'bad'); return; }
+    void a.setStyle(id);
+  };
   const onKey = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
     const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
     if (!d) return;
     e.preventDefault();
     const n = (i + d + APP_STYLES.length) % APP_STYLES.length;
     refs.current[n]?.focus();
-    void a.setStyle(APP_STYLES[n].id);
+    if (isUnlocked(APP_STYLES[n].id, best)) void a.setStyle(APP_STYLES[n].id);
   };
   return (
     <div className="stylegrid" role="radiogroup" aria-labelledby="style-lbl">
       {APP_STYLES.map((x, i) => {
         const on = cur === x.id;
+        const need = STYLE_UNLOCKS[x.id];
+        const locked = !isUnlocked(x.id, best);
         const prevCls = 'app' + (x.id === 'classic' ? ' accent-' + (s.settings.accent || 'indigo') : styleClass(x.id)) + (dark ? ' dark' : '');
         return (
           <button key={x.id} ref={(el) => { refs.current[i] = el; }} type="button" role="radio" aria-checked={on} tabIndex={on ? 0 : -1}
-            className={'stylecard' + (on ? ' on' : '')} onClick={() => void a.setStyle(x.id)} onKeyDown={(e) => onKey(e, i)} aria-describedby={'sd-' + x.id}>
+            className={'stylecard' + (on ? ' on' : '') + (locked ? ' locked' : '')} onClick={() => pick(x.id)} onKeyDown={(e) => onKey(e, i)}
+            aria-describedby={'sd-' + x.id + (locked ? ' sl-' + x.id : '')} aria-disabled={locked || undefined}>
             <span className="scprev" aria-hidden="true">
               <span className={prevCls}>
                 <span className="sp-bar"><span className="sp-dot" /><span className="sp-line" /></span>
@@ -136,6 +146,13 @@ function StylePicker() {
             </span>
             <span className="sc-name">{x.name}</span>
             <span className="sc-desc" id={'sd-' + x.id}>{x.desc}</span>
+            {locked && need && (
+              <span className="stack" style={{ gap: 4 }} id={'sl-' + x.id}>
+                <span className="sc-prog">Unlocks at a {need}-day streak · {Math.min(best, need)} / {need} days</span>
+                <span className="sc-bar" aria-hidden="true"><span style={{ width: Math.round((Math.min(best, need) / need) * 100) + '%' }} /></span>
+              </span>
+            )}
+            {locked && <span className="sc-lock" aria-hidden="true"><Icon name="lock" size="sm" /></span>}
             {on && <span className="sc-check" aria-hidden="true"><Icon name="check" size="sm" /></span>}
           </button>
         );
@@ -183,6 +200,7 @@ export function Settings() {
   const { s, a } = useWB();
   const st = s.settings;
   const style = st.style || 'classic';
+  const [seasonal, setSeasonal] = useState(seasonalOn);
   const initial =(st.name || '?').trim().charAt(0).toUpperCase() || '?';
   return (
     <>
@@ -237,6 +255,10 @@ export function Settings() {
           </div>
           <span className="label" id="style-lbl" style={{ display: 'block', margin: '22px 0 10px' }}>Style</span>
           <StylePicker />
+          <div className="setrow" style={{ marginTop: 14 }}>
+            <div className="setlbl"><b>Seasonal decorations</b><span className="muted sm">Tết, Mid-Autumn, Christmas and New Year touches on the dashboard (this device)</span></div>
+            <Switch on={seasonal} label="Seasonal decorations" onToggle={() => { setSeasonalOn(!seasonal); setSeasonal(!seasonal); }} />
+          </div>
           <span className="label" style={{ display: 'block', margin: '22px 0 10px' }}>Accent color</span>
           {style !== 'classic' ? (
             <p className="setnote">The {APP_STYLES.find((x) => x.id === style)?.name} style has its own colors. Switch to Classic to pick an accent.</p>

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { dayKey, fmtAgo } from '../lib/data';
 import { api, type CourseSummary, type DictationList, type GrammarList } from '../lib/api';
-import { StyleArt } from '../components/StyleArt';
+import { SeasonArt, StyleArt } from '../components/StyleArt';
+import { isDuoStyle, seasonalOn } from '../lib/appStyle';
+import { seasonFor, type Season } from '../lib/season';
 import { useWB } from '../state/WordbookContext';
 import { currentStreak, getStats, reviewedToday } from '../state/selectors';
-import { EmptyState, Icon, LevelBadge, PosBadge } from '../components/ui';
+import { EmptyState, Icon, LevelBadge, NavIcon, PosBadge } from '../components/ui';
 import { PLACEMENT, MasteryBadge, placementSkipped, weakestTense } from './Grammar';
 
 /**
@@ -111,7 +113,7 @@ function nextCourseDay(courses: CourseSummary[] | null) {
   return null;
 }
 
-function Greeting({ courses, streak, due }: { courses: CourseSummary[] | null; streak: number; due: number }) {
+function Greeting({ courses, streak, due, season }: { courses: CourseSummary[] | null; streak: number; due: number; season: Season | null }) {
   const { s, a } = useWB();
   const now = new Date();
   const hour = now.getHours();
@@ -125,6 +127,7 @@ function Greeting({ courses, streak, due }: { courses: CourseSummary[] | null; s
   return (
     <section className="greet" aria-labelledby="greet-t">
       <div className="greet-b">
+        {season === 'tet' && <span className="season-hi" lang="vi">Chúc mừng năm mới!</span>}
         <h1 id="greet-t" className="greet-t">{hello}</h1>
         <p className="greet-line">{line}</p>
         <div className="greet-act">
@@ -137,12 +140,14 @@ function Greeting({ courses, streak, due }: { courses: CourseSummary[] | null; s
         </p>
       </div>
       <StyleArt style={s.settings.style} />
+      {season && <SeasonArt season={season} />}
     </section>
   );
 }
 
 function Shortcuts({ total, due, g, dict }: { total: number; due: number; g: GrammarList | null; dict: DictationList | null }) {
-  const { a } = useWB();
+  const { s, a } = useWB();
+  const duo = isDuoStyle(s.settings.style || 'classic');
   const avg = g && g.tenses.length ? Math.round(g.tenses.reduce((x, t) => x + t.mastery, 0) / g.tenses.length) : null;
   const tiles = [
     { n: 1, icon: 'layers' as const, title: 'Vocabulary', sub: total + (total === 1 ? ' word' : ' words') + ' saved', go: () => a.go('vocab') },
@@ -154,7 +159,7 @@ function Shortcuts({ total, due, g, dict }: { total: number; due: number; g: Gra
     <nav className="tiles" aria-label="Shortcuts">
       {tiles.map((t) => (
         <button key={t.n} className={'tile tile' + t.n} onClick={t.go}>
-          <span className="tile-ic" aria-hidden="true"><Icon name={t.icon} /></span>
+          <span className="tile-ic" aria-hidden="true"><NavIcon name={t.icon} duo={duo} /></span>
           <span className="tile-t">{t.title}</span>
           <span className="tile-s">{t.sub}</span>
         </button>
@@ -174,6 +179,7 @@ export function Dashboard() {
   const [g, setG] = useState<GrammarList | null>(null);
   const [dict, setDict] = useState<DictationList | null>(null);
   const [courses, setCourses] = useState<CourseSummary[] | null>(null);
+  const [season] = useState<Season | null>(() => (seasonalOn() ? seasonFor(new Date()) : null));
   useEffect(() => {
     let on = true;
     // Optional extras: each stays hidden / generic if it fails.
@@ -185,7 +191,8 @@ export function Dashboard() {
 
   return (
     <>
-      <Greeting courses={courses} streak={streak} due={stats.due} />
+      {season && <div className={'season-bg s-' + season} aria-hidden="true" />}
+      <Greeting courses={courses} streak={streak} due={stats.due} season={season} />
       <Shortcuts total={stats.total} due={stats.due} g={g} dict={dict} />
 
       <div className="grid4">

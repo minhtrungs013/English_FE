@@ -4,7 +4,8 @@ import { getStats } from '../state/selectors';
 import { api, type LibraryWord } from '../lib/api';
 import type { IconName } from '../lib/icons';
 import { SaveButton, TopicBadge } from '../pages/Library';
-import { Icon, LevelBadge } from './ui';
+import { Icon, LevelBadge, NavIcon } from './ui';
+import { isDuoStyle } from '../lib/appStyle';
 import { NotificationBell } from './Notifications';
 
 function useInitial() {
@@ -21,6 +22,7 @@ export function Sidebar() {
   const { s, a } = useWB();
   const initial = useInitial();
   const { due } = getStats(s.words);
+  const duo = isDuoStyle(s.settings.style || 'classic');
   const nav: { id: Route; label: string; icon: IconName; go: () => void; sub?: boolean }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: 'grid', go: () => a.go('dashboard') },
     { id: 'library', label: 'Library', icon: 'globe', go: () => a.go('library', { libraryQ: '' }) },
@@ -42,7 +44,7 @@ export function Sidebar() {
         {nav.map((n) => (
           <div key={n.id} style={{ display: 'contents' }}>
             <button className={'navitem' + (n.id === s.route || (n.id === 'vocab' && isVocabish(s.route)) || (n.id === 'courses' && isCoursish(s.route)) || (n.id === 'grammar' && isGrammarish(s.route)) || (n.id === 'practice' && isDictationish(s.route)) ? ' on' : '')} onClick={n.go} aria-label={n.label} title={n.label}>
-              <Icon name={n.icon} />
+              <NavIcon name={n.icon} duo={duo} />
               <span className="navlabel">{n.label}</span>
             </button>
             {n.sub && (
@@ -56,7 +58,7 @@ export function Sidebar() {
       </nav>
       <div className="side-foot">
         <button className={'navitem' + (s.route === 'settings' ? ' on' : '')} onClick={() => a.go('settings')} aria-label="Settings" title="Settings">
-          <Icon name="sliders" /><span className="navlabel">Settings</span>
+          <NavIcon name="sliders" duo={duo} /><span className="navlabel">Settings</span>
         </button>
         <button className="navitem" onClick={() => a.logout()} aria-label="Log out" title="Log out">
           <Icon name="logout" /><span className="navlabel">Log out</span>
@@ -202,14 +204,15 @@ export function Topbar() {
 
 export function BottomNav() {
   const { s, a } = useWB();
+  const duo = isDuoStyle(s.settings.style || 'classic');
   const cls = (id: Route) => 'bitem' + (id === s.route || (id === 'vocab' && isVocabish(s.route)) || (id === 'practice' && isDictationish(s.route)) ? ' on' : '');
   return (
     <nav className="bnav" aria-label="Mobile">
-      <button className={cls('dashboard')} onClick={() => a.go('dashboard')}><Icon name="grid" />Home</button>
-      <button className={cls('vocab')} onClick={() => a.go('vocab')}><Icon name="book" />Words</button>
+      <button className={cls('dashboard')} onClick={() => a.go('dashboard')}><NavIcon name="grid" duo={duo} />Home</button>
+      <button className={cls('vocab')} onClick={() => a.go('vocab')}><NavIcon name="book" duo={duo} />Words</button>
       <button className="badd" onClick={a.goNew} aria-label="Add vocabulary"><Icon name="plus" size="lg" /></button>
-      <button className={cls('review')} onClick={a.startDue}><Icon name="refresh" />Review</button>
-      <button className={cls('practice')} onClick={() => a.go('practice')}><Icon name="pen" />Practice</button>
+      <button className={cls('review')} onClick={a.startDue}><NavIcon name="refresh" duo={duo} />Review</button>
+      <button className={cls('practice')} onClick={() => a.go('practice')}><NavIcon name="pen" duo={duo} />Practice</button>
     </nav>
   );
 }

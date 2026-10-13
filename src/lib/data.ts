@@ -54,6 +54,8 @@ export interface Settings {
 
 export interface Progress {
   streak: number;
+  /** Longest review streak ever (from the API; 0 for older accounts until their next review). */
+  bestStreak?: number;
   /** Day key (YYYY-MM-DD) of the last day a review session was completed. */
   lastStreakDay: string;
   reviewedDay: string;
