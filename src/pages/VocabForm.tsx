@@ -122,11 +122,11 @@ export function VocabForm() {
               </div>
             </div>
           ) : (
-            <div className="hint" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="hint" style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
               <Icon name="sparkle" size="sm" style={{ color: 'var(--primary)' }} />
               {autofillLeft > 0
-                ? <>Auto-fill is optional — <b>{autofillLeft} of {s.autofill.limit}</b> left today. Every field below can be filled in or edited by hand.</>
-                : <>You’ve used today’s {s.autofill.limit} auto-fills — fill in the details by hand, or try again tomorrow.</>}
+                ? <span>Auto-fill is optional — <b>{autofillLeft} of {s.autofill.limit}</b> left today. Every field below can be filled in or edited by hand.</span>
+                : <span>You’ve used today’s {s.autofill.limit} auto-fills — fill in the details by hand, or try again tomorrow.</span>}
             </div>
           )}
 
