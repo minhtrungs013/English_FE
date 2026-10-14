@@ -1,4 +1,4 @@
-import type { Category, Data, Progress, Rating, Settings, Word } from './data';
+import type { Category, Data, FamilyMember, Progress, Rating, Settings, Word } from './data';
 
 /** Wordbook API. Defaults to the server on Render; set VITE_API_URL in .env to use another one (e.g. http://localhost:3000/api). */
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) || 'https://english-be-ys8a.onrender.com/api';
@@ -54,6 +54,7 @@ export interface LookupResult {
   quota?: Quota;
   source: 'collection' | 'library' | 'builtin' | 'ai' | 'online';
   ipa?: string; pos?: string; meaning?: string; vi?: string; ex?: string; syn?: string[]; ant?: string[]; level?: Word['level'];
+  family?: FamilyMember[];
 }
 export interface User { id: string; name: string; email: string }
 
@@ -63,7 +64,10 @@ export interface LibraryWord {
   syn: string[]; ant: string[]; level: Word['level']; topic: Topic;
   /** '' for built-in words. */
   authorId: string; authorName: string; saves: number; sharedAt: number;
+  family?: FamilyMember[];
 }
+/** For each family member: its library entry and my own word with that text, if any. */
+export interface FamilyStatus { word: string; libraryId: string | null; myWordId: string | null }
 export interface LibraryPage { items: LibraryWord[]; total: number; page: number; limit: number; topics: Record<Topic, number>; all: number }
 export interface LibraryQuery { q?: string; topic?: Topic; level?: string; source?: 'me' | 'community' | 'builtin'; page?: number; limit?: number }
 export interface AuthResponse { accessToken: string; user: User }
@@ -74,6 +78,7 @@ export interface CourseWord {
   syn: string[]; ant: string[]; level: Word['level'];
   /** '' when the word isn't in the shared library (yet). */
   libraryId: string; source: 'library' | 'ai' | 'manual';
+  family?: FamilyMember[];
 }
 /**
  * currentDay is 1..30: day 1 = the day they joined (or the course's start date), +1 each day (Vietnam time);
@@ -409,6 +414,8 @@ export const api = {
   saveFromLibrary: (id: string) => req<{ word: Word; tag: string }>('POST', '/library/' + id + '/save'),
   shareToLibrary: (wordId: string, topic: Topic) => req<LibraryWord>('POST', '/library/share', { wordId, topic }),
   unshare: (id: string) => req<void>('DELETE', '/library/' + id),
+  /** Library id / my word id for 1–10 family member words. */
+  familyStatus: (words: string[]) => req<{ items: FamilyStatus[] }>('POST', '/library/family-status', { words }),
 
   listCourses: (scope: CourseScope) => req<CourseSummary[]>('GET', '/courses?scope=' + scope),
   createCourse: (c: CourseInput) => req<CourseDetail>('POST', '/courses', c),

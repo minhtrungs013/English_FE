@@ -1,6 +1,7 @@
 import { LEVELS, POS_SHORT, fmtNext, isDue, type Word } from '../lib/data';
 import { useWB } from '../state/WordbookContext';
 import { Dropdown, EmptyState, Icon, LevelBadge, PageHead, StatusBadge } from '../components/ui';
+import { FamilyTag } from '../components/WordFamily';
 
 const STATUS_CHIPS: [string, string][] = [['all', 'All'], ['new', 'New'], ['learning', 'Learning'], ['mastered', 'Mastered']];
 
@@ -84,7 +85,7 @@ export function Vocabulary() {
             </div>
             {rows.map((w) => (
               <div key={w.id} className="trow">
-                <div className="cellword"><button className="wordlink" onClick={() => open(w)}>{w.word}</button><span className="ipa xs">{w.ipa}</span></div>
+                <div className="cellword"><span className="wordline"><button className="wordlink" onClick={() => open(w)}>{w.word}</button><FamilyTag family={w.family} /></span><span className="ipa xs">{w.ipa}</span></div>
                 <div className="cellmean"><span className="vi clamp">{w.vi}</span><span className="muted xs clamp">{w.meaning}</span></div>
                 <span className="muted sm c-type">{POS_SHORT[w.pos] ?? w.pos}</span>
                 <span><LevelBadge level={w.level} /></span>
@@ -102,7 +103,7 @@ export function Vocabulary() {
             {rows.map((w) => (
               <div key={w.id} className="card vcard">
                 <div className="vcard-top">
-                  <div className="cellword"><button className="wordlink" style={{ fontSize: 18 }} onClick={() => open(w)}>{w.word}</button><span className="ipa xs">{w.ipa}</span></div>
+                  <div className="cellword"><span className="wordline"><button className="wordlink" style={{ fontSize: 18 }} onClick={() => open(w)}>{w.word}</button><FamilyTag family={w.family} /></span><span className="ipa xs">{w.ipa}</span></div>
                   <div className="rowact">
                     <button className="iconbtn" onClick={() => a.openEdit(w.id)} aria-label={'Edit ' + w.word}><Icon name="edit" size="sm" /></button>
                     <button className="iconbtn danger" onClick={() => a.askDeleteWord(w.id)} aria-label={'Delete ' + w.word}><Icon name="trash" size="sm" /></button>

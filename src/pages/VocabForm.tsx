@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, type LibraryWord } from '../lib/api';
-import { LEVELS, POS_LIST, type FormData } from '../lib/data';
+import { FAMILY_MAX, FAMILY_POS, LEVELS, POS_LIST, toFamilyPos, type FamilyMember, type FamilyPos, type FormData } from '../lib/data';
 import { LOOKUP_STEPS, useWB } from '../state/WordbookContext';
 import { Dropdown, Icon, LevelBadge, PageHead } from '../components/ui';
 import { TopicBadge } from './Library';
@@ -42,6 +42,75 @@ function ChipInput({ id, field }: { id: string; field: 'syn' | 'ant' }) {
         }}
         onBlur={() => a.addChip(field)}
       />
+    </div>
+  );
+}
+
+/** Collapsible editor for the word's family (other forms: decide → decision, decisive…). */
+function FamilyEditor() {
+  const { s, a } = useWB();
+  const f = s.route === 'edit' ? s.editForm : s.form;
+  const list = f.family;
+  const [open, setOpen] = useState(list.length > 0);
+  const lastWord = useRef<HTMLInputElement>(null);
+  const focusNew = useRef(false);
+  // Open when auto-fill fills it in.
+  const prevLen = useRef(list.length);
+  useEffect(() => {
+    if (prevLen.current === 0 && list.length > 0) setOpen(true);
+    prevLen.current = list.length;
+  }, [list.length]);
+  useEffect(() => {
+    if (focusNew.current) { focusNew.current = false; lastWord.current?.focus(); }
+  }, [list.length]);
+
+  const put = (next: FamilyMember[]) => a.setF({ family: next });
+  const edit = (i: number, patch: Partial<FamilyMember>) => put(list.map((m, j) => (j === i ? { ...m, ...patch } : m)));
+  const add = () => {
+    if (list.length >= FAMILY_MAX) return;
+    // First row: start with the word itself so the family includes it.
+    const w = f.word.trim();
+    const seed: FamilyMember[] = !list.length && w ? [{ word: w, pos: toFamilyPos(f.pos), vi: f.vi.trim().slice(0, 80) }] : [];
+    focusNew.current = true;
+    put([...list, ...seed, { word: '', pos: 'Noun' as FamilyPos, vi: '' }].slice(0, FAMILY_MAX));
+  };
+  const count = list.filter((m) => m.word.trim()).length;
+
+  return (
+    <div className="field span2 fameditor">
+      <button type="button" className="famtoggle" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="f-family">
+        <Icon name={open ? 'down' : 'right'} size="sm" />
+        <span className="label" style={{ margin: 0 }}>Word family</span>
+        <span className="hint">{count ? count + ' ' + (count === 1 ? 'form' : 'forms') : 'Optional — other forms like decide → decision, decisive'}</span>
+      </button>
+      {open && (
+        <div id="f-family" className="famedit">
+          {list.length > 0 && (
+            <div className="famedit-head" aria-hidden="true"><span>Word</span><span>Part of speech</span><span>Vietnamese</span><span>Example (optional)</span><span /></div>
+          )}
+          {list.map((m, i) => (
+            <div key={i} className="famedit-row" role="group" aria-label={'Family member ' + (i + 1)}>
+              <input ref={i === list.length - 1 ? lastWord : undefined} className="input" placeholder="decision" maxLength={40} value={m.word}
+                aria-label={'Word ' + (i + 1)} onChange={(e) => edit(i, { word: e.target.value })} />
+              <select className="input" value={m.pos} aria-label={'Part of speech ' + (i + 1)} onChange={(e) => edit(i, { pos: e.target.value as FamilyPos })}>
+                {FAMILY_POS.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <input className="input" placeholder="sự quyết định" maxLength={80} value={m.vi} lang="vi"
+                aria-label={'Vietnamese ' + (i + 1)} onChange={(e) => edit(i, { vi: e.target.value })} />
+              <input className="input" placeholder="She made a quick decision." maxLength={160} value={m.ex ?? ''}
+                aria-label={'Example ' + (i + 1)} onChange={(e) => edit(i, { ex: e.target.value })} />
+              <button type="button" className="iconbtn danger" onClick={() => put(list.filter((_, j) => j !== i))}
+                aria-label={'Remove ' + (m.word.trim() || 'family member ' + (i + 1))} title="Remove"><Icon name="trash" size="sm" /></button>
+            </div>
+          ))}
+          <div className="famedit-foot">
+            <button type="button" className="btn btn-secondary btn-sm" onClick={add} disabled={list.length >= FAMILY_MAX}>
+              <Icon name="plus" size="sm" />Add a form
+            </button>
+            <span className="hint">{list.length >= FAMILY_MAX ? 'Up to ' + FAMILY_MAX + ' forms.' : 'Include the word itself. Up to ' + FAMILY_MAX + ' forms; Auto-fill can fill this in.'}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -161,6 +230,7 @@ export function VocabForm() {
               <label className="label" htmlFor="f-ant">Antonyms</label>
               <ChipInput id="f-ant" field="ant" />
             </div>
+            <FamilyEditor />
             <div className="field">
               <span className="label">Level</span>
               <div className="chips levelchips">

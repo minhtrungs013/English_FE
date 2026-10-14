@@ -14,7 +14,8 @@ const SOURCE_LABEL: Record<CourseWord['source'], string> = { library: 'Library',
 
 const fromLibrary = (w: LibraryWord): CourseWord => ({
   word: w.word, ipa: w.ipa, pos: w.pos, meaning: w.meaning, vi: w.vi, ex: w.ex,
-  syn: w.syn, ant: w.ant, level: w.level, libraryId: w.id, source: 'library'
+  syn: w.syn, ant: w.ant, level: w.level, libraryId: w.id, source: 'library',
+  ...(w.family?.length ? { family: w.family } : {})
 });
 
 function CourseSettings({ c, onSaved, onDelete }: { c: CourseDetail; onSaved: (c: CourseDetail) => void; onDelete: () => void }) {

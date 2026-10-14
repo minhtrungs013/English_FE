@@ -4,6 +4,7 @@ import { shuffle } from '../lib/data';
 import { canSpeak, speak } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { Icon, LevelBadge, PosBadge } from '../components/ui';
+import { WordFamily } from '../components/WordFamily';
 import { normalizeAnswer } from './CourseWarmup';
 
 /**
@@ -481,6 +482,7 @@ export function CourseLearn({ c, day, words, learned, onLearn, onClose, start = 
               <button className="iconbtn sm" onClick={() => speak(mw.ex, 0.95)} aria-label="Play the example sentence" title="Play example"><Icon name="volume" size="sm" /></button>
             </div>
           )}
+          <WordFamily word={mw.word} family={mw.family} className="lfamily" />
           {canSaveWords && <SaveWordButton courseId={c.id} day={day} word={mw.word} />}
         </div>
         <div className="hwnav">

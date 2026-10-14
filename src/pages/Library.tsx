@@ -4,6 +4,7 @@ import { LEVELS, fmtDate } from '../lib/data';
 import { speak } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/ui';
+import { FamilyTag, WordFamily } from '../components/WordFamily';
 
 export const TOPIC_LABEL: Record<Topic, string> = {
   it: 'IT', interview: 'Interview', customer: 'Customer meetings', leader: 'Leader meetings', toeic: 'TOEIC', other: 'Other'
@@ -86,6 +87,7 @@ function LibraryDetail({ w, onClose, onRemoved }: { w: LibraryWord; onClose: () 
             <div className="stack" style={{ gap: 8 }}><span className="sec-t">Antonyms</span><div className="badges">{w.ant.length ? w.ant.map((x) => <span key={x} className="pill">{x}</span>) : <span className="muted sm">—</span>}</div></div>
           </div>
         )}
+        <WordFamily word={w.word} family={w.family} />
         <div className="libmeta">
           <span className="avatar" style={{ width: 28, height: 28, fontSize: 12 }}>{author(w).charAt(0)}</span>
           <span>Added by <b>{author(w)}</b>{w.authorId ? ' · ' + fmtDate(w.sharedAt) : ''} · saved {w.saves} {w.saves === 1 ? 'time' : 'times'}</span>
@@ -213,7 +215,7 @@ export function Library() {
             </div>
             {items.map((w) => (
               <div key={w.id} className="trow librow">
-                <div className="cellword"><button className="wordlink" onClick={() => setOpen(w)}>{w.word}</button><span className="ipa xs">{w.ipa}</span></div>
+                <div className="cellword"><span className="wordline"><button className="wordlink" onClick={() => setOpen(w)}>{w.word}</button><FamilyTag family={w.family} /></span><span className="ipa xs">{w.ipa}</span></div>
                 <div className="cellmean"><span className="vi clamp">{w.vi}</span><span className="muted xs clamp">{w.meaning}</span></div>
                 <span className="c-type"><TopicBadge topic={w.topic} /></span>
                 <span><LevelBadge level={w.level} /></span>
@@ -226,7 +228,7 @@ export function Library() {
             {items.map((w) => (
               <div key={w.id} className="card vcard">
                 <div className="vcard-top">
-                  <div className="cellword"><button className="wordlink" style={{ fontSize: 18 }} onClick={() => setOpen(w)}>{w.word}</button><span className="ipa xs">{w.ipa}</span></div>
+                  <div className="cellword"><span className="wordline"><button className="wordlink" style={{ fontSize: 18 }} onClick={() => setOpen(w)}>{w.word}</button><FamilyTag family={w.family} /></span><span className="ipa xs">{w.ipa}</span></div>
                   <SaveButton w={w} small />
                 </div>
                 <div><div className="vi">{w.vi}</div><div className="muted sm">{w.meaning}</div></div>

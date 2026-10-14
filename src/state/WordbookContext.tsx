@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  DAY, MIN, dayKey, emptyForm, isDue, shuffle,
+  DAY, MIN, cleanFamily, dayKey, emptyForm, familyToSave, isDue, shuffle,
   type Data, type FormData, type Rating, type Settings, type Word
 } from '../lib/data';
 import type { IconName } from '../lib/icons';
@@ -356,6 +356,8 @@ function useWordbookState() {
         const v = data[key];
         if (Array.isArray(v) ? v.length : v) Object.assign(patch, { [key]: v });
       }
+      const fam = cleanFamily(data.family ?? []);
+      if (fam.length >= 2) patch.family = fam;
       setF(patch);
       showToast('Details filled in — review and edit before saving.');
     } else {
@@ -374,7 +376,7 @@ function useWordbookState() {
       const extra = f[fld === 'syn' ? 'synIn' : 'antIn'].split(',').map((x) => x.trim()).filter(Boolean);
       f[fld] = f[fld].concat(extra.filter((x) => !f[fld].includes(x)));
     });
-    const data = { word, ipa: f.ipa.trim(), pos: f.pos, meaning: f.meaning.trim(), vi: f.vi.trim(), ex: f.ex.trim(), syn: f.syn, ant: f.ant, level: f.level, cat: f.cat, tags: f.tags, notes: f.notes.trim() };
+    const data = { word, ipa: f.ipa.trim(), pos: f.pos, meaning: f.meaning.trim(), vi: f.vi.trim(), ex: f.ex.trim(), syn: f.syn, ant: f.ant, level: f.level, cat: f.cat, tags: f.tags, notes: f.notes.trim(), family: familyToSave(f.family, word, f.pos, f.vi.trim()) };
     set({ saving: true });
     try {
       if (k === 'form') {
@@ -400,7 +402,7 @@ function useWordbookState() {
     if (!w) return;
     go('edit', {
       sel: id, formErr: '',
-      editForm: { word: w.word, ipa: w.ipa, pos: w.pos, meaning: w.meaning, vi: w.vi, ex: w.ex, syn: w.syn.slice(), ant: w.ant.slice(), level: w.level, cat: w.cat, tags: w.tags.slice(), notes: w.notes, synIn: '', antIn: '' }
+      editForm: { word: w.word, ipa: w.ipa, pos: w.pos, meaning: w.meaning, vi: w.vi, ex: w.ex, syn: w.syn.slice(), ant: w.ant.slice(), level: w.level, cat: w.cat, tags: w.tags.slice(), notes: w.notes, synIn: '', antIn: '', family: (w.family ?? []).map((m) => ({ ...m })) }
     });
   };
   const goNew = () => {
@@ -552,7 +554,7 @@ function useWordbookState() {
   };
   /* ---------- library ---------- */
   /** Copies a library word into my vocabulary. Returns the new word, or undefined on failure. */
-  const saveFromLibrary = async (lw: LibraryWord): Promise<Word | undefined> => {
+  const saveFromLibrary = async (lw: Pick<LibraryWord, 'id' | 'word'>): Promise<Word | undefined> => {
     const res = await call(api.saveFromLibrary(lw.id));
     if (!res) return undefined;
     set((prev) => ({

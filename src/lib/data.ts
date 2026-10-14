@@ -9,6 +9,47 @@ export type Accent = 'indigo' | 'blue' | 'teal' | 'green' | 'orange' | 'rose';
 
 export interface ReviewEntry { at: number; r: Rating }
 
+/** One form in a word family (e.g. decide → decision, decisive, decisively). */
+export type FamilyPos = 'Noun' | 'Verb' | 'Adjective' | 'Adverb' | 'Other';
+export interface FamilyMember { word: string; pos: FamilyPos; vi: string; ex?: string; note?: string }
+/** Display order of family rows. */
+export const FAMILY_POS: FamilyPos[] = ['Verb', 'Noun', 'Adjective', 'Adverb', 'Other'];
+export const FAMILY_MAX = 8;
+export const toFamilyPos = (pos: string): FamilyPos => ((FAMILY_POS as string[]).includes(pos) ? (pos as FamilyPos) : 'Other');
+
+/** Trims members, drops ones without a word, duplicates and extras past the limit; caps field lengths. */
+export function cleanFamily(list: FamilyMember[]): FamilyMember[] {
+  const seen = new Set<string>();
+  const out: FamilyMember[] = [];
+  for (const m of list) {
+    const word = (m.word ?? '').trim().slice(0, 40);
+    const key = word.toLowerCase() + '|' + toFamilyPos(m.pos);
+    if (!word || seen.has(key)) continue;
+    seen.add(key);
+    const ex = (m.ex ?? '').trim().slice(0, 160);
+    const note = (m.note ?? '').trim().slice(0, 30);
+    out.push({ word, pos: toFamilyPos(m.pos), vi: (m.vi ?? '').trim().slice(0, 80), ...(ex ? { ex } : {}), ...(note ? { note } : {}) });
+    if (out.length >= FAMILY_MAX) break;
+  }
+  return out;
+}
+
+/** The family to send when saving a word: includes the word itself, and is [] unless it has 2+ forms. */
+export function familyToSave(list: FamilyMember[], word: string, pos: string, vi: string): FamilyMember[] {
+  let fam = cleanFamily(list);
+  if (!fam.length) return [];
+  if (!fam.some((m) => m.word.toLowerCase() === word.toLowerCase())) {
+    fam = cleanFamily([{ word, pos: toFamilyPos(pos), vi: vi.slice(0, 80) }, ...fam.slice(0, FAMILY_MAX - 1)]);
+  }
+  return fam.length >= 2 ? fam : [];
+}
+
+/** Family rows in display order (Verb → Noun → Adjective → Adverb → Other), keeping the given order within a group. */
+export function sortFamily(list: FamilyMember[]): FamilyMember[] {
+  const rank = (m: FamilyMember) => { const i = FAMILY_POS.indexOf(m.pos); return i < 0 ? FAMILY_POS.length : i; };
+  return list.map((m, i) => ({ m, i })).sort((a, b) => rank(a.m) - rank(b.m) || a.i - b.i).map((x) => x.m);
+}
+
 export interface Word {
   id: string;
   word: string;
@@ -28,6 +69,8 @@ export interface Word {
   dueAt: number;
   addedAt: number;
   hist: ReviewEntry[];
+  /** Word family: 2–8 forms including this word, or [] / missing = none. */
+  family?: FamilyMember[];
 }
 
 export interface Category { id: string; name: string; icon: IconName }
@@ -79,6 +122,7 @@ export interface FormData {
   word: string; ipa: string; pos: string; meaning: string; vi: string; ex: string;
   syn: string[]; ant: string[]; level: Level; cat: string; tags: string[]; notes: string;
   synIn: string; antIn: string;
+  family: FamilyMember[];
 }
 
 export const LEVELS: Level[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
@@ -105,7 +149,7 @@ export function daysFromToday(t: number): number {
 }
 
 export function emptyForm(): FormData {
-  return { word: '', ipa: '', pos: 'Noun', meaning: '', vi: '', ex: '', syn: [], ant: [], level: 'B1', cat: '', tags: [], notes: '', synIn: '', antIn: '' };
+  return { word: '', ipa: '', pos: 'Noun', meaning: '', vi: '', ex: '', syn: [], ant: [], level: 'B1', cat: '', tags: [], notes: '', synIn: '', antIn: '', family: [] };
 }
 
 export function shuffle<T>(a: T[]): T[] {

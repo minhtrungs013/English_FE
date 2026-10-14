@@ -4,6 +4,7 @@ import { fmtAgo, fmtDate, fmtNext, type Word } from '../lib/data';
 import { speak } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { Icon, LevelBadge, PosBadge, StatusBadge } from '../components/ui';
+import { WordFamily } from '../components/WordFamily';
 import { TOPIC_LABEL } from './Library';
 
 /** Shows whether the word is in the shared library, and lets the user share it if not. */
@@ -87,6 +88,7 @@ export function VocabDetail() {
               </div>
             </div>
           )}
+          <WordFamily word={w.word} family={w.family} className="sec" />
           {w.notes && <div className="sec"><span className="sec-t">My notes</span><p className="note">{w.notes}</p></div>}
           <div className="sec">
             <span className="sec-t">Tags</span>
