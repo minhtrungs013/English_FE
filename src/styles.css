@@ -1747,22 +1747,25 @@ button.tmini-row:hover{border-color:var(--primary)}
 /* ---------- word family ---------- */
 .wordline{display:inline-flex;align-items:baseline;flex-wrap:wrap;column-gap:8px;row-gap:2px;min-width:0}
 .famtag{font-size:11.5px;font-weight:600;color:var(--faint);white-space:nowrap}
-.famlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden}
-.famrow{display:grid;grid-template-columns:96px minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 12px 10px 14px;border-top:1px solid var(--border);text-align:left}
+.famlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.famrow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--border);border-left:3px solid transparent;text-align:left}
 .famrow:first-child{border-top:none}
-.famrow.self{background:var(--primary-soft)}
-.fampos{justify-self:start}
-.famrow.self .fampos{background:var(--surface);color:var(--primary-ink)}
-.fammain{display:flex;flex-direction:column;gap:2px;min-width:0}
-.famhead{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px}
-.famword{font-size:15.5px;font-weight:800;color:var(--text);overflow-wrap:anywhere}
+.famrow.self{border-left-color:var(--primary);background:color-mix(in srgb,var(--primary-soft) 45%,transparent);border-radius:0 var(--r) var(--r) 0}
+.fammain{display:flex;flex-direction:column;gap:3px;min-width:0}
+.famhead{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px}
+.fampos{flex:0 0 auto;min-width:30px;text-decoration:none;font-size:11.5px;font-weight:800;letter-spacing:.02em;color:var(--muted);text-transform:lowercase}
+.fampos.p-noun{color:var(--info,#2563EB)}.fampos.p-verb{color:var(--success)}.fampos.p-adjective{color:var(--orange,#B04D0A)}.fampos.p-adverb{color:var(--primary-ink)}
+.famword{font-size:15px;font-weight:800;color:var(--text);overflow-wrap:anywhere}
 .famrow.self .famword{color:var(--primary-ink)}
-.famself{font-size:11.5px;font-weight:700;color:var(--primary-ink);text-transform:uppercase;letter-spacing:.05em}
-.famnote{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:99px;border:1px solid var(--border);background:var(--surface);font-size:12px;font-weight:600;color:var(--muted)}
-.famvi{font-size:14px;font-weight:600;color:var(--text)}
-.famex{font-size:13.5px;font-style:italic;color:var(--muted)}
-.famside{display:flex;align-items:center;gap:6px;justify-content:flex-end}
-.famact{white-space:nowrap}
+.famvi{font-size:13.5px;font-weight:500;color:var(--muted)}
+.famvi::before{content:"·";margin-right:8px;color:var(--faint)}
+.famnote{font-size:11.5px;font-weight:600;color:var(--faint);font-style:italic}
+.famex{font-size:13px;color:var(--muted);padding-left:38px;line-height:1.45}
+.famside{display:flex;align-items:center;gap:2px;justify-content:flex-end}
+.famact{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 10px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+.famact:hover{border-color:var(--primary);color:var(--primary-ink)}
+.famact.mine{border-color:transparent;background:none;color:var(--success)}
+.famact:disabled{opacity:.6;cursor:default}
 .family{display:flex;flex-direction:column;gap:10px}
 .lfamily{width:100%;margin-top:6px}
 .fameditor{gap:10px}
@@ -1775,12 +1778,12 @@ button.tmini-row:hover{border-color:var(--primary)}
 .famedit-head{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:0 2px}
 .famedit-foot{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px}
 @container (max-width: 760px){
-.famrow{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"pos side" "main main";row-gap:6px;padding:12px}
-.fampos{grid-area:pos}
-.fammain{grid-area:main}
-.famside{grid-area:side}
-.famside .iconbtn.sm{width:44px;height:44px}
-.famact{min-height:44px}
+.famrow{padding:10px 8px;align-items:start}
+.famex{padding-left:0}
+.famside .iconbtn.sm{width:40px;height:40px}
+.famact{height:40px}
+.famact-t{display:none}
+.famact{width:40px;justify-content:center;padding:0}
 .famedit-head{display:none}
 .famedit-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px;grid-template-areas:"w p x" "v v v" "e e e";padding:10px;border:1px solid var(--border);border-radius:var(--r-md)}
 .famedit-row > :nth-child(1){grid-area:w}

@@ -12,6 +12,8 @@ export function FamilyTag({ family }: { family?: FamilyMember[] }) {
   return <span className="famtag" title={'Word family: ' + family!.map((m) => m.word).join(', ')}>+{n} {n === 1 ? 'form' : 'forms'}</span>;
 }
 
+const POS_SHORT: Record<string, string> = { Noun: 'n', Verb: 'v', Adjective: 'adj', Adverb: 'adv', Other: '—' };
+
 /** Save / "In your words" action for one family member. */
 function MemberAction({ m, st }: { m: FamilyMember; st: FamilyStatus | undefined }) {
   const { s, a } = useWB();
@@ -21,17 +23,17 @@ function MemberAction({ m, st }: { m: FamilyMember; st: FamilyStatus | undefined
   const mineId = s.words.find((w) => w.word.toLowerCase() === key)?.id ?? (st?.myWordId && s.words.some((w) => w.id === st.myWordId) ? st.myWordId : null);
   if (mineId) {
     return (
-      <button className="btn btn-ghost btn-sm famact" onClick={() => a.go('detail', { sel: mineId })} aria-label={'Open “' + m.word + '” in your words'}>
-        <Icon name="check" size="sm" style={{ color: 'var(--success)' }} />In your words
+      <button className="famact mine" onClick={() => a.go('detail', { sel: mineId })} aria-label={'Open “' + m.word + '” in your words'} title="In your words">
+        <Icon name="check" size="sm" /><span className="famact-t">Saved</span>
       </button>
     );
   }
   if (!st?.libraryId) return null;
   const id = st.libraryId;
   return (
-    <button className="btn btn-secondary btn-sm famact" disabled={busy} aria-label={'Save “' + m.word + '” to my vocabulary'}
+    <button className="famact" disabled={busy} aria-label={'Save “' + m.word + '” to my vocabulary'} title="Save to my vocabulary"
       onClick={async () => { setBusy(true); await a.saveFromLibrary({ id, word: m.word }); setBusy(false); }}>
-      <Icon name="plus" size="sm" />{busy ? 'Saving…' : 'Save'}
+      <Icon name="plus" size="sm" /><span className="famact-t">{busy ? 'Saving…' : 'Save'}</span>
     </button>
   );
 }
@@ -71,15 +73,15 @@ export function WordFamily({ word, family, className }: { word: string; family?:
           const self = m.word.toLowerCase() === cur;
           return (
             <li key={m.word + i} className={'famrow' + (self ? ' self' : '')} aria-current={self ? 'true' : undefined}>
-              <span className="badge pos fampos">{m.pos}</span>
               <div className="fammain">
                 <div className="famhead">
+                  <abbr className={'fampos p-' + m.pos.toLowerCase()} title={m.pos}>{POS_SHORT[m.pos] ?? m.pos}</abbr>
                   <b className="famword">{m.word}</b>
-                  {self && <span className="famself">this word</span>}
+                  {m.vi && <span className="famvi" lang="vi">{m.vi}</span>}
+                  {self && <span className="c-sr"> (this word)</span>}
                   {m.note && <span className="famnote">{m.note}</span>}
                 </div>
-                {m.vi && <div className="famvi" lang="vi">{m.vi}</div>}
-                {m.ex && <div className="famex">“{m.ex}”</div>}
+                {m.ex && <div className="famex">{m.ex}</div>}
               </div>
               <div className="famside">
                 <button className="iconbtn sm" onClick={() => speak(m.word)} aria-label={'Play pronunciation of ' + m.word} title="Play"><Icon name="volume" size="sm" /></button>
