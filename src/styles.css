@@ -259,6 +259,10 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 .pcard h3{margin:0;font-size:18px;font-weight:800}
 .pcard p{margin:0 0 14px;color:var(--muted)}
 .pcard .btn{align-self:flex-start;margin-top:auto}
+.pcard .pnote{display:flex;align-items:flex-start;gap:6px;margin:-6px 0 14px;color:var(--muted)}
+.pcard .pnote svg{flex:none;margin-top:2px}
+.wfhint{color:var(--muted);font-weight:700}
+.wfline{font-weight:700;overflow-wrap:anywhere}
 /* session */
 .session{flex-grow:1;display:flex;flex-direction:column;min-height:100vh;background:var(--bg);outline:none}
 .sbar{display:flex;align-items:center;gap:18px;padding:18px 28px;max-width:880px;width:100%;margin:0 auto}
@@ -291,6 +295,7 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 .streakpill{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:99px;background:var(--orange-soft);color:var(--orange);font-weight:800;margin-bottom:8px}
 .qcard{width:100%;max-width:680px;padding:36px;border-radius:var(--r-3xl);display:flex;flex-direction:column;gap:18px}
 .qkicker{font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.qkicker .badge{text-transform:none;letter-spacing:0;vertical-align:middle}
 .qtext{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.3;margin:0}
 .opts{display:flex;flex-direction:column;gap:10px}
 .opt{display:flex;align-items:center;gap:14px;min-height:58px;padding:10px 16px;border-radius:var(--r-md);border:1.5px solid var(--border);background:var(--surface);cursor:pointer;text-align:left;font-size:15.5px;font-weight:600;color:var(--text)}

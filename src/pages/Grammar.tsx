@@ -27,6 +27,7 @@ export const LESSON_NAME: Record<LessonId, string> = {
   have: 'Have',
   agreement: 'Subject–verb agreement',
   'irregular-verbs': 'Irregular verbs: V1, V2, V3',
+  'word-formation': 'Word formation',
   'aux-cheatsheet': 'Cheat sheet',
   ...TENSE_NAME,
   mixed: 'Mixed practice: real-world English'

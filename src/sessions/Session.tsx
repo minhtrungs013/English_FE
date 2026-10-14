@@ -9,7 +9,7 @@ const RATINGS: [Rating, string, IconName, string][] = [
   ['Again', '10 min', 'refresh', '1'], ['Hard', '1 day', 'meh', '2'], ['Good', '3 days', 'smile', '3'], ['Easy', '7 days', 'zap', '4']
 ];
 const KEY_RATING: Record<string, Rating> = { '1': 'Again', '2': 'Hard', '3': 'Good', '4': 'Easy' };
-const TITLES = { mc: 'Multiple Choice', fill: 'Fill in the Blank', trans: 'Translation', listen: 'Listening' };
+const TITLES = { mc: 'Multiple Choice', fill: 'Fill in the Blank', trans: 'Translation', listen: 'Listening', wordform: 'Word forms' };
 
 function DoneCard({ title, sub, stats, children }: { title: string; sub: string; stats: [string | number, string, string?][]; children: React.ReactNode }) {
   return (
@@ -154,7 +154,15 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
   }
 
   const explain = '“' + cap1(w.word) + '” means ' + low1((w.meaning || '').replace(/\.$/, '')) + '.';
-  const fb = P.checked && (
+  const fb = P.checked && (P.mode === 'wordform' ? (
+    <div className={'fb ' + (P.correct ? 'ok' : 'no')}>
+      <div className="fb-t"><Icon name={P.correct ? 'checkc' : 'alert'} />{P.correct ? 'Correct!' : 'Not quite — the answer is'}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 20, fontWeight: 800 }}>{q.answer}</span>{q.pos && <PosBadge>{q.pos}</PosBadge>}{q.vi && <span className="muted" lang="vi">· {q.vi}</span>}
+      </div>
+      {q.family && <div className="wfline"><span className="c-sr">Word family: </span>{q.family}</div>}
+    </div>
+  ) : (
     <div className={'fb ' + (P.correct ? 'ok' : 'no')}>
       <div className="fb-t"><Icon name={P.correct ? 'checkc' : 'alert'} />{P.correct ? 'Correct!' : P.mode === 'mc' ? 'Not quite' : 'Not quite — the answer is'}</div>
       {P.mode !== 'mc' && (
@@ -165,7 +173,7 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
       {w.meaning && <div>{explain}</div>}
       {P.mode === 'mc' && w.ex && <div className="muted sm">Example: “{w.ex}”</div>}
     </div>
-  );
+  ));
   const nextBtn = <button className="btn btn-primary btn-lg" onClick={a.pNext}>Continue<Icon name="right" /></button>;
 
   if (P.mode === 'mc') {
@@ -207,6 +215,17 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
           <>
             <h2 className="qtext">{q.before}<span className="blank">{P.checked ? answer : ' '}</span>{q.after}</h2>
             <div className="muted sm">Hint: {w.pos} · {w.vi}</div>
+          </>
+        )}
+        {P.mode === 'wordform' && (
+          <>
+            <div className="badges">
+              <span className="muted sm" style={{ fontWeight: 700 }}>Use the right form of the word</span>
+              {q.pos && <PosBadge><span className="c-sr">Part of speech: </span>{q.pos}</PosBadge>}
+            </div>
+            <h2 className="qtext">
+              {q.before}<span className="blank">{P.checked ? answer : ' '}</span><span className="wfhint">({q.hint})</span>{q.after}
+            </h2>
           </>
         )}
         {P.mode === 'listen' && (

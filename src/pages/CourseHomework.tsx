@@ -48,11 +48,16 @@ export const ASK: Record<HomeworkQuestion['type'], string> = {
   blank: 'Fill in the missing word',
   tense: 'Put the verb in the right tense',
   tenseChoice: 'Choose the right verb form',
-  dictation: 'Listen and type the sentence'
+  dictation: 'Listen and type the sentence',
+  wordform: 'Use the right form of the word'
 };
 
-/** Questions whose prompt is a sentence with a gap ("_____" for blank, "___" for tense ones). */
-export const isSentence = (t: HomeworkQuestion['type']) => t === 'blank' || t === 'tense' || t === 'tenseChoice';
+/** Questions whose prompt is a sentence with a gap ("_____" for blank, "___" for tense and word-form ones). */
+export const isSentence = (t: HomeworkQuestion['type']) => t === 'blank' || t === 'tense' || t === 'tenseChoice' || t === 'wordform';
+
+/** A word-form question's part of speech after its label: "(noun)". */
+export const PosHint = ({ q }: { q: Pick<HomeworkQuestion, 'type' | 'hint'> }) =>
+  q.type === 'wordform' && q.hint ? <> <span className="badge pos"><span className="c-sr">Part of speech: </span>({q.hint})</span></> : null;
 
 /** The prompt; for sentence questions the gap is shown as a line (filled with `fill`, when given). */
 export function Prompt({ q, fill }: { q: Pick<HomeworkQuestion, 'type' | 'prompt'>; fill?: string }) {
@@ -99,6 +104,7 @@ function HomeworkReviewList({ r }: { r: HomeworkResult }) {
           <div className="stack" style={{ gap: 4, minWidth: 0, flex: 1 }}>
             <div className="badges">
               <span className="muted xs" style={{ fontWeight: 700 }}>{i + 1}. {ASK[q.type]}</span>
+              <PosHint q={q} />
               {q.review && <span className="badge t-amber">Review</span>}
             </div>
             {q.type === 'dictation' ? (
@@ -330,7 +336,7 @@ export function HomeworkSection({ c, day, onSubmitted, embedded, bare, onClose }
           </span>
         </div>
         <div key={i} className="hwq animA">
-          <Kicker q={q}>Question {i + 1} of {n} · {ASK[q.type]}</Kicker>
+          <Kicker q={q}>Question {i + 1} of {n} · {ASK[q.type]}<PosHint q={q} /></Kicker>
           {q.type === 'dictation' ? (
             <>
               <div className="listen dc-play">
@@ -357,7 +363,7 @@ export function HomeworkSection({ c, day, onSubmitted, embedded, bare, onClose }
               <h4 ref={qHead} tabIndex={-1} className={'qtext hwprompt' + (isSentence(q.type) ? ' sentence' : '')} id={'hwq-' + day.day}>
                 <Prompt q={q} fill={answer.trim()} />
               </h4>
-              {q.hint && <div className="muted sm">Hint: {q.hint}</div>}
+              {q.hint && q.type !== 'wordform' && <div className="muted sm">Hint: {q.hint}</div>}
             </>
           )}
           {q.type === 'dictation' ? null : q.choices.length ? (
@@ -378,6 +384,7 @@ export function HomeworkSection({ c, day, onSubmitted, embedded, bare, onClose }
               onChange={(ev) => setAnswer(ev.target.value)}
               onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); next(); } }} />
           )}
+          {q.type === 'wordform' && <span className="keyhint">Type only the missing word in its right form — e.g. “decision” for “(decide)”.</span>}
           {q.type === 'tense' && <span className="keyhint">Type only the missing words — e.g. “has finished”, not “She has finished”.</span>}
         </div>
         <div className="hwnav">

@@ -6,6 +6,7 @@ import {
 import type { IconName } from '../lib/icons';
 import { api, ApiError, getToken, setToken, setUnauthorizedHandler, type AuthResponse, type CourseDetail, type CourseSaveResult, type LibraryWord, type Note, type Topic } from '../lib/api';
 import { stopSpeaking } from '../lib/speech';
+import { buildWordform, normalizeAnswer } from '../lib/wordform';
 import { cacheStyle, cachedStyle, isAppStyle, type AppStyle } from '../lib/appStyle';
 
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
@@ -15,13 +16,17 @@ export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail
 export type CourseTab = 'today' | 'map' | 'board' | 'members';
 /** A step of a course day in the study session. */
 export type StudyStep = 'review' | 'learn' | 'listen' | 'homework';
-export type PracticeMode = 'mc' | 'fill' | 'trans' | 'listen';
+export type PracticeMode = 'mc' | 'fill' | 'trans' | 'listen' | 'wordform';
 
 export interface ReviewState {
   sid: number; queue: string[]; i: number; flipped: boolean; done: boolean; title: string; practice: boolean; anim: number;
   res: { again: number; hard: number; good: number; easy: number };
 }
-export interface PracticeQuestion { id: string; opts?: string[]; ans?: number; before?: string; after?: string; answer?: string }
+export interface PracticeQuestion {
+  id: string; opts?: string[]; ans?: number; before?: string; after?: string; answer?: string;
+  /** Word forms only: the word in brackets after the gap, the asked form's part of speech and meaning, and the family line. */
+  hint?: string; pos?: string; vi?: string; family?: string;
+}
 export interface PracticeState {
   pid: number; mode: PracticeMode; qs: PracticeQuestion[]; i: number; picked: number | null; input: string;
   checked: boolean; correct: boolean; score: number; done: boolean; anim: number;
@@ -279,6 +284,12 @@ function useWordbookState() {
         const k = w.ex.toLowerCase().indexOf(w.word.toLowerCase());
         return { id: w.id, before: w.ex.slice(0, k), after: w.ex.slice(k + w.word.length), answer: w.word };
       });
+    } else if (mode === 'wordform') {
+      qs = shuffle(ws).flatMap((w) => {
+        const q = buildWordform(w.family);
+        return q ? [{ id: w.id, before: q.before, after: q.after, answer: q.answer, hint: q.hint, pos: q.pos, vi: q.vi, family: q.family }] : [];
+      }).slice(0, 10);
+      if (qs.length < 3) { showToast('Save words that have a word family first (look for “+N forms”).', 'bad'); return; }
     } else if (mode === 'trans') {
       qs = shuffle(ws.filter((w) => w.vi)).slice(0, 10).map((w) => ({ id: w.id, answer: w.word }));
     } else {
@@ -298,7 +309,10 @@ function useWordbookState() {
     const p = ref.current.practice;
     if (!p || p.checked) return;
     if (!skip && !p.input.trim()) return;
-    const ok = !skip && p.input.trim().toLowerCase() === (p.qs[p.i].answer ?? '').toLowerCase();
+    const q = p.qs[p.i];
+    const ok = !skip && (p.mode === 'wordform'
+      ? !!normalizeAnswer(p.input) && normalizeAnswer(p.input) === normalizeAnswer(q.answer ?? '')
+      : p.input.trim().toLowerCase() === (q.answer ?? '').toLowerCase());
     pUpdate({ checked: true, correct: ok, score: p.score + (ok ? 1 : 0) });
   };
   const pNext = () => {

@@ -119,9 +119,10 @@ export interface CourseLearnResult extends CourseSaveResult { course: CourseDeta
  * meaning: pick the Vietnamese meaning of the English prompt · word: pick the English word for the meaning ·
  * type: type the word for the meaning · blank: type the word missing from the sentence ("_____") ·
  * tense: type the verb in brackets in the right tense ("___ (deploy)") · tenseChoice: pick the right verb form ·
- * dictation: listen to a sentence (the device speaks `audio`) and type it.
+ * dictation: listen to a sentence (the device speaks `audio`) and type it ·
+ * wordform: type the right form of the word in brackets ("The ___ (decide) was made."); hint = the part of speech ("noun").
  */
-export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice' | 'dictation';
+export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice' | 'dictation' | 'wordform';
 export interface HomeworkQuestion {
   type: HomeworkType;
   /** A word from an earlier day. */
@@ -264,8 +265,8 @@ export interface NotePage { items: Note[]; hasMore: boolean; unread: number }
  * The Foundations lessons (helping verbs, then irregular verbs V1–V2–V3) in the order they're taught; the cheat sheet is a
  * reference page (no practice).
  */
-export type Foundation = 'be' | 'do' | 'have' | 'agreement' | 'irregular-verbs' | 'aux-cheatsheet';
-export const FOUNDATIONS: readonly Foundation[] = ['be', 'do', 'have', 'agreement', 'irregular-verbs', 'aux-cheatsheet'];
+export type Foundation = 'be' | 'do' | 'have' | 'agreement' | 'irregular-verbs' | 'word-formation' | 'aux-cheatsheet';
+export const FOUNDATIONS: readonly Foundation[] = ['be', 'do', 'have', 'agreement', 'irregular-verbs', 'word-formation', 'aux-cheatsheet'];
 /** The irregular verbs lesson: its tables (one per pattern) get search, pattern filters and 🔊; results link to it with `verb`. */
 export const IRREGULAR_LESSON = 'irregular-verbs' satisfies Foundation;
 /** Mixed practice with real-world texts (name the tense, fix the mistake, fill in a text): in the tenses group, but not a tense. */

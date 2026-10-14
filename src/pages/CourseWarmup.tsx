@@ -4,11 +4,9 @@ import { speak } from '../lib/speech';
 import { Icon } from '../components/ui';
 import { errText } from './Courses';
 import { ASK, Prompt, TenseNote, isSentence } from './CourseHomework';
+import { normalizeAnswer } from '../lib/wordform';
 
-/** Lower-case, trimmed, straight quotes, single spaces, no punctuation around it (like the server). */
-export function normalizeAnswer(s: string): string {
-  return s.toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, ' ').trim().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
-}
+export { normalizeAnswer };
 const isRight = (q: WarmupQuestion, given: string) => {
   const g = normalizeAnswer(given);
   return !!g && [q.answer, ...q.accept].some((x) => normalizeAnswer(x) === g);
