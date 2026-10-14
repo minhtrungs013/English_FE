@@ -21,6 +21,7 @@ import { CoursePage } from './pages/Course';
 import { CourseEdit } from './pages/CourseEdit';
 import { CourseStudy } from './pages/CourseStudy';
 import { NotificationsPage } from './components/Notifications';
+import { ChatBot } from './components/ChatBot';
 import { GrammarHome, GrammarLessonPage, GrammarPractice } from './pages/Grammar';
 import { DictationHub, DictationPractice } from './pages/Dictation';
 
@@ -146,6 +147,7 @@ export default function App() {
               <main className="main"><Page /></main>
             </div>
             <BottomNav />
+            <ChatBot />
           </>
         )}
         {(s.menu || s.notif || s.account) && <button className="scrim" onClick={a.closeMenus} aria-label="Close menu" tabIndex={-1} />}
