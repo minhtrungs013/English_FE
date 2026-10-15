@@ -202,6 +202,8 @@ export interface ImportResult { added: number; errors: { index: number; message:
 export interface GrammarView {
   text: string; tense: string;
   lesson: { id: string; name: string; vi: string } | null;
+  /** The structure's name (Vietnamese) when there's no lesson for it: passive, modal… */
+  label?: string;
   formula: string; signals: string[];
   parts: { text: string; role: 'S' | 'V' | 'O' | 'C' | 'time' | 'place' | 'adv' | 'clause' | 'other' }[];
   explain: string; notes: { on: string; text: string }[];

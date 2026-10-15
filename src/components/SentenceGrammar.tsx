@@ -57,13 +57,18 @@ export function SentenceGrammar({ g, practice = true }: { g: GrammarView | null 
       </button>
       {open && (
         <section id={id} className="sg-card" aria-label="Grammar of this sentence">
-          {g.lesson && (
+          {g.lesson ? (
             <header className="sg-head">
               <span className="sg-tense"><Icon name="clock" size="sm" />{g.lesson.name}</span>
               <span className="sg-vi" lang="vi">{g.lesson.vi}</span>
+              {g.label && <span className="sg-vi" lang="vi">· {g.label}</span>}
               {g.level === 'basic' && <span className="sg-auto" title="Found from the sentence pattern">Auto</span>}
             </header>
-          )}
+          ) : g.label ? (
+            <header className="sg-head">
+              <span className="sg-tense" lang="vi"><Icon name="type" size="sm" />{g.label}</span>
+            </header>
+          ) : null}
 
           {g.parts.length ? (
             <ol className="sg-parts" aria-label="Sentence structure">
