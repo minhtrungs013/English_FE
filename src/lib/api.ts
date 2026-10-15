@@ -138,6 +138,8 @@ export interface HomeworkReview extends HomeworkQuestion {
   yourAnswer: string; answer: string; correct: boolean;
   /** Tense questions only ('' otherwise); explain is in Vietnamese. */
   tense?: string; tenseLabel?: string; explain?: string;
+  /** The sentence's grammar (answer in place), or null for questions without a sentence. */
+  grammar?: GrammarView | null;
   /** Dictation only: the word-by-word grade (answer = the sentence). */
   grade?: DictationGrade;
 }
@@ -196,11 +198,21 @@ export type ImportRow = Record<string, unknown>;
 /** errors[].index points into the sent items; good rows are saved as approved. items: the day's whole bank. */
 export interface ImportResult { added: number; errors: { index: number; message: string }[]; items: BankItem[] }
 /** missed: times I got the word wrong in earlier homework. */
+/** A sentence's grammar: tense, formula and lesson from the grammar lessons; parts/explain from storage when analysed ('full'). */
+export interface GrammarView {
+  text: string; tense: string;
+  lesson: { id: string; name: string; vi: string } | null;
+  formula: string; signals: string[];
+  parts: { text: string; role: 'S' | 'V' | 'O' | 'C' | 'time' | 'place' | 'adv' | 'clause' | 'other' }[];
+  explain: string; notes: { on: string; text: string }[];
+  level: 'full' | 'basic';
+}
 export interface WarmupWord { word: string; ipa: string; vi: string; meaning: string; missed: number }
 /** Not graded, so the answers come with the questions. */
 export interface WarmupQuestion {
   type: HomeworkType; word: string; prompt: string; hint: string; choices: string[];
   answer: string; accept: string[]; tense: string; tenseLabel: string; explain: string;
+  grammar?: GrammarView | null;
 }
 
 /* ---------- listening dialogues ---------- */
@@ -453,6 +465,8 @@ export const api = {
   /** Earlier words to practise (missed ones first) and the day's recap story. Not graded. */
   getWarmup: (id: string, day: number) => req<Warmup>('GET', '/courses/' + id + '/days/' + day + '/warmup'),
   /** Marks the day's warm-up as done: after the practice (with its result) or when the learner skips it (no result). */
+  /** The grammar of a day's example sentences (Learn step). */
+  courseGrammar: (id: string, day: number) => req<{ items: { word: string; ex: string; grammar: GrammarView }[] }>('GET', '/courses/' + id + '/days/' + day + '/grammar'),
   warmupDone: (id: string, day: number, correct?: number, total?: number) =>
     req<{ warmedUp: number[] }>('POST', '/courses/' + id + '/days/' + day + '/warmup/done', correct !== undefined ? { correct, total } : {}),
   /** The day's approved listening dialogue, or { dialogue: null } when there's none. 403 when the day isn't open for me. */

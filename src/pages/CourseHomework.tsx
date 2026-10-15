@@ -5,6 +5,7 @@ import { useWB } from '../state/WordbookContext';
 import { Icon } from '../components/ui';
 import { ConfirmDialog, errText } from './Courses';
 import { SLOW, Tokens } from './Dictation';
+import { SentenceGrammar } from '../components/SentenceGrammar';
 
 /** A dictation question's sentence: base64 of its UTF-8 text (plain `atob` if TextDecoder isn't there; the sentences are ASCII). */
 export function decodeAudio(b64?: string): string {
@@ -133,6 +134,7 @@ function HomeworkReviewList({ r }: { r: HomeworkResult }) {
               </>
             )}
             <TenseNote label={q.tenseLabel} explain={q.explain} tense={q.tense} />
+            <SentenceGrammar g={q.grammar} />
           </div>
         </li>
       ))}

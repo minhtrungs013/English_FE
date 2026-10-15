@@ -4,6 +4,7 @@ import { speak } from '../lib/speech';
 import { Icon } from '../components/ui';
 import { errText } from './Courses';
 import { ASK, Prompt, TenseNote, isSentence } from './CourseHomework';
+import { SentenceGrammar } from '../components/SentenceGrammar';
 import { normalizeAnswer } from '../lib/wordform';
 
 export { normalizeAnswer };
@@ -170,6 +171,7 @@ export function WarmupSection({ c, day, embedded, onDone, onClose }: {
               <b className="wufb-t"><Icon name={ok ? 'checkc' : 'alert'} size="sm" />{ok ? 'Correct!' : 'Not quite.'}</b>
               {!ok && <span>Answer: <b className="hw-ok">{q.answer}</b></span>}
               <TenseNote label={q.tenseLabel} explain={q.explain} tense={q.tense} />
+              <SentenceGrammar g={q.grammar} practice={false} />
             </div>
           )}
         </div>

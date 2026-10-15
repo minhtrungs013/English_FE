@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
-import type { CourseDetail, CourseWord } from '../lib/api';
+import { api, type CourseDetail, type CourseWord, type GrammarView } from '../lib/api';
 import { shuffle } from '../lib/data';
 import { canSpeak, speak } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { Icon, LevelBadge, PosBadge } from '../components/ui';
 import { WordFamily } from '../components/WordFamily';
+import { SentenceGrammar } from '../components/SentenceGrammar';
 import { normalizeAnswer } from './CourseWarmup';
 
 /**
@@ -226,6 +227,19 @@ export function SaveWordButton({ courseId, day, word }: { courseId: string; day:
  * which also shows the save buttons. Without it, or when the day is already learned, the summary just says "Done".
  * start: 'practice' skips meeting the words (practising again) · onClose: the learner is done with it.
  */
+/** The grammar of the day's example sentences, by word (lower case). Empty until loaded, or when it isn't available (e.g. the owner's preview). */
+function useDayGrammar(courseId: string, day: number): Map<string, GrammarView> {
+  const [m, setM] = useState<Map<string, GrammarView>>(() => new Map());
+  useEffect(() => {
+    let alive = true;
+    api.courseGrammar(courseId, day)
+      .then((r) => { if (alive) setM(new Map(r.items.map((x) => [x.word.toLowerCase(), x.grammar]))); })
+      .catch(() => { /* optional: no Grammar buttons */ });
+    return () => { alive = false; };
+  }, [courseId, day]);
+  return m;
+}
+
 export function CourseLearn({ c, day, words, learned, onLearn, onClose, start = 'meet' }: {
   c: CourseDetail; day: number; words: CourseWord[]; learned: boolean;
   onLearn?: () => Promise<void>; onClose: () => void; start?: 'meet' | 'practice';
@@ -261,6 +275,7 @@ export function CourseLearn({ c, day, words, learned, onLearn, onClose, start = 
   const [saving, setSaving] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const [live, setLive] = useState('');
+  const grammar = useDayGrammar(c.id, day);
   /** Match round: the selected tile, pairs found, mistakes per word, the last wrong pair (to shake). */
   const [sel, setSel] = useState<{ side: 'l' | 'r'; w: number } | null>(null);
   const [paired, setPaired] = useState<number[]>([]);
@@ -482,6 +497,7 @@ export function CourseLearn({ c, day, words, learned, onLearn, onClose, start = 
               <button className="iconbtn sm" onClick={() => speak(mw.ex, 0.95)} aria-label="Play the example sentence" title="Play example"><Icon name="volume" size="sm" /></button>
             </div>
           )}
+          {mw.ex && <SentenceGrammar g={grammar.get(mw.word.toLowerCase())} practice={false} />}
           <WordFamily word={mw.word} family={mw.family} className="lfamily" />
           {canSaveWords && <SaveWordButton courseId={c.id} day={day} word={mw.word} />}
         </div>
