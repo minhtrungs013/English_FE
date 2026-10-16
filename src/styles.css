@@ -1879,3 +1879,20 @@ button.tmini-row:hover{border-color:var(--primary)}
 .sg-tip p{margin:0;font-size:14px;line-height:1.5}.sg-tip p+p{margin-top:4px}
 .sg-foot{display:flex;flex-wrap:wrap;gap:8px;padding-top:12px;border-top:1px solid var(--border)}
 @media (prefers-reduced-motion: reduce){.sg-card{animation:none}.sg-chev{transition:none}}
+/* ---------- sentence bank picker ---------- */
+.sbk{max-width:860px;max-height:calc(100vh - 32px);overflow:hidden;display:flex;flex-direction:column}
+.sbk-tools{display:flex;flex-direction:column;gap:10px}
+.sbk-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.sbk-list{flex:1;min-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding-right:4px;overscroll-behavior:contain}
+.sbk-word{display:flex;flex-direction:column;gap:6px}
+.sbk-whead{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;position:sticky;top:0;background:var(--surface);padding:4px 0;z-index:1}
+.sbk-whead b{font-size:16px}
+.sbk-sents{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.sbk-s{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface)}
+.sbk-s.on{border-color:var(--primary);background:color-mix(in srgb,var(--primary-soft) 55%,var(--surface))}
+.sbk-s.off{opacity:.6}
+.sbk-s input{margin-top:4px;width:18px;height:18px;flex:none;accent-color:var(--primary)}
+.sbk-s label{display:flex;flex-direction:column;gap:6px;flex:1;min-width:0;cursor:pointer}
+.sbk-s.off label{cursor:default}
+.sbk-text{font-size:14.5px;line-height:1.5;overflow-wrap:anywhere}
+.sbk-verb{background:var(--success-soft);color:var(--success);font-weight:800;padding:0 4px;border-radius:5px}

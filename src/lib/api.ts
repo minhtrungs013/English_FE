@@ -182,7 +182,7 @@ export type BankStatus = 'pending' | 'approved' | 'rejected';
 export interface BankItem {
   id: string; day: number; kind: BankKind; word: string; tense: Tense | ''; tenseLabel: string;
   prompt: string; choices: string[]; answer: string; accept: string[]; explain: string;
-  source: 'ai' | 'template' | 'manual'; status: BankStatus;
+  source: 'ai' | 'template' | 'manual' | 'bank'; status: BankStatus;
   /** Dialogues only. */
   data?: Dialogue;
 }
@@ -195,6 +195,16 @@ export interface BankGenerateResult { source: 'ai' | 'template'; added: number; 
  * sentence: one "___" · multi: choice1..choice4 (or choices) · accept: "a|b" or a list · explain: Vietnamese.
  */
 export type ImportRow = Record<string, unknown>;
+/** A sentence of the word sentence bank, as the owner sees it when picking questions. */
+export interface BankSentence {
+  id: string; sentence: string; verb: string; tense: Tense | ''; tenseLabel: string; context: string; level: string;
+  /** Already one of this course's questions. */
+  used: boolean;
+  /** Can become a tense question (typed); canChoose: also multiple choice. */
+  canAsk: boolean; canChoose: boolean;
+}
+/** has: tenses this word already has questions in, in this course. */
+export interface BankWord { word: string; has: Tense[]; sentences: BankSentence[] }
 /** errors[].index points into the sent items; good rows are saved as approved. items: the day's whole bank. */
 export interface ImportResult { added: number; errors: { index: number; message: string }[]; items: BankItem[] }
 /** missed: times I got the word wrong in earlier homework. */
@@ -498,6 +508,11 @@ export const api = {
   setQuestionsStatus: (id: string, ids: string[], status: BankStatus) => req<{ updated: number }>('POST', '/courses/' + id + '/questions/status', { ids, status }),
   deleteQuestion: (id: string, qid: string) => req<void>('DELETE', '/courses/' + id + '/questions/' + qid),
   /** Imports up to 100 rows; good ones are approved straight away, bad ones come back in errors. */
+  /** The word sentence bank's sentences for a day's words (owner). */
+  bankSentences: (id: string, day: number) => req<{ words: BankWord[] }>('GET', '/courses/' + id + '/days/' + day + '/sentence-bank'),
+  /** Turn picked bank sentences into the day's questions (approved). items: the day's whole bank. */
+  addFromBank: (id: string, day: number, items: { id: string; kind: 'tense' | 'tenseChoice' }[]) =>
+    req<{ added: number; skipped: number; items: BankItem[] }>('POST', '/courses/' + id + '/days/' + day + '/sentence-bank', { items }),
   importQuestions: (id: string, day: number, items: ImportRow[]) =>
     req<ImportResult>('POST', '/courses/' + id + '/days/' + day + '/questions/import', { items }),
 

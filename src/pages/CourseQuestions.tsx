@@ -4,6 +4,7 @@ import { Icon } from '../components/ui';
 import { errText } from './Courses';
 import { Prompt } from './CourseHomework';
 import { ImportQuestions } from './CourseImport';
+import { SentenceBankPicker } from './CourseSentenceBank';
 import { DialogueBank } from './CourseDialogue';
 import { useWB } from '../state/WordbookContext';
 
@@ -18,7 +19,7 @@ export const TENSE_LABEL: Record<Tense, string> = {
   'going-to': 'Future (be going to)'
 };
 const KIND_LABEL: Record<BankKind, string> = { tense: 'Typed', tenseChoice: 'Multiple choice', recap: 'Recap story', dialogue: 'Listening dialogue' };
-const SOURCE_LABEL: Record<BankItem['source'], string> = { ai: 'AI', template: 'Template', manual: 'Manual' };
+const SOURCE_LABEL: Record<BankItem['source'], string> = { ai: 'AI', template: 'Template', manual: 'Manual', bank: 'Sentence bank' };
 const GROUPS: { status: BankStatus; title: string }[] = [
   { status: 'pending', title: 'Waiting for approval' },
   { status: 'approved', title: 'Approved' },
@@ -197,6 +198,7 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
   const [formErr, setFormErr] = useState('');
   const [showRejected, setShowRejected] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [picking, setPicking] = useState(false);
   const words = (day.words ?? []).map((w) => w.word);
   const base = 'qb-' + day.day;
 
@@ -371,6 +373,9 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
           aria-haspopup="dialog" aria-describedby={!words.length ? base + '-imph' : undefined}>
           <Icon name="upload" size="sm" />Import questions
         </button>
+        <button id={base + '-bank'} className="btn btn-secondary btn-sm" onClick={() => setPicking(true)} disabled={!words.length} aria-haspopup="dialog">
+          <Icon name="layers" size="sm" />Pick from sentence bank
+        </button>
         {!words.length && <span className="hint" id={base + '-imph'}>Add words to this day first.</span>}
         {n.pending > 0 && (
           <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={approveAll} disabled={!!busy}>
@@ -384,6 +389,9 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
           <QuestionForm key={adding} kind={adding} words={words} busy={busy === 'new'} err={formErr} idBase={base + '-new'}
             onSave={saveNew} onCancel={() => { openForm(null); focusLater(base + '-add'); }} />
         </div>
+      )}
+      {picking && (
+        <SentenceBankPicker c={c} day={day.day} onAdded={setItems} onClose={() => { setPicking(false); focusLater(base + '-bank'); }} />
       )}
       {importing && (
         <ImportQuestions c={c} day={day.day} words={words} onImported={setItems}
