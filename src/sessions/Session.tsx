@@ -4,12 +4,13 @@ import type { IconName } from '../lib/icons';
 import { canSpeak, speak } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { Icon, LevelBadge, PosBadge } from '../components/ui';
+import { SentenceGrammar } from '../components/SentenceGrammar';
 
 const RATINGS: [Rating, string, IconName, string][] = [
   ['Again', '10 min', 'refresh', '1'], ['Hard', '1 day', 'meh', '2'], ['Good', '3 days', 'smile', '3'], ['Easy', '7 days', 'zap', '4']
 ];
 const KEY_RATING: Record<string, Rating> = { '1': 'Again', '2': 'Hard', '3': 'Good', '4': 'Easy' };
-const TITLES = { mc: 'Multiple Choice', fill: 'Fill in the Blank', trans: 'Translation', listen: 'Listening', wordform: 'Word forms' };
+const TITLES = { mc: 'Multiple Choice', fill: 'Fill in the Blank', trans: 'Translation', listen: 'Listening', wordform: 'Word forms', tense: 'Verb tenses' };
 
 function DoneCard({ title, sub, stats, children }: { title: string; sub: string; stats: [string | number, string, string?][]; children: React.ReactNode }) {
   return (
@@ -99,7 +100,7 @@ function ReviewView() {
             <div className="divider" />
             <div className="tr-big">{word.vi}</div>
             <p className="muted" style={{ margin: 0, fontSize: 16, maxWidth: 480 }}>{word.meaning}</p>
-            {s.settings.showEx && word.ex && <p className="quote">“{word.ex}”</p>}
+            {s.settings.showEx && (R.examples?.[word.id] || word.ex) && <p className="quote">“{R.examples?.[word.id] || word.ex}”</p>}
           </>
         )}
       </div>
@@ -165,23 +166,30 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
   ) : (
     <div className={'fb ' + (P.correct ? 'ok' : 'no')}>
       <div className="fb-t"><Icon name={P.correct ? 'checkc' : 'alert'} />{P.correct ? 'Correct!' : P.mode === 'mc' ? 'Not quite' : 'Not quite — the answer is'}</div>
-      {P.mode !== 'mc' && (
+      {P.mode !== 'mc' && P.mode !== 'tense' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 20, fontWeight: 800 }}>{w.word}</span><span className="ipa">{w.ipa}</span><span className="muted">· {w.vi}</span>
         </div>
       )}
+      {P.mode === 'tense' && !P.correct && <div style={{ fontSize: 20, fontWeight: 800 }}>{q.answer}</div>}
       {w.meaning && <div>{explain}</div>}
       {P.mode === 'mc' && w.ex && <div className="muted sm">Example: “{w.ex}”</div>}
+      {(P.mode === 'fill' || P.mode === 'tense') && <SentenceGrammar g={q.grammar} practice={false} />}
     </div>
   ));
   const nextBtn = <button className="btn btn-primary btn-lg" onClick={a.pNext}>Continue<Icon name="right" /></button>;
 
-  if (P.mode === 'mc') {
+  if (q.opts) {
     return (
       <div className="stage">
         <div key={P.anim} className={'card qcard ' + (P.anim % 2 ? 'animB' : 'animA')}>
           <span className="qkicker">Question {P.i + 1} / {n}</span>
-          <h2 className="qtext">What does “{w.word}” mean?</h2>
+          {P.mode === 'tense' ? (
+            <>
+              <div className="muted sm" style={{ fontWeight: 700 }}>Choose the right verb form</div>
+              <h2 className="qtext">{blankOf(q.prompt ?? '', P.checked ? q.answer ?? '' : '')}</h2>
+            </>
+          ) : <h2 className="qtext">What does “{w.word}” mean?</h2>}
           <div className="opts">
             {(q.opts ?? []).map((t, i) => {
               const isAns = i === q.ans, isPicked = i === P.picked;
@@ -214,7 +222,14 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
         {P.mode === 'fill' && (
           <>
             <h2 className="qtext">{q.before}<span className="blank">{P.checked ? answer : ' '}</span>{q.after}</h2>
-            <div className="muted sm">Hint: {w.pos} · {w.vi}</div>
+            <div className="muted sm">Hint: {w.pos} · {w.vi}{answer.toLowerCase() !== w.word.toLowerCase() ? ' · a form of “' + w.word + '”' : ''}</div>
+          </>
+        )}
+        {P.mode === 'tense' && (
+          <>
+            <div className="muted sm" style={{ fontWeight: 700 }}>Put the verb in the right tense</div>
+            <h2 className="qtext">{blankOf(q.prompt ?? '', P.checked ? answer : '')}</h2>
+            <div className="muted sm">Word: {w.word}{w.vi ? ' · ' + w.vi : ''}</div>
           </>
         )}
         {P.mode === 'wordform' && (
@@ -273,6 +288,13 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
   );
 }
 
+/** "We ___ (fix) it" → the gap as a line, filled with `fill`; the base verb stays in brackets as the hint. */
+function blankOf(prompt: string, fill: string) {
+  const m = /_{3,}/.exec(prompt);
+  if (!m) return prompt;
+  return <>{prompt.slice(0, m.index)}<span className="blank">{fill || ' '}</span>{prompt.slice(m.index + m[0].length)}</>;
+}
+
 export function Session() {
   const { s, a } = useWB();
   const sessRef = useRef<HTMLDivElement>(null);
@@ -282,7 +304,7 @@ export function Session() {
 
   // Keep keyboard focus inside the session so shortcuts work without clicking.
   useEffect(() => {
-    const typed = P && !P.done && P.mode !== 'mc';
+    const typed = P && !P.done && !P.qs[P.i]?.opts;
     if (typed && ansRef.current) {
       if (document.activeElement !== ansRef.current) ansRef.current.focus({ preventScroll: true });
     } else if (sessRef.current && (!document.activeElement || document.activeElement === document.body)) {
@@ -300,7 +322,7 @@ export function Session() {
       if (R.flipped && KEY_RATING[k]) { e.preventDefault(); a.rate(KEY_RATING[k]); }
       return;
     }
-    if (P && !P.done && P.mode === 'mc') {
+    if (P && !P.done && P.qs[P.i]?.opts) {
       if (!P.checked && ['1', '2', '3', '4'].includes(k)) { e.preventDefault(); a.pPick(Number(k) - 1); return; }
       if (P.checked && k === 'Enter' && tag !== 'BUTTON') { e.preventDefault(); a.pNext(); }
     }

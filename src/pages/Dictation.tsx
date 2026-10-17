@@ -32,6 +32,8 @@ const plural = (n: number, one: string, many = one + 's') => n + ' ' + (n === 1 
 /** One item to type: a line (one part) or a passage (3–5 sentences). `note` is shown after checking (own words: the word and its meaning). */
 interface Item {
   id: string; kind: 'line' | 'passage'; title?: string; focus?: string; note?: string;
+  /** From my words: the bank sentence's key (marked practised after checking). */
+  key?: string;
   parts: { text: string; vi: string }[];
 }
 
@@ -318,7 +320,10 @@ export function DictationPractice() {
     setErr('');
     try {
       if (mine) {
-        const xs = wordItems(s.words);
+        // Sentences from the sentence bank for my words (fresh ones first); my own examples when the server can't help.
+        const r = await api.practiceSentences('dictation', DICT_N).catch(() => null);
+        const fromBank: Item[] = (r?.items ?? []).map((x) => ({ id: 'w:' + x.wordId + ':' + x.key.slice(0, 24), kind: 'line', key: x.key, parts: [{ text: x.sentence, vi: '' }], note: x.word + (x.vi ? ' — ' + x.vi : '') }));
+        const xs = fromBank.length >= 3 ? fromBank : wordItems(s.words);
         if (!xs.length) throw new Error('Add words with example sentences first.');
         setItems(xs);
         setDrafts(xs.map(emptyDraft));
@@ -416,6 +421,7 @@ export function DictationPractice() {
         const grades = r.results;
         const score = grades.length ? Math.round(grades.reduce((t, g) => t + g.score, 0) / grades.length) : 0;
         res = { grades, score, passed: grades.every((g) => g.passed) && d.hints < 3 };
+        if (it.key) void api.practiceSeen([{ key: it.key, ok: res.passed }]).catch(() => undefined);
       } else {
         const typed = d.typed.map((t) => t.slice(0, 400));
         const r: DictationGraded = await api.submitDictation([{

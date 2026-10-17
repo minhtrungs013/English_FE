@@ -4,7 +4,7 @@ import {
   type Data, type FormData, type Rating, type Settings, type Word
 } from '../lib/data';
 import type { IconName } from '../lib/icons';
-import { api, ApiError, getToken, setToken, setUnauthorizedHandler, type AuthResponse, type CourseDetail, type CourseSaveResult, type LibraryWord, type Note, type Topic } from '../lib/api';
+import { api, ApiError, getToken, setToken, setUnauthorizedHandler, type AuthResponse, type CourseDetail, type CourseSaveResult, type GrammarView, type LibraryWord, type Note, type Topic } from '../lib/api';
 import { stopSpeaking } from '../lib/speech';
 import { buildWordform, normalizeAnswer } from '../lib/wordform';
 import { cacheStyle, cachedStyle, isAppStyle, type AppStyle } from '../lib/appStyle';
@@ -16,16 +16,22 @@ export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail
 export type CourseTab = 'today' | 'map' | 'board' | 'members';
 /** A step of a course day in the study session. */
 export type StudyStep = 'review' | 'learn' | 'listen' | 'homework';
-export type PracticeMode = 'mc' | 'fill' | 'trans' | 'listen' | 'wordform';
+export type PracticeMode = 'mc' | 'fill' | 'trans' | 'listen' | 'wordform' | 'tense';
 
 export interface ReviewState {
   sid: number; queue: string[]; i: number; flipped: boolean; done: boolean; title: string; practice: boolean; anim: number;
   res: { again: number; hard: number; good: number; easy: number };
+  /** Flashcards: a different example sentence for each card (by word id), from the sentence bank. */
+  examples?: Record<string, string>;
 }
 export interface PracticeQuestion {
   id: string; opts?: string[]; ans?: number; before?: string; after?: string; answer?: string;
   /** Word forms only: the word in brackets after the gap, the asked form's part of speech and meaning, and the family line. */
   hint?: string; pos?: string; vi?: string; family?: string;
+  /** Sentence practice (fill / tense): the sentence's key (to mark it practised) and its grammar. */
+  key?: string; grammar?: GrammarView | null;
+  /** tense: the sentence with "___ (base)", other accepted answers and the tense name. */
+  prompt?: string; accept?: string[]; tenseLabel?: string;
 }
 export interface PracticeState {
   pid: number; mode: PracticeMode; qs: PracticeQuestion[]; i: number; picked: number | null; input: string;
@@ -263,12 +269,43 @@ function useWordbookState() {
   };
 
   /* ---------- practice ---------- */
-  const startPractice = (mode: PracticeMode | 'flash') => {
+  /** Tells the server a bank sentence was practised, so the next session prefers others (best effort). */
+  const markSentence = (q: PracticeQuestion, ok: boolean) => { if (q.key) void api.practiceSeen([{ key: q.key, ok }]).catch(() => undefined); };
+  const startPractice = async (mode: PracticeMode | 'flash') => {
     const ws = ref.current.words;
     if (mode === 'flash') {
       if (!ws.length) { showToast('Add some words first to practice.', 'bad'); return; }
-      startReview(shuffle(ws.map((w) => w.id)).slice(0, 20), 'Flashcards', true);
+      const ids = shuffle(ws.map((w) => w.id)).slice(0, 20);
+      startReview(ids, 'Flashcards', true);
+      // A different example for each card when the sentence bank has one (optional).
+      api.practiceSentences('flash', ids.length, ids).then((r) => set((prev) => (prev.review?.queue === ids
+        ? { review: { ...prev.review, examples: Object.fromEntries(r.items.map((x) => [x.wordId, x.sentence])) } } : {}))).catch(() => { /* keep the saved examples */ });
       return;
+    }
+    if (mode === 'fill' || mode === 'tense') {
+      // Sentences from the sentence bank (fresh ones first); fill falls back to the words' own examples offline.
+      const r = await api.practiceSentences(mode, 10).catch(() => null);
+      let qs: PracticeQuestion[] = [];
+      if (r && mode === 'fill') {
+        qs = r.items.flatMap((x) => {
+          const k = x.form ? x.sentence.toLowerCase().indexOf(x.form.toLowerCase()) : -1;
+          return k < 0 ? [] : [{ id: x.wordId, before: x.sentence.slice(0, k), after: x.sentence.slice(k + x.form!.length), answer: x.sentence.slice(k, k + x.form!.length), key: x.key, grammar: x.grammar }];
+        });
+      } else if (r) {
+        qs = r.items.flatMap((x, i) => {
+          const q = x.question;
+          if (!q) return [];
+          // About half multiple choice (where the verb has choices), the rest typed.
+          const choice = q.choices.length === 4 && i % 2 === 1;
+          return [{ id: x.wordId, prompt: choice ? q.prompt.replace(/\s*\([^)]*\)/, '') : q.prompt, answer: q.answer, accept: q.accept, tenseLabel: q.tenseLabel, key: x.key, grammar: x.grammar,
+            ...(choice ? { opts: q.choices, ans: q.choices.indexOf(q.answer) } : {}) }];
+        });
+      }
+      if (mode === 'tense' && !qs.length) { showToast(r ? 'Save some words from the library first — their sentences make the tense questions.' : 'Can’t reach the server right now.', 'bad'); return; }
+      if (qs.length) {
+        set({ route: 'practice', menu: null, review: null, practice: { pid: Date.now(), mode, qs, i: 0, picked: null, input: '', checked: false, correct: false, score: 0, done: false, anim: 0 } });
+        return;
+      }
     }
     let qs: PracticeQuestion[] = [];
     if (mode === 'mc') {
@@ -304,6 +341,7 @@ function useWordbookState() {
     if (!p || p.checked) return;
     const ok = idx === p.qs[p.i].ans;
     pUpdate({ picked: idx, checked: true, correct: ok, score: p.score + (ok ? 1 : 0) });
+    markSentence(p.qs[p.i], ok);
   };
   const pCheck = (skip: boolean) => {
     const p = ref.current.practice;
@@ -312,8 +350,10 @@ function useWordbookState() {
     const q = p.qs[p.i];
     const ok = !skip && (p.mode === 'wordform'
       ? !!normalizeAnswer(p.input) && normalizeAnswer(p.input) === normalizeAnswer(q.answer ?? '')
+      : p.mode === 'tense' ? [q.answer ?? '', ...(q.accept ?? [])].some((x) => normalizeAnswer(x) === normalizeAnswer(p.input))
       : p.input.trim().toLowerCase() === (q.answer ?? '').toLowerCase());
     pUpdate({ checked: true, correct: ok, score: p.score + (ok ? 1 : 0) });
+    markSentence(q, ok);
   };
   const pNext = () => {
     const p = ref.current.practice;

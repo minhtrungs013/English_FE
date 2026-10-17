@@ -11,6 +11,7 @@ const MODES: [PracticeMode | 'flash' | 'dictation', string, string, IconName, st
   ['fill', 'Fill in the Blank', 'Complete sentences with the missing word.', 'type', 't-orange'],
   ['wordform', 'Word forms', 'Use the right form of the word: decide → decision, decisive, decisively.', 'layers', 't-indigo'],
   ['trans', 'Translation', 'Translate Vietnamese into English.', 'globe', 't-blue'],
+  ['tense', 'Verb tenses', 'Put verbs in the right tense, in sentences with your words.', 'clock', 't-amber'],
   ['listen', 'Listening', 'Hear a word and type what you hear.', 'volume', 't-red'],
   ['dictation', 'Dictation', 'Listen to sentences and type them — Nghe – chép.', 'headphones', 't-amber']
 ];
