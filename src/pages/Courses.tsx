@@ -182,7 +182,8 @@ export function DictationPerDayPicker({ value, onChange, id }: { value: number; 
   );
 }
 
-function CreateCourse({ onClose }: { onClose: () => void }) {
+/** New course (admins only — see the Admin page). */
+export function CreateCourse({ onClose }: { onClose: () => void }) {
   const { a } = useWB();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -342,13 +343,13 @@ export function Courses() {
   const { a } = useWB();
   const [lists, setLists] = useState<{ joined: CourseSummary[]; mine: CourseSummary[]; pub: CourseSummary[] } | null>(null);
   const [failed, setFailed] = useState('');
-  const [creating, setCreating] = useState(false);
 
   const load = async () => {
     setFailed('');
     try {
-      const [joined, mine, pub] = await Promise.all([api.listCourses('joined'), api.listCourses('mine'), api.listCourses('public')]);
-      setLists({ joined, mine, pub });
+      // Courses are made and managed in the Admin page; learners only follow them.
+      const [joined, pub] = await Promise.all([api.listCourses('joined'), api.listCourses('public')]);
+      setLists({ joined, mine: [], pub });
     } catch (e) {
       setFailed(errText(e, 'Couldn’t load courses.'));
     }
@@ -365,9 +366,7 @@ export function Courses() {
   };
 
   const head = (
-    <PageHead title="Courses" sub="Learn a few words every day for 30 days — follow a course or plan one for others.">
-      <button className="btn btn-primary" onClick={() => setCreating(true)}><Icon name="plus" size="sm" />New Course</button>
-    </PageHead>
+    <PageHead title="Courses" sub="Learn a few words every day for 30 days." />
   );
 
   let body: ReactNode;
@@ -389,9 +388,7 @@ export function Courses() {
     const mine = lists.mine;
     if (!lists.joined.length && !mine.length && !explore.length) {
       body = (
-        <EmptyState icon="cap" title="No courses yet" text="Create a course to plan 30 days of words, or join one with a code.">
-          <button className="btn btn-primary" onClick={() => setCreating(true)}><Icon name="plus" size="sm" />New Course</button>
-        </EmptyState>
+        <EmptyState icon="cap" title="No courses yet" text="Join a course with the code you were given, or check back when new ones are published." />
       );
     } else {
       body = (
@@ -400,11 +397,6 @@ export function Courses() {
             {lists.joined.length
               ? <div className="cgrid">{lists.joined.map((c) => <CourseCard key={c.id} c={c} />)}</div>
               : <p className="muted sm csec-empty">You’re not taking a course yet. Join one below or with a code.</p>}
-          </Section>
-          <Section title="My courses" count={mine.length}>
-            {mine.length
-              ? <div className="cgrid">{mine.map((c) => <CourseCard key={c.id} c={c} />)}</div>
-              : <p className="muted sm csec-empty">Plan 30 days of words for yourself, your team or your class. <button className="linkbtn" onClick={() => setCreating(true)}>Create a course</button></p>}
           </Section>
           <Section title="Explore" count={explore.length}>
             {explore.length
@@ -421,7 +413,6 @@ export function Courses() {
       {head}
       <JoinWithCode />
       {body}
-      {creating && <CreateCourse onClose={() => setCreating(false)} />}
     </>
   );
 }

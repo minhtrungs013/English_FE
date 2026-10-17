@@ -10,6 +10,14 @@ export class ApiError extends Error {
   constructor(message: string, readonly status: number, readonly body: Record<string, unknown> | null = null) { super(message); }
 }
 
+/* ---------- admin ---------- */
+export interface AdminStats { users: number; admins: number; newUsers: number; activeToday: number; courses: number; enrollments: number; pendingQuestions: number; libraryWords: number; bankSentences: number; savedWords: number }
+export interface Paged<T> { total: number; page: number; pages: number; items: T[] }
+export interface AdminUser { id: string; name: string; email: string; role: 'user' | 'admin'; createdAt: number | null; words: number; courses: number }
+export interface AdminCourse { id: string; title: string; ownerName: string; visibility: 'private' | 'public'; joinCode: string; totalDays: number; readyDays: number; members: number; pending: number; createdAt: number | null }
+export interface AdminSentence { id: string; wordId: string; word: string; form: string; sentence: string; context: string; level: string; topic: string; tense: Tense | ''; verb: string; base: string }
+export interface AdminLibraryWord { id: string; word: string; ipa: string; pos: string; meaning: string; vi: string; ex: string; level: Word['level']; topic: Topic; authorName: string; saves: number }
+
 /* ---------- session token ---------- */
 let token: string | null = null;
 try { token = localStorage.getItem(TOKEN_KEY); } catch { /* storage blocked: stay logged out */ }
@@ -57,7 +65,7 @@ export interface LookupResult {
   ipa?: string; pos?: string; meaning?: string; vi?: string; ex?: string; syn?: string[]; ant?: string[]; level?: Word['level'];
   family?: FamilyMember[];
 }
-export interface User { id: string; name: string; email: string }
+export interface User { id: string; name: string; email: string; role?: 'user' | 'admin' }
 
 export type Topic = 'it' | 'interview' | 'customer' | 'leader' | 'toeic' | 'other';
 export interface LibraryWord {
@@ -405,7 +413,20 @@ export interface DictationResult {
 }
 export interface DictationGraded { results: DictationResult[]; passed: number; total: number; mastery: Record<string, number> }
 
+const query = (o: Record<string, string | number | undefined>) => Object.entries(o).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => k + '=' + encodeURIComponent(String(v))).join('&');
+
 export const api = {
+  /* admin (403 for everyone else) */
+  adminStats: () => req<AdminStats>('GET', '/admin/stats'),
+  adminUsers: (q: string, page: number) => req<Paged<AdminUser>>('GET', '/admin/users?' + query({ q, page })),
+  adminSetRole: (id: string, role: 'user' | 'admin') => req<{ id: string; role: string }>('PATCH', '/admin/users/' + id, { role }),
+  adminCourses: () => req<AdminCourse[]>('GET', '/admin/courses'),
+  adminSentences: (q: string, tense: string, page: number) => req<Paged<AdminSentence>>('GET', '/admin/sentences?' + query({ q, tense, page })),
+  adminPatchSentence: (id: string, patch: Partial<Pick<AdminSentence, 'sentence' | 'tense' | 'verb' | 'base' | 'context'>>) => req<AdminSentence>('PATCH', '/admin/sentences/' + id, patch),
+  adminDeleteSentence: (id: string) => req<void>('DELETE', '/admin/sentences/' + id),
+  adminLibrary: (q: string, page: number) => req<Paged<AdminLibraryWord>>('GET', '/admin/library?' + query({ q, page })),
+  adminPatchLibrary: (id: string, patch: Partial<Omit<AdminLibraryWord, 'id' | 'authorName' | 'saves'>>) => req<AdminLibraryWord>('PATCH', '/admin/library/' + id, patch),
+  adminDeleteLibrary: (id: string) => req<void>('DELETE', '/admin/library/' + id),
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
   login: (email: string, password: string) => req<AuthResponse>('POST', '/auth/login', { email, password }),
   updateMe: (name: string) => req<User>('PATCH', '/auth/me', { name }),

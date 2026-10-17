@@ -112,6 +112,8 @@ export interface Data {
   /** Lower-cased words of mine that are already in the shared library. */
   shared: string[];
   userId: string;
+  /** admin: may create and manage courses, users, the sentence bank and the library. Missing on older servers. */
+  role?: 'user' | 'admin';
   /** Today's auto-fill usage (each user has a small daily limit). */
   autofill: { used: number; limit: number };
   settings: Settings;

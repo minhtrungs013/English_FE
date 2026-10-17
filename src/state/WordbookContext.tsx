@@ -12,7 +12,7 @@ import { cacheStyle, cachedStyle, isAppStyle, type AppStyle } from '../lib/appSt
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
 
 export type SettingsTab = 'account' | 'appearance' | 'learning' | 'voice' | 'notifications' | 'data';
-export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy' | 'notifications' | 'grammar' | 'grammarLesson' | 'grammarPractice' | 'dictation' | 'dictationPractice';
+export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy' | 'notifications' | 'grammar' | 'grammarLesson' | 'grammarPractice' | 'dictation' | 'dictationPractice' | 'admin';
 export type CourseTab = 'today' | 'map' | 'board' | 'members';
 /** A step of a course day in the study session. */
 export type StudyStep = 'review' | 'learn' | 'listen' | 'homework';
@@ -76,7 +76,7 @@ const NOTE_POLL_MS = 3 * 60_000;
 
 const NO_FILTERS: Filters = { q: '', level: 'all', status: 'all', cat: 'all', tag: 'all' };
 const EMPTY_DATA: Data = {
-  words: [], cats: [], tags: [], shared: [], userId: '', autofill: { used: 0, limit: 3 },
+  words: [], cats: [], tags: [], shared: [], userId: '', role: 'user', autofill: { used: 0, limit: 3 },
   settings: { name: '', email: '', goal: '20', dir: 'en-vi', autoplay: true, showEx: true, theme: 'light', accent: 'indigo', style: cachedStyle(), voice: '', rate: 0.9, pitch: 1, mute: [] },
   progress: { streak: 0, lastStreakDay: '', reviewedDay: '', reviewedToday: 0 }
 };
@@ -109,7 +109,7 @@ function useWordbookState() {
     try {
       const d = await api.bootstrap();
       // An older server may not send autofill or mute yet; keep the defaults then.
-      set({ ...d, autofill: d.autofill ?? EMPTY_DATA.autofill, settings: { ...d.settings, mute: d.settings.mute ?? [], style: isAppStyle(d.settings.style) ? d.settings.style : 'classic' }, status: 'ready' });
+      set({ ...d, role: d.role ?? 'user', autofill: d.autofill ?? EMPTY_DATA.autofill, settings: { ...d.settings, mute: d.settings.mute ?? [], style: isAppStyle(d.settings.style) ? d.settings.style : 'classic' }, status: 'ready' });
     } catch (e) {
       // A rejected session has already logged out (see setUnauthorizedHandler); keep the login screen.
       if (e instanceof ApiError && e.status === 401) return;

@@ -22,6 +22,7 @@ import { CourseEdit } from './pages/CourseEdit';
 import { CourseStudy } from './pages/CourseStudy';
 import { NotificationsPage } from './components/Notifications';
 import { ChatBot } from './components/ChatBot';
+import { AdminPage } from './pages/Admin';
 import { GrammarHome, GrammarLessonPage, GrammarPractice } from './pages/Grammar';
 import { DictationHub, DictationPractice } from './pages/Dictation';
 
@@ -89,6 +90,7 @@ function Page() {
     case 'tags': return <Tags />;
     case 'settings': return <Settings />;
     case 'notifications': return <NotificationsPage />;
+    case 'admin': return s.role === 'admin' ? <AdminPage /> : <Dashboard />;
     case 'grammar':
     case 'grammarPractice': return <GrammarHome />;
     case 'grammarLesson': return <GrammarLessonPage key={s.grammarId} />;

@@ -32,7 +32,8 @@ export function Sidebar() {
     { id: 'practice', label: 'Practice', icon: 'pen', go: () => a.go('practice') },
     { id: 'grammar', label: 'Grammar', icon: 'type', go: () => a.openGrammar() },
     { id: 'categories', label: 'Categories', icon: 'folder', go: () => a.go('categories') },
-    { id: 'tags', label: 'Tags', icon: 'tag', go: () => a.go('tags') }
+    { id: 'tags', label: 'Tags', icon: 'tag', go: () => a.go('tags') },
+    ...(s.role === 'admin' ? [{ id: 'admin' as Route, label: 'Admin', icon: 'lock' as IconName, go: () => a.go('admin') }] : [])
   ];
   return (
     <aside className="side">
@@ -187,6 +188,7 @@ export function Topbar() {
             <button className={'mitem mob-only' + (isGrammarish(s.route) ? ' on' : '')} onClick={() => a.openGrammar()}><Icon name="type" size="sm" />Grammar</button>
             <button className="mitem mob-only" onClick={() => a.go('categories')}><Icon name="folder" size="sm" />Categories</button>
             <button className="mitem mob-only" onClick={() => a.go('tags')}><Icon name="tag" size="sm" />Tags</button>
+            {s.role === 'admin' && <button className={'mitem' + (s.route === 'admin' ? ' on' : '')} onClick={() => a.go('admin')}><Icon name="lock" size="sm" />Admin</button>}
             <button className={'mitem' + (s.route === 'notifications' ? ' on' : '')} onClick={() => a.go('notifications')}>
               <Icon name="bell" size="sm" /><span className="grow">Notifications</span>{s.unread > 0 && <span className="count">{s.unread > 9 ? '9+' : s.unread}</span>}
             </button>
