@@ -70,6 +70,17 @@ export function SpeakerBadge({ name, gender, s }: { name: string; gender: 'femal
 }
 
 type Step = 'listen' | 'fill' | 'questions' | 'summary';
+
+/** A hidden line: soft bars as long as the sentence, like covered-up text. */
+function Redacted({ len }: { len: number }) {
+  const rows = Math.max(1, Math.ceil(len / 42));
+  const last = Math.max(28, Math.round(((len - (rows - 1) * 42) / 42) * 100));
+  return (
+    <span className="lsred" aria-hidden="true" style={{ width: Math.min(440, 120 + len * 5) }}>
+      {Array.from({ length: rows }, (_, k) => <i key={k} style={{ width: (k === rows - 1 ? last : 100) + '%' }} />)}
+    </span>
+  );
+}
 type LineMode = 'hidden' | 'text' | 'fill';
 
 /**
@@ -297,7 +308,7 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
   };
 
   const lineList = (mode: LineMode) => (
-    <ol className={'lslines' + (mode === 'fill' ? ' fill' : '')} aria-label="Dialogue">
+    <ol className={mode === 'fill' ? 'lslines fill' : 'lschat'} aria-label="Dialogue">
       {d.lines.map((l, i) => {
         const on = cur === i;
         const who = <span className={'lswho s' + l.s}>{name(l.s)}</span>;
@@ -317,19 +328,20 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
           );
         }
         return (
-          <li key={i} className={'lsline s' + l.s + (on ? ' on' : '')}>
-            <button className="lsrow" onClick={() => play(i, false)} disabled={!speech} aria-current={on ? 'true' : undefined}>
-              <span className="lsplay" aria-hidden="true"><Icon name={on ? 'volume' : 'play'} size="sm" /></span>
-              <span className="lsbody">
-                <span className="c-sr">Play line {i + 1}: </span>
+          <li key={i} className={'lsmsg s' + l.s + (on ? ' on' : '') + (cur !== null && i < cur ? ' heard' : '')}>
+            <span className={'lsav s' + l.s} aria-hidden="true">{name(l.s).charAt(0).toUpperCase()}</span>
+            <button className="lsbub" onClick={() => play(i, false)} disabled={!speech} aria-current={on ? 'true' : undefined}>
+              <span className="c-sr">Play line {i + 1}: </span>
+              <span className="lsbub-h">
                 {who}
-                {mode === 'text' ? (
-                  <span className="lstx">{P.segs[i].map((sg, j) => (typeof sg === 'number' ? <b key={j} className="lsword">{P.blanks[sg].said}</b> : <span key={j}>{sg}</span>))}</span>
-                ) : (
-                  <span className="lstx lshidden" aria-hidden="true">{'•'.repeat(Math.min(24, Math.max(6, Math.round(P.spoken[i].length / 4))))}</span>
-                )}
-                {vi}
+                {on ? <span className="lseq" aria-hidden="true"><i /><i /><i /><i /></span> : <span className="lsbub-play" aria-hidden="true"><Icon name="play" size="sm" /></span>}
               </span>
+              {mode === 'text' ? (
+                <span className="lstx">{P.segs[i].map((sg, j) => (typeof sg === 'number' ? <b key={j} className="lsword">{P.blanks[sg].said}</b> : <span key={j}>{sg}</span>))}</span>
+              ) : (
+                <Redacted len={P.spoken[i].length} />
+              )}
+              {vi}
             </button>
           </li>
         );
@@ -339,16 +351,22 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
 
   const player = (
     <div className="lsplayer">
-      <div className="lsctl" role="group" aria-label="Player">
+      <div className="lsdeck" role="group" aria-label="Player">
         {playing ? (
-          <button className="btn btn-primary" onClick={pause}><Icon name="pause" size="sm" />Pause</button>
+          <button className="lsbig" onClick={pause} aria-label="Pause"><Icon name="pause" /></button>
         ) : (
-          <button className="btn btn-primary" onClick={() => play(paused && cur !== null ? cur : 0, true)} disabled={!speech}>
-            <Icon name="play" size="sm" />{paused ? 'Resume' : 'Play all'}
-          </button>
+          <button className="lsbig" onClick={() => play(paused && cur !== null ? cur : 0, true)} disabled={!speech} aria-label={paused ? 'Resume' : 'Play the whole conversation'}><Icon name="play" /></button>
         )}
-        <button className="btn btn-secondary" onClick={stop} disabled={!playing && !paused}><Icon name="stop" size="sm" />Stop</button>
-        <div className="seg" role="group" aria-label="Speed">
+        <div className="lsprog">
+          <span className="lsprog-t">
+            {cur !== null ? <>{playing ? 'Playing' : 'Paused'} · line {cur + 1} of {d.lines.length}</> : <>{paused ? 'Paused' : 'Play all'} · {d.lines.length} lines</>}
+          </span>
+          <span className="lsbar" aria-hidden="true">
+            {d.lines.map((l, k) => <i key={k} className={'s' + l.s + (cur === k ? ' on' : cur !== null && k < cur ? ' done' : '')} />)}
+          </span>
+        </div>
+        <button className="iconbtn" onClick={stop} disabled={!playing && !paused} aria-label="Stop" title="Stop"><Icon name="stop" /></button>
+        <div className="seg lsspeed" role="group" aria-label="Speed">
           {[0.75, 1].map((x) => <button key={x} className={speed === x ? 'on' : ''} aria-pressed={speed === x} onClick={() => setSpeed(x)}>{x}×</button>)}
         </div>
       </div>
@@ -360,12 +378,12 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
   const toggles = (text: boolean) => (
     <div className="lstoggles">
       {text && (
-        <button className="linkbtn" onClick={() => setShowText(!showText)} aria-pressed={showText}>
-          <Icon name={showText ? 'eyeOff' : 'eye'} size="sm" />{showText ? 'Hide transcript' : 'Show transcript'}
+        <button className={'lspill' + (showText ? ' on' : '')} onClick={() => setShowText(!showText)} aria-pressed={showText}>
+          <span className="lspill-dot" aria-hidden="true" />Transcript
         </button>
       )}
-      <button className="linkbtn" onClick={() => setShowVi(!showVi)} aria-pressed={showVi}>
-        <Icon name={showVi ? 'eyeOff' : 'eye'} size="sm" />{showVi ? 'Hide translation' : 'Show translation'}
+      <button className={'lspill' + (showVi ? ' on' : '')} onClick={() => setShowVi(!showVi)} aria-pressed={showVi}>
+        <span className="lspill-dot" aria-hidden="true" />Vietnamese
       </button>
     </div>
   );
