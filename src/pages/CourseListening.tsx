@@ -71,17 +71,7 @@ export function SpeakerBadge({ name, gender, s }: { name: string; gender: 'femal
 
 type Step = 'listen' | 'fill' | 'questions' | 'summary';
 
-/** A hidden line: soft bars as long as the sentence, like covered-up text. */
-function Redacted({ len }: { len: number }) {
-  const rows = Math.max(1, Math.ceil(len / 42));
-  const last = Math.max(28, Math.round(((len - (rows - 1) * 42) / 42) * 100));
-  return (
-    <span className="lsred" aria-hidden="true" style={{ width: Math.min(440, 120 + len * 5) }}>
-      {Array.from({ length: rows }, (_, k) => <i key={k} style={{ width: (k === rows - 1 ? last : 100) + '%' }} />)}
-    </span>
-  );
-}
-type LineMode = 'hidden' | 'text' | 'fill';
+type LineMode = 'text' | 'fill';
 
 /**
  * Listening practice for one dialogue: listen (transcript hidden at first), fill the blanks (tap word-bank words, or type
@@ -336,11 +326,7 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
                 {who}
                 {on ? <span className="lseq" aria-hidden="true"><i /><i /><i /><i /></span> : <span className="lsbub-play" aria-hidden="true"><Icon name="play" size="sm" /></span>}
               </span>
-              {mode === 'text' ? (
-                <span className="lstx">{P.segs[i].map((sg, j) => (typeof sg === 'number' ? <b key={j} className="lsword">{P.blanks[sg].said}</b> : <span key={j}>{sg}</span>))}</span>
-              ) : (
-                <Redacted len={P.spoken[i].length} />
-              )}
+              <span className="lstx">{P.segs[i].map((sg, j) => (typeof sg === 'number' ? <b key={j} className="lsword">{P.blanks[sg].said}</b> : <span key={j}>{sg}</span>))}</span>
               {vi}
             </button>
           </li>
@@ -362,7 +348,7 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
             {cur !== null ? <>{playing ? 'Playing' : 'Paused'} · line {cur + 1} of {d.lines.length}</> : <>{paused ? 'Paused' : 'Play all'} · {d.lines.length} lines</>}
           </span>
           <span className="lsbar" aria-hidden="true">
-            {d.lines.map((l, k) => <i key={k} className={'s' + l.s + (cur === k ? ' on' : cur !== null && k < cur ? ' done' : '')} />)}
+            {d.lines.map((l, k) => <i key={k} className={'s' + l.s + (cur === k ? ' on' : cur !== null && k < cur ? ' past' : '')} />)}
           </span>
         </div>
         <button className="iconbtn" onClick={stop} disabled={!playing && !paused} aria-label="Stop" title="Stop"><Icon name="stop" /></button>
@@ -370,7 +356,7 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
           {[0.75, 1].map((x) => <button key={x} className={speed === x ? 'on' : ''} aria-pressed={speed === x} onClick={() => setSpeed(x)}>{x}×</button>)}
         </div>
       </div>
-      {speech ? <span className="hint">Tap a line to hear it again.</span>
+      {speech ? <span className="hint">{showText ? 'Tap a line to hear it again.' : 'Turn on Transcript to read along and replay single lines.'}</span>
         : <span className="errtxt"><Icon name="alert" size="sm" />Your browser can’t play speech, so the audio won’t work here. You can still read the transcript.</span>}
     </div>
   );
@@ -400,7 +386,7 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
         <p className="muted sm" style={{ margin: 0 }}>Listen to the whole conversation first. Try it without the transcript, then check what you missed.</p>
         {player}
         {toggles(true)}
-        {lineList(showText ? 'text' : 'hidden')}
+        {showText ? lineList('text') : null}
         <div className="hwnav">
           <button className="btn btn-ghost" onClick={onClose}>{preview ? 'Close' : 'Stop'}</button>
           <button className="btn btn-primary" onClick={() => go('fill')}>Next: fill the blanks<Icon name="right" size="sm" /></button>
@@ -508,7 +494,7 @@ export function ListeningPractice({ d, day, preview, onFinish, onClose }: {
           <div className="stack" style={{ gap: 12, marginTop: 12 }}>
             {player}
             {toggles(true)}
-            {lineList(showText ? 'text' : 'hidden')}
+            {showText ? lineList('text') : null}
           </div>
         </details>
         <div className="hwnav">
