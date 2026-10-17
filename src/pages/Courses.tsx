@@ -270,7 +270,7 @@ function CourseCard({ c, onJoin }: { c: CourseSummary; onJoin?: () => void }) {
       <button className="wordlink ccard-title" onClick={() => a.openCourse(c.id)}>{c.title}</button>
       {c.description && <p className="muted sm ccard-desc">{c.description}</p>}
       <div className="cmeta">
-        <span>by <b>{c.isOwner ? 'You' : c.ownerName}</b></span>
+        <span>by <b>{c.ownerName || 'Wordbook'}</b></span>
         <span><Icon name="layers" size="sm" />{c.readyDays}/{c.totalDays} days ready</span>
         <span><Icon name="users" size="sm" />{c.members} {c.members === 1 ? 'learner' : 'learners'}</span>
         {c.startDate && <span><Icon name="calendar" size="sm" />{startText(c.startDate)}</span>}
@@ -384,7 +384,8 @@ export function Courses() {
     );
   } else {
     const taken = new Set([...lists.joined, ...lists.mine].map((c) => c.id));
-    const explore = lists.pub.filter((c) => !taken.has(c.id) && !c.isOwner && !c.enrollment);
+    // isOwner is true for admins on every course, so it can't hide courses here (admins manage them in the Admin page).
+    const explore = lists.pub.filter((c) => !taken.has(c.id) && !c.enrollment);
     const mine = lists.mine;
     if (!lists.joined.length && !mine.length && !explore.length) {
       body = (

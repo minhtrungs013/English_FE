@@ -238,7 +238,7 @@ export function CoursePage() {
       </PageHead>
 
       <div className="cmeta" style={{ marginTop: -14, marginBottom: 20 }}>
-        <span>by <b>{c.isOwner ? 'You' : c.ownerName}</b></span>
+        <span>by <b>{c.ownerName || 'Wordbook'}</b></span>
         <span><Icon name="layers" size="sm" />{c.wordsPerDay} words a day · {c.readyDays}/{c.totalDays} days ready</span>
         <span><Icon name="users" size="sm" />{c.members} {c.members === 1 ? 'learner' : 'learners'}</span>
         {c.startDate && <span><Icon name="calendar" size="sm" />{startText(c.startDate)}</span>}
