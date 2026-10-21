@@ -443,7 +443,12 @@ export const api = {
   adminLibrary: (q: string, page: number) => req<Paged<AdminLibraryWord>>('GET', '/admin/library?' + query({ q, page })),
   adminPatchLibrary: (id: string, patch: Partial<Omit<AdminLibraryWord, 'id' | 'authorName' | 'saves'>>) => req<AdminLibraryWord>('PATCH', '/admin/library/' + id, patch),
   adminDeleteLibrary: (id: string) => req<void>('DELETE', '/admin/library/' + id),
-  register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
+  /** Starts sign-up: the server emails a 6-digit code; registerVerify creates the account. */
+  register: (name: string, email: string, password: string) => req<{ email: string }>('POST', '/auth/register', { name, email, password }),
+  registerVerify: (email: string, code: string) => req<AuthResponse>('POST', '/auth/register/verify', { email, code }),
+  registerResend: (email: string) => req<void>('POST', '/auth/register/resend', { email }),
+  forgotPassword: (email: string) => req<void>('POST', '/auth/password/forgot', { email }),
+  resetPassword: (email: string, code: string, password: string) => req<AuthResponse>('POST', '/auth/password/reset', { email, code, password }),
   login: (email: string, password: string) => req<AuthResponse>('POST', '/auth/login', { email, password }),
   updateMe: (name: string) => req<User>('PATCH', '/auth/me', { name }),
   changePassword: (currentPassword: string, newPassword: string) => req<void>('POST', '/auth/change-password', { currentPassword, newPassword }),

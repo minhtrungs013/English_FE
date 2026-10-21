@@ -171,7 +171,10 @@ function useWordbookState() {
     await load();
   };
   const login = async (email: string, password: string) => startSession(await api.login(email, password));
-  const register = async (name: string, email: string, password: string) => startSession(await api.register(name, email, password));
+  /** Sign-up sends a code by email; verifyRegister signs in once the code is right. */
+  const register = async (name: string, email: string, password: string) => { await api.register(name, email, password); };
+  const verifyRegister = async (email: string, code: string) => startSession(await api.registerVerify(email, code));
+  const resetPassword = async (email: string, code: string, password: string) => startSession(await api.resetPassword(email, code, password));
   const logout = (msg?: string) => {
     setToken(null);
     stopSpeaking();
@@ -738,7 +741,7 @@ function useWordbookState() {
     startPractice, pUpdate, pPick, pCheck, pNext,
     setF, addChip, generate, save, openEdit, goNew, formCancel,
     askDeleteWord, confirmModal, submitModal, patchModal,
-    exportData, setSettings, setStyle, setFilters, showWordsWith, reload: load, login, register, logout, saveFromLibrary, shareWord, learnCourseDay, saveCourseWords, openCourse, openStudy,
+    exportData, setSettings, setStyle, setFilters, showWordsWith, reload: load, login, register, verifyRegister, resetPassword, logout, saveFromLibrary, shareWord, learnCourseDay, saveCourseWords, openCourse, openStudy,
     openGrammar, startGrammarPractice, exitGrammarPractice,
     startDictation, exitDictation,
     markNotesRead, deleteNote, openNote,
