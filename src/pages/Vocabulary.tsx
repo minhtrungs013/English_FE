@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { LEVELS, POS_SHORT, fmtNext, isDue, type Word } from '../lib/data';
 import { useWB } from '../state/WordbookContext';
 import { Dropdown, EmptyState, Icon, LevelBadge, PageHead, StatusBadge } from '../components/ui';
 import { FamilyTag } from '../components/WordFamily';
+import { WordModal } from './VocabDetail';
 
 const STATUS_CHIPS: [string, string][] = [['all', 'All'], ['new', 'New'], ['learning', 'Learning'], ['mastered', 'Mastered']];
 
@@ -27,11 +29,12 @@ export function Vocabulary() {
   }).sort((x, y) => y.addedAt - x.addedAt);
   const anyFilter = !!q || f.level !== 'all' || f.status !== 'all' || f.cat !== 'all' || f.tag !== 'all';
   const curCat = s.cats.find((c) => c.id === f.cat);
-  const open = (w: Word) => a.go('detail', { sel: w.id });
+  const [peek, setPeek] = useState<string | null>(null);
+  const open = (w: Word) => setPeek(w.id);
 
   return (
     <>
-      <PageHead title="My Vocabulary" sub={total + ' words you are learning'}>
+      <PageHead title="My Vocabulary" sub={total + (total === 1 ? ' word' : ' words') + ' you are learning'}>
         <button className="btn btn-primary" onClick={a.goNew}><Icon name="plus" size="sm" />Add Vocabulary</button>
       </PageHead>
 
@@ -133,6 +136,7 @@ export function Vocabulary() {
           </div>
         </EmptyState>
       )}
+      {peek && <WordModal id={peek} onClose={() => setPeek(null)} />}
     </>
   );
 }

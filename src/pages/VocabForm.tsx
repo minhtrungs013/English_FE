@@ -142,7 +142,7 @@ export function VocabForm() {
     <>
       <button className="back" onClick={a.formCancel}><Icon name="left" size="sm" />{isEdit ? 'Back to word' : 'Back'}</button>
       <PageHead title={isEdit ? 'Edit Vocabulary' : 'Add Vocabulary'} sub={isEdit ? 'Update the details for “' + f.word + '”.' : 'Save a new word to your collection.'} />
-      <div className="card" style={{ maxWidth: 880 }} onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); a.save(); } }}>
+      <div className="card" onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); a.save(); } }}>
         <div className="formcard">
           <div className="quick">
             <div className="field">
@@ -210,13 +210,13 @@ export function VocabForm() {
                 {POS_LIST.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
-            <div className="field span2">
+            <div className="field">
               <label className="label" htmlFor="f-meaning">Meaning</label>
               <textarea id="f-meaning" className="input" placeholder="To keep something in good condition…" {...text('meaning')} />
             </div>
-            <div className="field span2">
+            <div className="field">
               <label className="label" htmlFor="f-vi">Vietnamese translation</label>
-              <textarea id="f-vi" className="input" style={{ minHeight: 60 }} placeholder="duy trì, bảo trì" {...text('vi')} />
+              <textarea id="f-vi" className="input" placeholder="duy trì, bảo trì" {...text('vi')} />
             </div>
             <div className="field span2">
               <label className="label" htmlFor="f-ex">Example sentence</label>

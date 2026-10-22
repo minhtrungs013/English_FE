@@ -24,7 +24,7 @@ export function Categories() {
                   </div>
                 </div>
                 <span className="cat-name">{c.name}</span>
-                <span className="muted sm">{ws.length} words · {pct}% mastered</span>
+                <span className="muted sm">{ws.length} {ws.length === 1 ? 'word' : 'words'} · {pct}% mastered</span>
                 <div className="catfoot">
                   <span className="mini"><div style={{ width: pct + '%' }} /></span>
                   <button className="btn btn-secondary btn-sm" onClick={() => a.showWordsWith({ cat: c.id })}>Open</button>

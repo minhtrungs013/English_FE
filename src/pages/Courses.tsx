@@ -217,41 +217,55 @@ export function CreateCourse({ onClose }: { onClose: () => void }) {
     }
   };
   return (
-    <Dialog label="New course" onClose={onClose} wide>
-      <h2>New Course</h2>
-      <div className="field">
-        <label className="label" htmlFor="nc-title">Title <span className="req">*</span></label>
-        <input id="nc-title" className={'input' + (err && !title.trim() ? ' err' : '')} placeholder="e.g. 30 days of IT English" value={title} maxLength={120} autoFocus
-          onChange={(e) => { setTitle(e.target.value); setErr(''); }}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void create(); } }} />
-      </div>
-      <div className="field">
-        <label className="label" htmlFor="nc-desc">Description</label>
-        <textarea id="nc-desc" className="input" style={{ minHeight: 70 }} placeholder="What will learners get from it?" value={description} maxLength={500} onChange={(e) => setDescription(e.target.value)} />
-      </div>
-      <div className="field">
-        <span className="label" id="nc-wpd">Words per day</span>
-        <WordsPerDayPicker id="nc-wpd" value={wpd} onChange={setWpd} />
-      </div>
-      <div className="field">
-        <span className="label" id="nc-dpd">Dictation sentences per day</span>
-        <DictationPerDayPicker id="nc-dpd" value={dpd} onChange={setDpd} />
-      </div>
-      <div className="field">
-        <span className="label">Who can join</span>
-        <VisibilityPicker value={visibility} onChange={setVisibility} />
-        <span className="hint">{visibility === 'public' ? 'Anyone can find it in Explore. You can also share the join code.' : 'Only people with the join code can join.'}</span>
-      </div>
-      <StartDatePicker idBase="nc-start" value={start} onChange={(p) => { setStart(p); setErr(''); }} />
-      <div className="field">
-        <label className="checkrow"><input type="checkbox" checked={fill} onChange={(e) => setFill(e.target.checked)} />Fill the 30 days with library words now</label>
-        {fill && <AutoFillOptions levels={levels} setLevels={setLevels} topics={topics} setTopics={setTopics} />}
-        {fill && <span className="hint">Up to {wpd * 30} words ({wpd} words × 30 days). You can change any day afterwards.</span>}
-      </div>
-      {err && <span className="errtxt" role="alert"><Icon name="alert" size="sm" />{err}</span>}
-      <div className="mfoot">
-        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" onClick={create} disabled={busy}>{busy ? 'Creating…' : 'Create & add words'}</button>
+    <Dialog label="New course" onClose={busy ? () => undefined : onClose} className="adm-modal nc-modal">
+      <div className="adm-modal-form">
+        <div className="adm-modal-head">
+          <h2>New course</h2>
+          <p className="muted sm">30 days of words. You can change everything later.</p>
+          <button type="button" className="iconbtn sm adm-modal-x" onClick={onClose} disabled={busy} aria-label="Close"><Icon name="x" size="sm" /></button>
+        </div>
+        <div className="adm-modal-body">
+          <div className="nc-grid">
+            <div className="nc-col">
+              <div className="field">
+                <label className="label" htmlFor="nc-title">Title <span className="req">*</span></label>
+                <input id="nc-title" className={'input' + (err && !title.trim() ? ' err' : '')} placeholder="e.g. 30 days of IT English" value={title} maxLength={120} autoFocus
+                  onChange={(e) => { setTitle(e.target.value); setErr(''); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void create(); } }} />
+              </div>
+              <div className="field">
+                <label className="label" htmlFor="nc-desc">Description</label>
+                <textarea id="nc-desc" className="input" style={{ minHeight: 96 }} placeholder="What will learners get from it?" value={description} maxLength={500} onChange={(e) => setDescription(e.target.value)} />
+              </div>
+              <div className="field">
+                <span className="label">Who can join</span>
+                <VisibilityPicker value={visibility} onChange={setVisibility} />
+                <span className="hint">{visibility === 'public' ? 'Anyone can find it in Explore. You can also share the join code.' : 'Only people with the join code can join.'}</span>
+              </div>
+            </div>
+            <div className="nc-col">
+              <div className="field">
+                <span className="label" id="nc-wpd">Words per day</span>
+                <WordsPerDayPicker id="nc-wpd" value={wpd} onChange={setWpd} />
+              </div>
+              <div className="field">
+                <span className="label" id="nc-dpd">Dictation sentences per day</span>
+                <DictationPerDayPicker id="nc-dpd" value={dpd} onChange={setDpd} />
+              </div>
+            </div>
+          </div>
+          <StartDatePicker idBase="nc-start" value={start} onChange={(p) => { setStart(p); setErr(''); }} />
+          <div className="field nc-fill">
+            <label className="checkrow"><input type="checkbox" checked={fill} onChange={(e) => setFill(e.target.checked)} />Fill the 30 days with library words now</label>
+            {fill && <AutoFillOptions levels={levels} setLevels={setLevels} topics={topics} setTopics={setTopics} />}
+            {fill && <span className="hint">Up to {wpd * 30} words ({wpd} words × 30 days). You can change any day afterwards.</span>}
+          </div>
+        </div>
+        <div className="mfoot">
+          {err && <span className="errtxt" role="alert" style={{ marginRight: 'auto' }}><Icon name="alert" size="sm" />{err}</span>}
+          <button className="btn btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
+          <button className="btn btn-primary" onClick={create} disabled={busy}>{busy ? 'Creating…' : 'Create & add words'}</button>
+        </div>
       </div>
     </Dialog>
   );

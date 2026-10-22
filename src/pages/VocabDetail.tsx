@@ -6,6 +6,7 @@ import { useWB } from '../state/WordbookContext';
 import { Icon, LevelBadge, PosBadge, StatusBadge } from '../components/ui';
 import { WordFamily } from '../components/WordFamily';
 import { TOPIC_LABEL } from './Library';
+import { Dialog } from './Courses';
 
 /** Shows whether the word is in the shared library, and lets the user share it if not. */
 function ShareCard({ w }: { w: Word }) {
@@ -137,5 +138,56 @@ export function VocabDetail() {
         </div>
       </div>
     </>
+  );
+}
+
+/** Quick look at one of my words over the vocabulary list: the essentials and the main actions. */
+export function WordModal({ id, onClose }: { id: string; onClose: () => void }) {
+  const { s, a } = useWB();
+  const w = s.words.find((x) => x.id === id);
+  if (!w) return null;
+  const cat = s.cats.find((c) => c.id === w.cat);
+  const go = (fn: () => void) => { onClose(); fn(); };
+  return (
+    <Dialog label={w.word} onClose={onClose} className="adm-modal vd-modal">
+      <div className="adm-modal-form">
+        <div className="adm-modal-head">
+          <div className="badges"><PosBadge>{w.pos}</PosBadge><LevelBadge level={w.level} /><StatusBadge status={w.status} /></div>
+          <div className="vd-title">
+            <h2>{w.word}</h2>
+            <span className="ipa">{w.ipa}</span>
+            <button className="iconbtn sm" onClick={() => speak(w.word)} aria-label="Play pronunciation"><Icon name="volume" size="sm" /></button>
+          </div>
+          <button type="button" className="iconbtn sm adm-modal-x" onClick={onClose} aria-label="Close"><Icon name="x" size="sm" /></button>
+        </div>
+        <div className="adm-modal-body">
+          <div>
+            <div className="tr-big" style={{ fontSize: 20 }}>{w.vi}</div>
+            <div>{w.meaning}</div>
+          </div>
+          {w.ex && <div><span className="sec-t">Example</span><p className="quote" style={{ margin: '6px 0 0' }}>“{w.ex}”</p></div>}
+          {(w.syn.length > 0 || w.ant.length > 0) && (
+            <div className="adm-grid2">
+              <div className="stack" style={{ gap: 8 }}><span className="sec-t">Synonyms</span><div className="badges">{w.syn.length ? w.syn.map((x) => <span key={x} className="pill">{x}</span>) : <span className="muted sm">—</span>}</div></div>
+              <div className="stack" style={{ gap: 8 }}><span className="sec-t">Antonyms</span><div className="badges">{w.ant.length ? w.ant.map((x) => <span key={x} className="pill">{x}</span>) : <span className="muted sm">—</span>}</div></div>
+            </div>
+          )}
+          <WordFamily word={w.word} family={w.family} />
+          {w.notes && <div><span className="sec-t">My notes</span><p className="note" style={{ margin: '6px 0 0' }}>{w.notes}</p></div>}
+          <div className="vd-meta sm">
+            <span><span className="muted">Category </span><b>{cat ? cat.name : 'Uncategorized'}</b></span>
+            <span><span className="muted">Next review </span><b>{fmtNext(w.dueAt)}</b></span>
+            <span><span className="muted">Added </span><b>{fmtAgo(w.addedAt)}</b></span>
+            {w.tags.length > 0 && <span className="badges">{w.tags.map((t) => <button key={t} className="hashtag" onClick={() => go(() => a.showWordsWith({ tag: t }))}>#{t}</button>)}</span>}
+          </div>
+        </div>
+        <div className="mfoot vd-foot">
+          <button className="btn btn-ghost btn-sm" onClick={() => go(() => a.go('detail', { sel: w.id }))}>Full details</button>
+          <button className="iconbtn danger" onClick={() => go(() => a.askDeleteWord(w.id))} aria-label={'Delete ' + w.word} title="Delete"><Icon name="trash" size="sm" /></button>
+          <button className="btn btn-secondary" onClick={() => go(() => a.openEdit(w.id))}><Icon name="edit" size="sm" />Edit</button>
+          <button className="btn btn-primary" onClick={() => go(() => a.startReview([w.id], 'Review · ' + w.word))}><Icon name="refresh" size="sm" />Review</button>
+        </div>
+      </div>
+    </Dialog>
   );
 }
