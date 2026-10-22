@@ -1935,8 +1935,19 @@ button.tmini-row:hover{border-color:var(--primary)}
 .adm-form-row > *{flex:1;min-width:140px}
 .adm-field{display:flex;flex-direction:column;gap:4px}
 .adm-field.wide{width:100%}
+.adm-row.audit{grid-template-columns:150px minmax(180px,2fr) 130px 100px 100px minmax(130px,auto)}
+.adm-ell{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-main{min-width:0}
+.adm-detail{grid-column:1 / -1;display:grid;grid-template-columns:90px 1fr;gap:4px 12px;margin:4px 0 2px;padding:10px 12px;border-radius:var(--r-md);background:var(--surface2);font-size:13px}
+.adm-detail dt{font-weight:700;color:var(--muted)}
+.adm-detail dd{margin:0;word-break:break-word}
+.adm-bad{color:var(--danger)}
+.adm-chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.adm-chips .chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);font:inherit;font-size:13px;color:inherit;cursor:pointer}
+.adm-chips .chip.on{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-ink)}
+.adm-tiles + .adm-table,.adm-chips + .adm-table{margin-top:12px}
 @container (max-width: 760px){
-.adm-row,.adm-row.users,.adm-row.lib{grid-template-columns:1fr auto;row-gap:4px}
+.adm-row,.adm-row.users,.adm-row.lib,.adm-row.audit{grid-template-columns:1fr auto;row-gap:4px}
 .adm-row.head{display:none}
 .adm-row > :not(.adm-main):not(.adm-act){font-size:12.5px;color:var(--muted)}
 .adm-act{grid-column:1 / -1;justify-content:flex-start}

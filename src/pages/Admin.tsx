@@ -1,18 +1,19 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { api, type AdminCourse, type AdminLibraryWord, type AdminSentence, type AdminStats, type AdminUser, type Paged, type Tense, type Topic } from '../lib/api';
+import { api, type AuditEntry, type AuditPage, type AdminCourse, type AdminLibraryWord, type AdminSentence, type AdminStats, type AdminUser, type Paged, type Tense, type Topic } from '../lib/api';
 import { LEVELS, POS_LIST } from '../lib/data';
 import { EmptyState, Icon, PageHead } from '../components/ui';
 import { useWB } from '../state/WordbookContext';
 import { ConfirmDialog, CreateCourse, errText } from './Courses';
 import { TENSE_LABEL, TENSES } from './CourseQuestions';
 
-type Tab = 'overview' | 'courses' | 'users' | 'sentences' | 'library';
+type Tab = 'overview' | 'courses' | 'users' | 'sentences' | 'library' | 'audit';
 const TABS: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name'] }[] = [
   { id: 'overview', label: 'Overview', icon: 'grid' },
   { id: 'courses', label: 'Courses', icon: 'cap' },
   { id: 'users', label: 'Users', icon: 'users' },
   { id: 'sentences', label: 'Sentence bank', icon: 'layers' },
-  { id: 'library', label: 'Library', icon: 'globe' }
+  { id: 'library', label: 'Library', icon: 'globe' },
+  { id: 'audit', label: 'Audit log', icon: 'sparkle' }
 ];
 const TAB_KEY = 'wordbook:adminTab';
 const TOPICS: Topic[] = ['it', 'interview', 'customer', 'leader', 'toeic', 'other'];
@@ -183,6 +184,109 @@ function Users() {
             : confirm.name + ' (' + confirm.email + ') will be able to create and edit every course, manage users, the sentence bank and the library.'}
           confirm={confirm.role === 'admin' ? 'Remove admin' : 'Make admin'} danger={confirm.role === 'admin'} busy={busy}
           onConfirm={() => setRole(confirm)} onClose={() => setConfirm(null)} />
+      )}
+    </>
+  );
+}
+
+/* ---------- audit log (AI calls) ---------- */
+
+const AUDIT_ACTIONS: { id: string; label: string }[] = [
+  { id: 'chat', label: 'Chatbot' },
+  { id: 'lookup', label: 'Auto-fill' },
+  { id: 'lookup-family', label: 'Word family' },
+  { id: 'tense-questions', label: 'Tense questions' },
+  { id: 'dialogue', label: 'Listening dialogue' }
+];
+const actionLabel = (a: string) => AUDIT_ACTIONS.find((x) => x.id === a)?.label ?? a;
+const fmtTime = (t: number) => new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const fmtNum = (n: number) => (n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + 'M' : n >= 10_000 ? Math.round(n / 1000) + 'k' : n.toLocaleString());
+
+function AuditLog() {
+  const [action, setAction] = useState('');
+  const [status, setStatus] = useState('');
+  const [days, setDays] = useState(7);
+  const [open, setOpen] = useState<string | null>(null);
+  const [summary, setSummary] = useState<AuditPage['summary'] | null>(null);
+  const p = usePaged<AuditEntry>(async (q, page) => {
+    const r = await api.adminAudit({ q, action, status, days, page });
+    setSummary(r.summary);
+    return r;
+  }, [action, status, days]);
+  const s = summary;
+  const tile = (label: string, value: string | undefined, sub: string, warn = false) => (
+    <div className={'adm-tile' + (warn ? ' warn' : '')}>
+      <span className="adm-tval">{value ?? <span className="sk" style={{ width: 60, height: 28, display: 'inline-block' }} />}</span>
+      <span className="adm-tlabel">{label}</span>
+      <span className="muted xs">{sub}</span>
+    </div>
+  );
+  return (
+    <>
+      <Search value={p.q} onChange={p.setQ} placeholder="Search email, word or API">
+        <select className="input" style={{ width: 'auto' }} value={action} onChange={(e) => { setAction(e.target.value); p.setPage(1); }} aria-label="Feature">
+          <option value="">All features</option>
+          {AUDIT_ACTIONS.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+        </select>
+        <select className="input" style={{ width: 'auto' }} value={status} onChange={(e) => { setStatus(e.target.value); p.setPage(1); }} aria-label="Result">
+          <option value="">All results</option>
+          <option value="ok">Succeeded</option>
+          <option value="failed">Failed</option>
+        </select>
+        <div className="seg" role="group" aria-label="Period">
+          {[1, 7, 30, 90].map((d) => <button key={d} className={days === d ? 'on' : ''} aria-pressed={days === d} onClick={() => { setDays(d); p.setPage(1); }}>{d === 1 ? '24h' : d + 'd'}</button>)}
+        </div>
+      </Search>
+      <div className="adm-tiles">
+        {tile('AI calls', s ? fmtNum(s.calls) : undefined, s ? s.users + ' user' + (s.users === 1 ? '' : 's') : '…')}
+        {tile('Failed', s ? fmtNum(s.failed) : undefined, s && s.calls ? Math.round((s.failed / s.calls) * 100) + '% of calls' : 'no calls', !!s?.failed)}
+        {tile('Tokens', s ? fmtNum(s.inTokens + s.outTokens) : undefined, s ? fmtNum(s.inTokens) + ' in · ' + fmtNum(s.outTokens) + ' out' : '…')}
+        {tile('Average time', s ? (s.avgMs / 1000).toFixed(1) + 's' : undefined, 'per call')}
+      </div>
+      {s && s.byAction.length > 0 && (
+        <div className="adm-chips" aria-label="Calls per feature">
+          {s.byAction.map((b) => (
+            <button key={b.action} className={'chip' + (action === b.action ? ' on' : '')} aria-pressed={action === b.action}
+              onClick={() => { setAction(action === b.action ? '' : b.action); p.setPage(1); }}>
+              {actionLabel(b.action)} <b>{b.calls}</b>{b.failed ? <span className="adm-bad"> · {b.failed} failed</span> : null}
+            </button>
+          ))}
+        </div>
+      )}
+      {p.err ? <EmptyState icon="alert" tint="t-red" title="Can’t load the audit log" text={p.err} /> : !p.data ? <div className="sk" style={{ height: 200 }} /> : !p.data.items.length ? (
+        <EmptyState icon="sparkle" tint="t-indigo" title="No AI calls" text="Nothing matches these filters in this period." />
+      ) : (
+        <>
+          <div className="adm-table" role="table" aria-label="AI calls">
+            <div className="adm-row head audit" role="row">
+              <span role="columnheader">Time</span><span role="columnheader">User</span><span role="columnheader">Feature</span>
+              <span role="columnheader">Result</span><span role="columnheader">Tokens</span><span role="columnheader">Time taken</span>
+            </div>
+            {p.data.items.map((e) => (
+              <div key={e.id} className={'adm-row audit' + (open === e.id ? ' open' : '')} role="row">
+                <span role="cell" className="muted sm">{fmtTime(e.at)}</span>
+                <span role="cell" className="adm-main"><b>{e.email || 'System'}</b>{e.detail ? <span className="muted xs adm-ell" title={e.detail}>{e.detail}</span> : null}</span>
+                <span role="cell">{actionLabel(e.action)}</span>
+                <span role="cell">{e.ok ? <span className="badge t-green">OK</span> : <span className="badge t-red">{e.status ? 'Error ' + e.status : 'No answer'}</span>}</span>
+                <span role="cell" className="sm">{e.inTokens || e.outTokens ? fmtNum(e.inTokens) + ' / ' + fmtNum(e.outTokens) : '—'}</span>
+                <span role="cell" className="adm-act">
+                  <span className="sm">{(e.ms / 1000).toFixed(1)}s</span>
+                  <button className="btn btn-ghost btn-sm" aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? null : e.id)}>{open === e.id ? 'Hide' : 'Details'}</button>
+                </span>
+                {open === e.id && (
+                  <dl className="adm-detail" role="cell">
+                    <dt>API</dt><dd>{e.route || '—'}</dd>
+                    <dt>Model</dt><dd>{e.model || '—'}</dd>
+                    <dt>Tokens</dt><dd>{e.inTokens.toLocaleString()} in · {e.outTokens.toLocaleString()} out</dd>
+                    {e.detail && <><dt>Input</dt><dd>{e.detail}</dd></>}
+                    {e.error && <><dt>Error</dt><dd className="adm-bad">{e.error}</dd></>}
+                  </dl>
+                )}
+              </div>
+            ))}
+          </div>
+          <Pager page={p.page} pages={p.data.pages} total={p.data.total} onPage={p.setPage} />
+        </>
       )}
     </>
   );
@@ -388,6 +492,7 @@ export function AdminPage() {
         {tab === 'users' && <Users />}
         {tab === 'sentences' && <Sentences />}
         {tab === 'library' && <Library />}
+        {tab === 'audit' && <AuditLog />}
       </div>
     </>
   );

@@ -13,6 +13,13 @@ export class ApiError extends Error {
 /* ---------- admin ---------- */
 export interface AdminStats { users: number; admins: number; newUsers: number; activeToday: number; courses: number; enrollments: number; pendingQuestions: number; libraryWords: number; bankSentences: number; savedWords: number }
 export interface Paged<T> { total: number; page: number; pages: number; items: T[] }
+export interface AuditEntry {
+  id: string; at: number; action: string; email: string; route: string; model: string; ok: boolean; status: number;
+  ms: number; inTokens: number; outTokens: number; detail: string; error: string;
+}
+export interface AuditPage extends Paged<AuditEntry> {
+  summary: { calls: number; failed: number; inTokens: number; outTokens: number; avgMs: number; users: number; byAction: { action: string; calls: number; failed: number; tokens: number }[] };
+}
 export interface AdminUser { id: string; name: string; email: string; role: 'user' | 'admin'; createdAt: number | null; words: number; courses: number }
 export interface AdminCourse { id: string; title: string; ownerName: string; visibility: 'private' | 'public'; joinCode: string; totalDays: number; readyDays: number; members: number; pending: number; createdAt: number | null }
 export interface AdminSentence { id: string; wordId: string; word: string; form: string; sentence: string; context: string; level: string; topic: string; tense: Tense | ''; verb: string; base: string }
@@ -434,6 +441,7 @@ export const api = {
   practiceSeen: (items: { key: string; ok?: boolean }[]) => req<void>('POST', '/practice/sentences/seen', { items }),
   /* admin (403 for everyone else) */
   adminStats: () => req<AdminStats>('GET', '/admin/stats'),
+  adminAudit: (f: { q: string; action: string; status: string; days: number; page: number }) => req<AuditPage>('GET', '/admin/audit?' + query(f)),
   adminUsers: (q: string, page: number) => req<Paged<AdminUser>>('GET', '/admin/users?' + query({ q, page })),
   adminSetRole: (id: string, role: 'user' | 'admin') => req<{ id: string; role: string }>('PATCH', '/admin/users/' + id, { role }),
   adminCourses: () => req<AdminCourse[]>('GET', '/admin/courses'),
