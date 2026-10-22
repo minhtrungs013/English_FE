@@ -2137,3 +2137,6 @@ button.tmini-row:hover{border-color:var(--primary)}
 .vd-meta{display:flex;flex-wrap:wrap;gap:8px 18px;padding-top:12px;border-top:1px solid var(--border)}
 .vd-foot{align-items:center}
 .vd-foot > :first-child{margin-right:auto}
+
+.sd-more.sd-ai{color:var(--primary-ink);gap:8px}
+.sd-more.sd-ai svg:last-child{margin-left:auto}

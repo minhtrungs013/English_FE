@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ASK_AI_EVENT } from '../lib/askAi';
 import { ApiError } from '../lib/api';
 import { applyEvent, chatAsk, chatStatus, loadChat, saveChat, type ChatCard, type ChatMsg, type ChatStatus } from '../lib/chat';
 import { emptyForm } from '../lib/data';
@@ -120,6 +121,21 @@ export function ChatBot() {
   }, [open]);
   useEffect(() => { const el = logRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs, open]);
   useEffect(() => () => abort.current?.abort(), []);
+
+  // "Ask AI" from a search: open the panel and send the question once it's open.
+  const [pending, setPending] = useState<string | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => { setPending((e as CustomEvent<string>).detail); setOpen(true); };
+    window.addEventListener(ASK_AI_EVENT, on);
+    return () => window.removeEventListener(ASK_AI_EVENT, on);
+  }, []);
+  useEffect(() => {
+    if (!open || !pending || busy) return;
+    const q = pending;
+    setPending(null);
+    void send(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, pending, busy]);
 
   const close = () => setOpen(false);
   /** Leaving for another page: close the panel on phones (it covers the screen), keep it on wide screens. */

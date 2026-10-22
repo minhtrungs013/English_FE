@@ -6,6 +6,7 @@ import type { IconName } from '../lib/icons';
 import { SaveButton, TopicBadge } from '../pages/Library';
 import { Icon, LevelBadge, NavIcon } from './ui';
 import { isDuoStyle } from '../lib/appStyle';
+import { askAi } from '../lib/askAi';
 import { NotificationBell } from './Notifications';
 
 function useInitial() {
@@ -151,6 +152,9 @@ function HeaderSearch() {
               <SaveButton w={w} small />
             </div>
           )) : !searching && <div className="sd-empty">{lib && lib.total > 0 ? 'You already have every library match.' : 'No library words match.'}</div>}
+          {!searching && lib && lib.total === 0 && (
+            <button className="sd-more sd-ai" onClick={() => { askAi(q); close(); }}><Icon name="sparkle" size="sm" />Hỏi AI về “{q.trim()}”<Icon name="right" size="sm" /></button>
+          )}
           {lib && lib.total > 0 && <button className="sd-more" onClick={seeLibrary}>Search the library for “{q.trim()}” ({lib.total})<Icon name="right" size="sm" /></button>}
         </div>
       )}

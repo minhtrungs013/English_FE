@@ -4,6 +4,7 @@ import { LEVELS, fmtDate } from '../lib/data';
 import { speak } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/ui';
+import { askAi } from '../lib/askAi';
 import { FamilyTag, WordFamily } from '../components/WordFamily';
 
 export const TOPIC_LABEL: Record<Topic, string> = {
@@ -201,6 +202,7 @@ export function Library() {
         </div>
       ) : items.length === 0 ? (
         <EmptyState icon="search" tint="t-blue" title="No words found" text={source === 'me' ? 'You haven’t shared any words yet. Open one of your words and choose “Share to library”.' : 'Try a different keyword or clear the filters.'}>
+          {query && source !== 'me' && <button className="btn btn-primary" onClick={() => askAi(query)}><Icon name="sparkle" size="sm" />Hỏi AI về “{query}”</button>}
           {anyFilter && <button className="btn btn-secondary" onClick={clear}>Clear filters</button>}
         </EmptyState>
       ) : (
