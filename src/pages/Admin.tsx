@@ -1,16 +1,17 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { api, type AuditEntry, type AuditPage, type AdminCourse, type AdminLibraryWord, type AdminSentence, type AdminStats, type AdminUser, type Paged, type Tense, type Topic } from '../lib/api';
+import { api, type AdminPlan, type AuditEntry, type AuditPage, type AdminCourse, type AdminLibraryWord, type AdminSentence, type AdminStats, type AdminUser, type Paged, type Tense, type Topic } from '../lib/api';
 import { LEVELS, POS_LIST } from '../lib/data';
 import { EmptyState, Icon, PageHead } from '../components/ui';
 import { useWB } from '../state/WordbookContext';
 import { ConfirmDialog, CreateCourse, errText } from './Courses';
 import { TENSE_LABEL, TENSES } from './CourseQuestions';
 
-type Tab = 'overview' | 'courses' | 'users' | 'sentences' | 'library' | 'audit';
+type Tab = 'overview' | 'courses' | 'users' | 'plans' | 'sentences' | 'library' | 'audit';
 const TABS: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name'] }[] = [
   { id: 'overview', label: 'Overview', icon: 'grid' },
   { id: 'courses', label: 'Courses', icon: 'cap' },
   { id: 'users', label: 'Users', icon: 'users' },
+  { id: 'plans', label: 'Plans', icon: 'layers' },
   { id: 'sentences', label: 'Sentence bank', icon: 'layers' },
   { id: 'library', label: 'Library', icon: 'globe' },
   { id: 'audit', label: 'Audit log', icon: 'sparkle' }
@@ -128,6 +129,112 @@ function Courses() {
   );
 }
 
+/* ---------- plans (daily limits) ---------- */
+
+const PLAN_FIELDS: { key: 'chat' | 'autofill' | 'courseAi' | 'tokens'; label: string; hint: string }[] = [
+  { key: 'chat', label: 'Chatbot messages', hint: 'a day; 0 turns the chatbot off' },
+  { key: 'autofill', label: 'Auto-fills', hint: 'a day (new words only); 0 turns it off' },
+  { key: 'courseAi', label: 'Course AI', hint: 'generations a day; 0 turns it off' },
+  { key: 'tokens', label: 'AI tokens', hint: 'a day, all features together; 0 = no cap' }
+];
+type PlanForm = { name: string; chat: string; autofill: string; courseAi: string; tokens: string };
+const toForm = (p?: AdminPlan): PlanForm => ({ name: p?.name ?? '', chat: String(p?.chat ?? 30), autofill: String(p?.autofill ?? 3), courseAi: String(p?.courseAi ?? 30), tokens: String(p?.tokens ?? 50000) });
+
+function PlanEditor({ plan, onSaved, onCancel }: { plan?: AdminPlan; onSaved: (list: AdminPlan[]) => void; onCancel: () => void }) {
+  const { a } = useWB();
+  const [f, setF] = useState<PlanForm>(() => toForm(plan));
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    const nums = PLAN_FIELDS.map((x) => Number(f[x.key]));
+    if (!f.name.trim()) { a.showToast('Please enter a plan name.', 'bad'); return; }
+    if (nums.some((n) => !Number.isInteger(n) || n < 0)) { a.showToast('Limits must be whole numbers, 0 or more.', 'bad'); return; }
+    const body = { name: f.name.trim(), chat: nums[0], autofill: nums[1], courseAi: nums[2], tokens: nums[3] };
+    setBusy(true);
+    try {
+      onSaved(plan ? await api.adminPatchPlan(plan.id, body) : await api.adminCreatePlan(body));
+      a.showToast(plan ? 'Plan saved.' : 'Plan created.');
+    } catch (e) { a.showToast(errText(e), 'bad'); } finally { setBusy(false); }
+  };
+  return (
+    <div className="adm-plan editing">
+      <div className="adm-field wide">
+        <label className="label" htmlFor={'pn-' + (plan?.id ?? 'new')}>Plan name</label>
+        <input id={'pn-' + (plan?.id ?? 'new')} className="input" value={f.name} maxLength={40} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Pro" autoFocus />
+      </div>
+      <div className="adm-plan-grid">
+        {PLAN_FIELDS.map((x) => (
+          <div key={x.key} className="adm-field">
+            <label className="label" htmlFor={'p-' + x.key + (plan?.id ?? 'new')}>{x.label}</label>
+            <input id={'p-' + x.key + (plan?.id ?? 'new')} className="input" type="number" min={0} step={x.key === 'tokens' ? 1000 : 1} inputMode="numeric"
+              value={f[x.key]} onChange={(e) => setF({ ...f, [x.key]: e.target.value })} />
+            <span className="muted xs">{x.hint}</span>
+          </div>
+        ))}
+      </div>
+      <div className="adm-plan-foot">
+        <button className="btn btn-secondary" onClick={onCancel} disabled={busy}>Cancel</button>
+        <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? <span className="spin" /> : null}{plan ? 'Save' : 'Create plan'}</button>
+      </div>
+    </div>
+  );
+}
+
+function Plans() {
+  const { a } = useWB();
+  const [list, setList] = useState<AdminPlan[] | null>(null);
+  const [err, setErr] = useState('');
+  const [edit, setEdit] = useState<string | null>(null);
+  const [del, setDel] = useState<AdminPlan | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { api.adminPlans().then(setList).catch((e) => setErr(errText(e))); }, []);
+  const run = async (fn: () => Promise<AdminPlan[]>, ok: string) => {
+    setBusy(true);
+    try { setList(await fn()); a.showToast(ok); setDel(null); } catch (e) { a.showToast(errText(e), 'bad'); } finally { setBusy(false); }
+  };
+  const fmt = (n: number, unit: string, off: string) => (n === 0 ? off : n.toLocaleString() + ' ' + unit);
+  if (err) return <EmptyState icon="alert" tint="t-red" title="Can’t load plans" text={err} />;
+  if (!list) return <div className="sk" style={{ height: 200 }} />;
+  return (
+    <>
+      <div className="adm-tools">
+        <span className="muted sm">Each user is on one plan; users without one get the default plan. Limits reset at midnight. Changes apply within a minute.</span>
+        <button className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={() => setEdit('new')} disabled={edit === 'new'}><Icon name="plus" size="sm" />New plan</button>
+      </div>
+      <div className="adm-plans">
+        {edit === 'new' && <PlanEditor onSaved={(l) => { setList(l); setEdit(null); }} onCancel={() => setEdit(null)} />}
+        {list.map((p) => edit === p.id ? (
+          <PlanEditor key={p.id} plan={p} onSaved={(l) => { setList(l); setEdit(null); }} onCancel={() => setEdit(null)} />
+        ) : (
+          <div key={p.id} className={'adm-plan' + (p.isDefault ? ' def' : '')}>
+            <div className="adm-plan-head">
+              <b className="adm-plan-name">{p.name}</b>
+              {p.isDefault && <span className="badge t-indigo">Default</span>}
+              <span className="muted sm" style={{ marginLeft: 'auto' }}>{p.users.toLocaleString()} user{p.users === 1 ? '' : 's'}</span>
+            </div>
+            <dl className="adm-plan-limits">
+              <dt>Chatbot</dt><dd>{fmt(p.chat, 'messages', 'Off')}</dd>
+              <dt>Auto-fill</dt><dd>{fmt(p.autofill, 'words', 'Off')}</dd>
+              <dt>Course AI</dt><dd>{fmt(p.courseAi, 'times', 'Off')}</dd>
+              <dt>AI tokens</dt><dd>{fmt(p.tokens, 'tokens', 'No cap')}</dd>
+            </dl>
+            <span className="muted xs">per user, per day</span>
+            <div className="adm-plan-foot">
+              {!p.isDefault && <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => run(() => api.adminPatchPlan(p.id, { isDefault: true }), p.name + ' is now the default plan.')}>Make default</button>}
+              {!p.isDefault && <button className="btn btn-ghost btn-sm adm-bad" disabled={busy} onClick={() => setDel(p)}>Delete</button>}
+              <button className="btn btn-secondary btn-sm" onClick={() => setEdit(p.id)}><Icon name="edit" size="sm" />Edit</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      {del && (
+        <ConfirmDialog title={'Delete ' + del.name + '?'} confirm="Delete plan" danger busy={busy}
+          text={del.users ? del.users + ' user' + (del.users === 1 ? '' : 's') + ' on this plan will move to the default plan.' : 'No users are on this plan.'}
+          onConfirm={() => run(() => api.adminDeletePlan(del.id), 'Plan deleted.')} onClose={() => setDel(null)} />
+      )}
+    </>
+  );
+}
+
 /* ---------- users ---------- */
 
 function Users() {
@@ -135,6 +242,17 @@ function Users() {
   const p = usePaged<AdminUser>((q, page) => api.adminUsers(q, page));
   const [confirm, setConfirm] = useState<AdminUser | null>(null);
   const [busy, setBusy] = useState(false);
+  const [plans, setPlans] = useState<AdminPlan[]>([]);
+  useEffect(() => { api.adminPlans().then(setPlans).catch(() => setPlans([])); }, []);
+  const def = plans.find((x) => x.isDefault);
+  const setPlan = async (u: AdminUser, plan: string) => {
+    try {
+      await api.adminSetUserPlan(u.id, plan);
+      p.setData((d) => d && { ...d, items: d.items.map((x) => (x.id === u.id ? { ...x, plan } : x)) });
+      a.showToast(u.name + ' is now on ' + (plans.find((x) => x.id === plan)?.name ?? def?.name ?? 'the default plan') + '.');
+    } catch (e) { a.showToast(errText(e), 'bad'); }
+  };
+  const tokenCap = (u: AdminUser) => (plans.find((x) => x.id === u.plan) ?? def)?.tokens ?? 0;
   const setRole = async (u: AdminUser) => {
     setBusy(true);
     try {
@@ -156,7 +274,8 @@ function Users() {
         <>
           <div className="adm-table" role="table" aria-label="Users">
             <div className="adm-row head users" role="row">
-              <span role="columnheader">User</span><span role="columnheader">Words</span><span role="columnheader">Courses</span><span role="columnheader">Joined</span><span role="columnheader">Role</span>
+              <span role="columnheader">User</span><span role="columnheader">Words</span><span role="columnheader">Courses</span><span role="columnheader">Joined</span>
+              <span role="columnheader">Plan</span><span role="columnheader">AI tokens today</span><span role="columnheader">Role</span>
             </div>
             {p.data.items.map((u) => (
               <div key={u.id} className="adm-row users" role="row">
@@ -164,6 +283,18 @@ function Users() {
                 <span role="cell">{u.words}</span>
                 <span role="cell">{u.courses}</span>
                 <span role="cell" className="muted sm">{fmtDay(u.createdAt)}</span>
+                <span role="cell">
+                  <select className="input adm-sel" value={plans.some((x) => x.id === u.plan) ? u.plan : ''} onChange={(e) => setPlan(u, e.target.value)} aria-label={'Plan for ' + u.name}>
+                    <option value="">{def ? def.name + ' (default)' : 'Default'}</option>
+                    {plans.filter((x) => !x.isDefault).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                  </select>
+                </span>
+                <span role="cell" className="sm">
+                  {u.tokensToday.toLocaleString()}{tokenCap(u) ? <span className="muted"> / {tokenCap(u).toLocaleString()}</span> : null}
+                  {tokenCap(u) > 0 && (
+                    <span className="adm-meter" aria-hidden="true"><i className={u.tokensToday >= tokenCap(u) ? 'full' : ''} style={{ width: Math.min(100, (u.tokensToday / tokenCap(u)) * 100) + '%' }} /></span>
+                  )}
+                </span>
                 <span role="cell" className="adm-act">
                   {u.role === 'admin' ? <span className="badge t-indigo">Admin</span> : <span className="muted sm">Learner</span>}
                   {u.id !== s.userId && (
@@ -490,6 +621,7 @@ export function AdminPage() {
         {tab === 'overview' && <Overview onTab={setTab} />}
         {tab === 'courses' && <Courses />}
         {tab === 'users' && <Users />}
+        {tab === 'plans' && <Plans />}
         {tab === 'sentences' && <Sentences />}
         {tab === 'library' && <Library />}
         {tab === 'audit' && <AuditLog />}

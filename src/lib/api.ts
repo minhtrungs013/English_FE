@@ -20,7 +20,9 @@ export interface AuditEntry {
 export interface AuditPage extends Paged<AuditEntry> {
   summary: { calls: number; failed: number; inTokens: number; outTokens: number; avgMs: number; users: number; byAction: { action: string; calls: number; failed: number; tokens: number }[] };
 }
-export interface AdminUser { id: string; name: string; email: string; role: 'user' | 'admin'; createdAt: number | null; words: number; courses: number }
+export interface AdminUser { id: string; name: string; email: string; role: 'user' | 'admin'; createdAt: number | null; words: number; courses: number; plan: string; tokensToday: number }
+export interface AdminPlan { id: string; name: string; isDefault: boolean; chat: number; autofill: number; courseAi: number; tokens: number; users: number }
+type PlanBody = { name: string; chat: number; autofill: number; courseAi: number; tokens: number };
 export interface AdminCourse { id: string; title: string; ownerName: string; visibility: 'private' | 'public'; joinCode: string; totalDays: number; readyDays: number; members: number; pending: number; createdAt: number | null }
 export interface AdminSentence { id: string; wordId: string; word: string; form: string; sentence: string; context: string; level: string; topic: string; tense: Tense | ''; verb: string; base: string }
 export interface AdminLibraryWord { id: string; word: string; ipa: string; pos: string; meaning: string; vi: string; ex: string; level: Word['level']; topic: Topic; authorName: string; saves: number }
@@ -444,6 +446,11 @@ export const api = {
   adminAudit: (f: { q: string; action: string; status: string; days: number; page: number }) => req<AuditPage>('GET', '/admin/audit?' + query(f)),
   adminUsers: (q: string, page: number) => req<Paged<AdminUser>>('GET', '/admin/users?' + query({ q, page })),
   adminSetRole: (id: string, role: 'user' | 'admin') => req<{ id: string; role: string }>('PATCH', '/admin/users/' + id, { role }),
+  adminSetUserPlan: (id: string, plan: string) => req<void>('PATCH', '/admin/users/' + id + '/plan', { plan }),
+  adminPlans: () => req<AdminPlan[]>('GET', '/admin/plans'),
+  adminCreatePlan: (p: PlanBody) => req<AdminPlan[]>('POST', '/admin/plans', p),
+  adminPatchPlan: (id: string, p: Partial<PlanBody> & { isDefault?: boolean }) => req<AdminPlan[]>('PATCH', '/admin/plans/' + id, p),
+  adminDeletePlan: (id: string) => req<AdminPlan[]>('DELETE', '/admin/plans/' + id),
   adminCourses: () => req<AdminCourse[]>('GET', '/admin/courses'),
   adminSentences: (q: string, tense: string, page: number) => req<Paged<AdminSentence>>('GET', '/admin/sentences?' + query({ q, tense, page })),
   adminPatchSentence: (id: string, patch: Partial<Pick<AdminSentence, 'sentence' | 'tense' | 'verb' | 'base' | 'context'>>) => req<AdminSentence>('PATCH', '/admin/sentences/' + id, patch),
