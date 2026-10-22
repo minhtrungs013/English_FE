@@ -1926,13 +1926,31 @@ button.tmini-row:hover{border-color:var(--primary)}
 .adm-plans{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:12px}
 .adm-plan{display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid var(--border);border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--shadow)}
 .adm-plan.def{border-color:var(--primary)}
-.adm-plan.editing{grid-column:1 / -1}
 .adm-plan-head{display:flex;align-items:center;gap:8px}
 .adm-plan-name{font-size:17px}
-.adm-plan-limits{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:14px}
+.adm-plan-limits{display:flex;flex-direction:column;margin:0;font-size:14px}
+.adm-plan-limits > div{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid var(--border)}
+.adm-plan-limits > div:first-child{border-top:none}
 .adm-plan-limits dt{color:var(--muted)}
 .adm-plan-limits dd{margin:0;font-weight:700;text-align:right}
-.adm-plan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.adm-plan-limits dd.muted{font-weight:600}
+.modal.adm-modal{max-width:560px;max-height:calc(100vh - 32px);padding:0;gap:0;overflow:hidden}
+.adm-modal-form{display:flex;flex-direction:column;min-height:0;max-height:calc(100vh - 32px)}
+.adm-modal-head{position:relative;padding:22px 56px 14px 24px;border-bottom:1px solid var(--border)}
+.adm-modal-head p{margin:4px 0 0}
+.adm-modal-x{position:absolute;top:16px;right:16px}
+.adm-modal-body{display:flex;flex-direction:column;gap:14px;padding:18px 24px;overflow-y:auto}
+.adm-modal-form .mfoot{padding:14px 24px;border-top:1px solid var(--border);margin:0}
+.adm-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.adm-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.pl-limits{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--r-md)}
+.pl-limit{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-top:1px solid var(--border)}
+.pl-limit:first-child{border-top:none}
+.pl-limit label{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pl-num{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.pl-num .input{width:120px;text-align:right}
+.pl-num span{width:62px}
+@media (max-width:560px){.adm-grid2,.adm-grid3{grid-template-columns:1fr}.pl-limit{flex-direction:column;align-items:stretch}.pl-num .input{flex:1;width:auto}}
 .adm-plan-foot{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:auto}
 .adm-row.lib{grid-template-columns:minmax(180px,1.6fr) minmax(160px,2fr) 70px 100px 70px 80px}
 .adm-row.lib.editing{display:block}

@@ -3,7 +3,7 @@ import { api, type AdminInsights, type AdminSuggestion, type AdminPlan, type Aud
 import { LEVELS, POS_LIST } from '../lib/data';
 import { EmptyState, Icon, PageHead } from '../components/ui';
 import { useWB } from '../state/WordbookContext';
-import { ConfirmDialog, CreateCourse, errText } from './Courses';
+import { ConfirmDialog, CreateCourse, Dialog, errText } from './Courses';
 import { TENSE_LABEL, TENSES } from './CourseQuestions';
 
 type Tab = 'overview' | 'courses' | 'users' | 'plans' | 'sentences' | 'library' | 'insights' | 'audit';
@@ -130,54 +130,82 @@ function Courses() {
   );
 }
 
+/* ---------- shared: form modal ---------- */
+
+/** A modal form: title, body, Cancel / save. Enter in a one-line field saves; Escape or the backdrop closes it. */
+function FormModal({ title, sub, save, busy, onSave, onClose, children }: {
+  title: string; sub?: string; save: string; busy: boolean; onSave: () => void; onClose: () => void; children: ReactNode;
+}) {
+  return (
+    <Dialog label={title} onClose={busy ? () => undefined : onClose} className="adm-modal">
+      <form className="adm-modal-form" onSubmit={(e) => { e.preventDefault(); onSave(); }} noValidate>
+        <div className="adm-modal-head">
+          <h2>{title}</h2>
+          {sub && <p className="muted sm">{sub}</p>}
+          <button type="button" className="iconbtn sm adm-modal-x" onClick={onClose} disabled={busy} aria-label="Close"><Icon name="x" size="sm" /></button>
+        </div>
+        <div className="adm-modal-body">{children}</div>
+        <div className="mfoot">
+          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? <span className="spin" /> : null}{save}</button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
 /* ---------- plans (daily limits) ---------- */
 
-const PLAN_FIELDS: { key: 'chat' | 'autofill' | 'courseAi' | 'sentence' | 'tokens'; label: string; hint: string }[] = [
-  { key: 'chat', label: 'Chatbot messages', hint: 'a day; 0 turns the chatbot off' },
-  { key: 'autofill', label: 'Auto-fills', hint: 'a day (new words only); 0 turns it off' },
-  { key: 'courseAi', label: 'Course AI', hint: 'generations a day; 0 turns it off' },
-  { key: 'sentence', label: 'Sentence checks', hint: 'a day (Write a sentence); 0 turns it off' },
-  { key: 'tokens', label: 'AI tokens', hint: 'a day, all features together; 0 = no cap' }
+const PLAN_FIELDS: { key: 'chat' | 'autofill' | 'courseAi' | 'sentence' | 'tokens'; label: string; unit: string; hint: string; off: string }[] = [
+  { key: 'chat', label: 'Chatbot', unit: 'messages', hint: 'Questions to the AI assistant', off: 'Off' },
+  { key: 'autofill', label: 'Auto-fill', unit: 'words', hint: 'New words filled in by AI or dictionaries', off: 'Off' },
+  { key: 'courseAi', label: 'Course AI', unit: 'times', hint: 'AI-generated course content', off: 'Off' },
+  { key: 'sentence', label: 'Sentence checks', unit: 'checks', hint: 'Practice → Write a sentence', off: 'Off' },
+  { key: 'tokens', label: 'AI tokens', unit: 'tokens', hint: 'All AI features together', off: 'No cap' }
 ];
 type PlanForm = { name: string; chat: string; autofill: string; courseAi: string; sentence: string; tokens: string };
 const toForm = (p?: AdminPlan): PlanForm => ({ name: p?.name ?? '', chat: String(p?.chat ?? 30), autofill: String(p?.autofill ?? 3), courseAi: String(p?.courseAi ?? 30), sentence: String(p?.sentence ?? 10), tokens: String(p?.tokens ?? 50000) });
+/** "1 word", "30 words", or what 0 means. */
+const limitText = (n: number, unit: string, off: string) => (n === 0 ? off : n.toLocaleString() + ' ' + (n === 1 ? unit.replace(/s$/, '') : unit));
 
-function PlanEditor({ plan, onSaved, onCancel }: { plan?: AdminPlan; onSaved: (list: AdminPlan[]) => void; onCancel: () => void }) {
+function PlanModal({ plan, onSaved, onClose }: { plan?: AdminPlan; onSaved: (list: AdminPlan[]) => void; onClose: () => void }) {
   const { a } = useWB();
   const [f, setF] = useState<PlanForm>(() => toForm(plan));
+  const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const save = async () => {
     const nums = PLAN_FIELDS.map((x) => Number(f[x.key]));
-    if (!f.name.trim()) { a.showToast('Please enter a plan name.', 'bad'); return; }
-    if (nums.some((n) => !Number.isInteger(n) || n < 0)) { a.showToast('Limits must be whole numbers, 0 or more.', 'bad'); return; }
+    if (!f.name.trim()) { setErr('Please enter a plan name.'); return; }
+    if (PLAN_FIELDS.some((x, k) => !f[x.key].trim() || !Number.isInteger(nums[k]) || nums[k] < 0)) { setErr('Limits must be whole numbers, 0 or more.'); return; }
     const body = { name: f.name.trim(), chat: nums[0], autofill: nums[1], courseAi: nums[2], sentence: nums[3], tokens: nums[4] };
-    setBusy(true);
+    setBusy(true); setErr('');
     try {
       onSaved(plan ? await api.adminPatchPlan(plan.id, body) : await api.adminCreatePlan(body));
       a.showToast(plan ? 'Plan saved.' : 'Plan created.');
-    } catch (e) { a.showToast(errText(e), 'bad'); } finally { setBusy(false); }
+      onClose();
+    } catch (e) { setErr(errText(e)); setBusy(false); }
   };
   return (
-    <div className="adm-plan editing">
-      <div className="adm-field wide">
-        <label className="label" htmlFor={'pn-' + (plan?.id ?? 'new')}>Plan name</label>
-        <input id={'pn-' + (plan?.id ?? 'new')} className="input" value={f.name} maxLength={40} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Pro" autoFocus />
+    <FormModal title={plan ? 'Edit ' + plan.name : 'New plan'} sub="Limits are per user, per day, and reset at midnight. 0 turns a feature off (for AI tokens: no cap)."
+      save={plan ? 'Save' : 'Create plan'} busy={busy} onSave={save} onClose={onClose}>
+      {err && <div className="formerr" role="alert"><Icon name="alert" size="sm" />{err}</div>}
+      <div className="field">
+        <label className="label" htmlFor="pl-name">Plan name</label>
+        <input id="pl-name" className="input" value={f.name} maxLength={40} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Pro" autoFocus />
       </div>
-      <div className="adm-plan-grid">
+      <div className="pl-limits">
         {PLAN_FIELDS.map((x) => (
-          <div key={x.key} className="adm-field">
-            <label className="label" htmlFor={'p-' + x.key + (plan?.id ?? 'new')}>{x.label}</label>
-            <input id={'p-' + x.key + (plan?.id ?? 'new')} className="input" type="number" min={0} step={x.key === 'tokens' ? 1000 : 1} inputMode="numeric"
-              value={f[x.key]} onChange={(e) => setF({ ...f, [x.key]: e.target.value })} />
-            <span className="muted xs">{x.hint}</span>
+          <div key={x.key} className="pl-limit">
+            <label htmlFor={'pl-' + x.key}><b>{x.label}</b><span className="muted xs">{x.hint}</span></label>
+            <div className="pl-num">
+              <input id={'pl-' + x.key} className="input" type="number" min={0} step={x.key === 'tokens' ? 1000 : 1} inputMode="numeric"
+                value={f[x.key]} onChange={(e) => setF({ ...f, [x.key]: e.target.value })} />
+              <span className="muted sm">{x.unit}</span>
+            </div>
           </div>
         ))}
       </div>
-      <div className="adm-plan-foot">
-        <button className="btn btn-secondary" onClick={onCancel} disabled={busy}>Cancel</button>
-        <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? <span className="spin" /> : null}{plan ? 'Save' : 'Create plan'}</button>
-      </div>
-    </div>
+    </FormModal>
   );
 }
 
@@ -185,7 +213,7 @@ function Plans() {
   const { a } = useWB();
   const [list, setList] = useState<AdminPlan[] | null>(null);
   const [err, setErr] = useState('');
-  const [edit, setEdit] = useState<string | null>(null);
+  const [modal, setModal] = useState<AdminPlan | 'new' | null>(null);
   const [del, setDel] = useState<AdminPlan | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => { api.adminPlans().then(setList).catch((e) => setErr(errText(e))); }, []);
@@ -193,20 +221,16 @@ function Plans() {
     setBusy(true);
     try { setList(await fn()); a.showToast(ok); setDel(null); } catch (e) { a.showToast(errText(e), 'bad'); } finally { setBusy(false); }
   };
-  const fmt = (n: number, unit: string, off: string) => (n === 0 ? off : n.toLocaleString() + ' ' + unit);
   if (err) return <EmptyState icon="alert" tint="t-red" title="Can’t load plans" text={err} />;
   if (!list) return <div className="sk" style={{ height: 200 }} />;
   return (
     <>
       <div className="adm-tools">
         <span className="muted sm">Each user is on one plan; users without one get the default plan. Limits reset at midnight. Changes apply within a minute.</span>
-        <button className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={() => setEdit('new')} disabled={edit === 'new'}><Icon name="plus" size="sm" />New plan</button>
+        <button className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={() => setModal('new')}><Icon name="plus" size="sm" />New plan</button>
       </div>
       <div className="adm-plans">
-        {edit === 'new' && <PlanEditor onSaved={(l) => { setList(l); setEdit(null); }} onCancel={() => setEdit(null)} />}
-        {list.map((p) => edit === p.id ? (
-          <PlanEditor key={p.id} plan={p} onSaved={(l) => { setList(l); setEdit(null); }} onCancel={() => setEdit(null)} />
-        ) : (
+        {list.map((p) => (
           <div key={p.id} className={'adm-plan' + (p.isDefault ? ' def' : '')}>
             <div className="adm-plan-head">
               <b className="adm-plan-name">{p.name}</b>
@@ -214,21 +238,18 @@ function Plans() {
               <span className="muted sm" style={{ marginLeft: 'auto' }}>{p.users.toLocaleString()} user{p.users === 1 ? '' : 's'}</span>
             </div>
             <dl className="adm-plan-limits">
-              <dt>Chatbot</dt><dd>{fmt(p.chat, 'messages', 'Off')}</dd>
-              <dt>Auto-fill</dt><dd>{fmt(p.autofill, 'words', 'Off')}</dd>
-              <dt>Course AI</dt><dd>{fmt(p.courseAi, 'times', 'Off')}</dd>
-              <dt>Sentence checks</dt><dd>{fmt(p.sentence, 'checks', 'Off')}</dd>
-              <dt>AI tokens</dt><dd>{fmt(p.tokens, 'tokens', 'No cap')}</dd>
+              {PLAN_FIELDS.map((x) => <div key={x.key}><dt>{x.label}</dt><dd className={p[x.key] === 0 ? 'muted' : ''}>{limitText(p[x.key], x.unit, x.off)}</dd></div>)}
             </dl>
             <span className="muted xs">per user, per day</span>
             <div className="adm-plan-foot">
               {!p.isDefault && <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => run(() => api.adminPatchPlan(p.id, { isDefault: true }), p.name + ' is now the default plan.')}>Make default</button>}
-              {!p.isDefault && <button className="btn btn-ghost btn-sm adm-bad" disabled={busy} onClick={() => setDel(p)}>Delete</button>}
-              <button className="btn btn-secondary btn-sm" onClick={() => setEdit(p.id)}><Icon name="edit" size="sm" />Edit</button>
+              {!p.isDefault && <button className="iconbtn sm danger" disabled={busy} onClick={() => setDel(p)} aria-label={'Delete ' + p.name} title="Delete"><Icon name="trash" size="sm" /></button>}
+              <button className="btn btn-secondary btn-sm" onClick={() => setModal(p)}><Icon name="edit" size="sm" />Edit</button>
             </div>
           </div>
         ))}
       </div>
+      {modal && <PlanModal plan={modal === 'new' ? undefined : modal} onSaved={setList} onClose={() => setModal(null)} />}
       {del && (
         <ConfirmDialog title={'Delete ' + del.name + '?'} confirm="Delete plan" danger busy={busy}
           text={del.users ? del.users + ' user' + (del.users === 1 ? '' : 's') + ' on this plan will move to the default plan.' : 'No users are on this plan.'}
@@ -432,31 +453,39 @@ function AuditLog() {
 
 function SuggestionRow({ x, onDone }: { x: AdminSuggestion; onDone: () => void }) {
   const { a } = useWB();
-  const [text, setText] = useState(x.sentence);
   const [edit, setEdit] = useState(false);
+  const [text, setText] = useState(x.sentence);
+  const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const act = async (fn: () => Promise<void>, ok: string) => {
-    setBusy(true);
-    try { await fn(); a.showToast(ok); onDone(); } catch (e) { a.showToast(errText(e), 'bad'); setBusy(false); }
+    setBusy(true); setErr('');
+    try { await fn(); a.showToast(ok); setEdit(false); onDone(); } catch (e) { const m = errText(e); if (edit) setErr(m); else a.showToast(m, 'bad'); setBusy(false); }
   };
+  const approve = (sentence?: string) => act(() => api.adminApproveSuggestion(x.id, sentence), 'Added to the sentence bank.');
   return (
     <li className="adm-sent">
       <div className="adm-sent-body">
         <span className="badge t-indigo">{x.word}</span>
-        {edit ? (
-          <textarea className="input" rows={2} value={text} maxLength={300} onChange={(e) => setText(e.target.value)} aria-label="Sentence" style={{ flex: 1 }} />
-        ) : (
-          <span className="sm">{x.sentence}{x.vi && <span className="muted xs" style={{ display: 'block' }}>{x.vi}</span>}</span>
-        )}
+        <span className="sm" style={{ flex: 1 }}>{x.sentence}{x.vi && <span className="muted xs" style={{ display: 'block' }}>{x.vi}</span>}</span>
       </div>
       <div className="adm-act" style={{ justifyContent: 'flex-end' }}>
         <span className="muted xs" style={{ marginRight: 'auto' }}>{fmtDay(x.at)}</span>
-        <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setEdit(!edit)}><Icon name="edit" size="sm" />{edit ? 'Cancel edit' : 'Edit'}</button>
+        <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setEdit(true)}><Icon name="edit" size="sm" />Edit</button>
         <button className="btn btn-ghost btn-sm adm-bad" disabled={busy} onClick={() => act(() => api.adminRejectSuggestion(x.id), 'Suggestion rejected.')}>Reject</button>
-        <button className="btn btn-primary btn-sm" disabled={busy || !text.trim()} onClick={() => act(() => api.adminApproveSuggestion(x.id, text.trim() !== x.sentence ? text.trim() : undefined), 'Added to the sentence bank.')}>
-          <Icon name="check" size="sm" />Add to bank
-        </button>
+        <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => approve()}><Icon name="check" size="sm" />Add to bank</button>
       </div>
+      {edit && (
+        <FormModal title={'Edit suggestion · ' + x.word} sub="Fix the sentence, then add it to the sentence bank." save="Add to bank" busy={busy}
+          onSave={() => { if (!text.trim()) { setErr('The sentence is empty.'); return; } approve(text.trim() !== x.sentence ? text.trim() : undefined); }}
+          onClose={() => { setEdit(false); setText(x.sentence); setErr(''); }}>
+          {err && <div className="formerr" role="alert"><Icon name="alert" size="sm" />{err}</div>}
+          <div className="field">
+            <label className="label" htmlFor={'sg-' + x.id}>Sentence</label>
+            <textarea id={'sg-' + x.id} className="input" rows={3} value={text} maxLength={300} onChange={(e) => setText(e.target.value)} autoFocus />
+            {x.vi && <span className="muted xs">{x.vi}</span>}
+          </div>
+        </FormModal>
+      )}
     </li>
   );
 }
@@ -559,10 +588,11 @@ function SentenceRow({ s, onSaved, onDeleted }: { s: AdminSentence; onSaved: (x:
   const { a } = useWB();
   const [edit, setEdit] = useState(false);
   const [f, setF] = useState({ sentence: s.sentence, verb: s.verb, base: s.base, tense: s.tense });
+  const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const save = async () => {
-    setBusy(true);
-    try { onSaved(await api.adminPatchSentence(s.id, f)); setEdit(false); a.showToast('Saved.'); } catch (e) { a.showToast(errText(e), 'bad'); } finally { setBusy(false); }
+    setBusy(true); setErr('');
+    try { onSaved(await api.adminPatchSentence(s.id, f)); setEdit(false); a.showToast('Saved.'); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   };
   const del = async () => {
     setBusy(true);
@@ -577,30 +607,38 @@ function SentenceRow({ s, onSaved, onDeleted }: { s: AdminSentence; onSaved: (x:
         <span className="badge pos">{s.context}</span>
         {s.level && <span className={'badge lv-' + s.level}>{s.level}</span>}
       </div>
-      {edit ? (
-        <div className="adm-form">
-          <textarea className="input" rows={2} value={f.sentence} aria-label="Sentence" onChange={(e) => setF({ ...f, sentence: e.target.value })} />
-          <div className="adm-form-row">
-            <input className="input" value={f.verb} aria-label="Verb phrase (as in the sentence)" placeholder="Verb phrase" onChange={(e) => setF({ ...f, verb: e.target.value })} />
-            <input className="input" value={f.base} aria-label="Base verb" placeholder="Base verb" onChange={(e) => setF({ ...f, base: e.target.value })} />
-            <select className="input" value={f.tense} aria-label="Tense" onChange={(e) => setF({ ...f, tense: e.target.value as Tense | '' })}>
+      <div className="adm-sent-body">
+        <span className="sm">{at < 0 ? s.sentence : <>{s.sentence.slice(0, at)}<mark className="sbk-verb">{s.verb}</mark>{s.sentence.slice(at + s.verb.length)}</>}</span>
+        <span className="adm-act">
+          <button className="iconbtn sm" onClick={() => { setF({ sentence: s.sentence, verb: s.verb, base: s.base, tense: s.tense }); setErr(''); setEdit(true); }} aria-label={'Edit: ' + s.sentence} title="Edit"><Icon name="edit" size="sm" /></button>
+          <button className="iconbtn sm danger" onClick={del} disabled={busy} aria-label={'Delete: ' + s.sentence} title="Delete"><Icon name="trash" size="sm" /></button>
+        </span>
+      </div>
+      {edit && (
+        <FormModal title={'Edit sentence · ' + s.word} save="Save" busy={busy} onSave={save} onClose={() => setEdit(false)}>
+          {err && <div className="formerr" role="alert"><Icon name="alert" size="sm" />{err}</div>}
+          <div className="field">
+            <label className="label" htmlFor={'sb-s-' + s.id}>Sentence</label>
+            <textarea id={'sb-s-' + s.id} className="input" rows={3} value={f.sentence} onChange={(e) => setF({ ...f, sentence: e.target.value })} autoFocus />
+          </div>
+          <div className="adm-grid2">
+            <div className="field">
+              <label className="label" htmlFor={'sb-v-' + s.id}>Verb phrase</label>
+              <input id={'sb-v-' + s.id} className="input" value={f.verb} placeholder="exactly as in the sentence" onChange={(e) => setF({ ...f, verb: e.target.value })} />
+            </div>
+            <div className="field">
+              <label className="label" htmlFor={'sb-b-' + s.id}>Base verb</label>
+              <input id={'sb-b-' + s.id} className="input" value={f.base} placeholder="e.g. assign" onChange={(e) => setF({ ...f, base: e.target.value })} />
+            </div>
+          </div>
+          <div className="field">
+            <label className="label" htmlFor={'sb-t-' + s.id}>Tense lesson</label>
+            <select id={'sb-t-' + s.id} className="input" value={f.tense} onChange={(e) => setF({ ...f, tense: e.target.value as Tense | '' })}>
               <option value="">No tense lesson</option>
               {TENSES.map((t) => <option key={t} value={t}>{TENSE_LABEL[t]}</option>)}
             </select>
           </div>
-          <div className="adm-act">
-            <button className="btn btn-primary btn-sm" disabled={busy} onClick={save}><Icon name="check" size="sm" />Save</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setEdit(false)}>Cancel</button>
-          </div>
-        </div>
-      ) : (
-        <div className="adm-sent-body">
-          <span className="sm">{at < 0 ? s.sentence : <>{s.sentence.slice(0, at)}<mark className="sbk-verb">{s.verb}</mark>{s.sentence.slice(at + s.verb.length)}</>}</span>
-          <span className="adm-act">
-            <button className="iconbtn sm" onClick={() => setEdit(true)} aria-label={'Edit: ' + s.sentence} title="Edit"><Icon name="edit" size="sm" /></button>
-            <button className="iconbtn sm danger" onClick={del} disabled={busy} aria-label={'Delete: ' + s.sentence} title="Delete"><Icon name="trash" size="sm" /></button>
-          </span>
-        </div>
+        </FormModal>
       )}
     </li>
   );
@@ -656,18 +694,34 @@ function LibraryRow({ w, onSaved, onDelete }: { w: AdminLibraryWord; onSaved: (x
   const { a } = useWB();
   const [edit, setEdit] = useState(false);
   const [f, setF] = useState(w);
+  const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const save = async () => {
-    setBusy(true);
+    if (!f.word.trim()) { setErr('Please enter the word.'); return; }
+    setBusy(true); setErr('');
     try {
       const { id: _id, authorName: _a, saves: _s, ...patch } = f;
       onSaved(await api.adminPatchLibrary(w.id, patch));
       setEdit(false);
       a.showToast('Saved “' + f.word + '”.');
-    } catch (e) { a.showToast(errText(e), 'bad'); } finally { setBusy(false); }
+    } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   };
-  if (!edit) {
-    return (
+  const field = (k: 'word' | 'ipa' | 'meaning' | 'vi' | 'ex', label: string, area = false) => (
+    <div className="field">
+      <label className="label" htmlFor={'lw-' + k + w.id}>{label}</label>
+      {area
+        ? <textarea id={'lw-' + k + w.id} className="input" rows={2} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
+        : <input id={'lw-' + k + w.id} className="input" value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} autoFocus={k === 'word'} />}
+    </div>
+  );
+  const pick = <K extends 'pos' | 'level' | 'topic'>(k: K, label: string, options: readonly string[]) => (
+    <div className="field">
+      <label className="label" htmlFor={'lw-' + k + w.id}>{label}</label>
+      <select id={'lw-' + k + w.id} className="input" value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value as AdminLibraryWord[K] })}>{options.map((x) => <option key={x}>{x}</option>)}</select>
+    </div>
+  );
+  return (
+    <>
       <div className="adm-row lib" role="row">
         <span role="cell" className="adm-main"><b>{w.word}</b><span className="muted xs">{w.ipa} · {w.pos}</span></span>
         <span role="cell" className="sm" lang="vi">{w.vi}</span>
@@ -675,35 +729,21 @@ function LibraryRow({ w, onSaved, onDelete }: { w: AdminLibraryWord; onSaved: (x
         <span role="cell" className="muted sm">{w.topic}</span>
         <span role="cell" className="muted sm">{w.saves}</span>
         <span role="cell" className="adm-act">
-          <button className="iconbtn sm" onClick={() => setEdit(true)} aria-label={'Edit ' + w.word} title="Edit"><Icon name="edit" size="sm" /></button>
+          <button className="iconbtn sm" onClick={() => { setF(w); setErr(''); setEdit(true); }} aria-label={'Edit ' + w.word} title="Edit"><Icon name="edit" size="sm" /></button>
           <button className="iconbtn sm danger" onClick={onDelete} aria-label={'Delete ' + w.word} title="Delete"><Icon name="trash" size="sm" /></button>
         </span>
       </div>
-    );
-  }
-  const field = (k: 'word' | 'ipa' | 'meaning' | 'vi' | 'ex', label: string, wide = false) => (
-    <label className={'adm-field' + (wide ? ' wide' : '')}><span className="label">{label}</span>
-      <input className="input" value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></label>
-  );
-  return (
-    <div className="adm-row lib editing" role="row">
-      <div className="adm-form" role="cell">
-        <div className="adm-form-row">
-          {field('word', 'Word')}{field('ipa', 'IPA')}
-          <label className="adm-field"><span className="label">Part of speech</span>
-            <select className="input" value={f.pos} onChange={(e) => setF({ ...f, pos: e.target.value })}>{POS_LIST.map((x) => <option key={x}>{x}</option>)}</select></label>
-          <label className="adm-field"><span className="label">Level</span>
-            <select className="input" value={f.level} onChange={(e) => setF({ ...f, level: e.target.value as AdminLibraryWord['level'] })}>{LEVELS.map((x) => <option key={x}>{x}</option>)}</select></label>
-          <label className="adm-field"><span className="label">Topic</span>
-            <select className="input" value={f.topic} onChange={(e) => setF({ ...f, topic: e.target.value as Topic })}>{TOPICS.map((x) => <option key={x}>{x}</option>)}</select></label>
-        </div>
-        {field('vi', 'Vietnamese', true)}{field('meaning', 'Meaning', true)}{field('ex', 'Example', true)}
-        <div className="adm-act">
-          <button className="btn btn-primary btn-sm" disabled={busy} onClick={save}><Icon name="check" size="sm" />Save</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => { setF(w); setEdit(false); }}>Cancel</button>
-        </div>
-      </div>
-    </div>
+      {edit && (
+        <FormModal title={'Edit “' + w.word + '”'} sub="Changes apply to the shared library for everyone." save="Save" busy={busy} onSave={save} onClose={() => setEdit(false)}>
+          {err && <div className="formerr" role="alert"><Icon name="alert" size="sm" />{err}</div>}
+          <div className="adm-grid2">{field('word', 'Word')}{field('ipa', 'IPA')}</div>
+          <div className="adm-grid3">{pick('pos', 'Part of speech', POS_LIST)}{pick('level', 'Level', LEVELS)}{pick('topic', 'Topic', TOPICS)}</div>
+          {field('vi', 'Vietnamese')}
+          {field('meaning', 'Meaning', true)}
+          {field('ex', 'Example', true)}
+        </FormModal>
+      )}
+    </>
   );
 }
 
