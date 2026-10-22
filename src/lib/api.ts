@@ -21,8 +21,15 @@ export interface AuditPage extends Paged<AuditEntry> {
   summary: { calls: number; failed: number; inTokens: number; outTokens: number; avgMs: number; users: number; byAction: { action: string; calls: number; failed: number; tokens: number }[] };
 }
 export interface AdminUser { id: string; name: string; email: string; role: 'user' | 'admin'; createdAt: number | null; words: number; courses: number; plan: string; tokensToday: number }
-export interface AdminPlan { id: string; name: string; isDefault: boolean; chat: number; autofill: number; courseAi: number; tokens: number; users: number }
-type PlanBody = { name: string; chat: number; autofill: number; courseAi: number; tokens: number };
+export interface AdminPlan { id: string; name: string; isDefault: boolean; chat: number; autofill: number; courseAi: number; sentence: number; tokens: number; users: number }
+type PlanBody = { name: string; chat: number; autofill: number; courseAi: number; sentence: number; tokens: number };
+export interface SentenceResult {
+  score: number; usesWord: boolean; meaningOk: boolean; natural: boolean;
+  mistakes: { type: string; wrong: string; fix: string; explainVi: string }[];
+  corrected: string; better: string; betterVi: string; feedbackVi: string;
+  lesson: { id: string; name: string; vi: string } | null;
+  quota: { used: number; limit: number };
+}
 export interface AdminCourse { id: string; title: string; ownerName: string; visibility: 'private' | 'public'; joinCode: string; totalDays: number; readyDays: number; members: number; pending: number; createdAt: number | null }
 export interface AdminSentence { id: string; wordId: string; word: string; form: string; sentence: string; context: string; level: string; topic: string; tense: Tense | ''; verb: string; base: string }
 export interface AdminLibraryWord { id: string; word: string; ipa: string; pos: string; meaning: string; vi: string; ex: string; level: Word['level']; topic: Topic; authorName: string; saves: number }
@@ -473,6 +480,9 @@ export const api = {
 
   createWord: (w: WordInput) => req<Word>('POST', '/words', w),
   updateWord: (id: string, w: Partial<WordInput>) => req<Word>('PATCH', '/words/' + id, w),
+  /** Practice → Write a sentence: AI grades a sentence with one of my words. */
+  checkSentence: (wordId: string, sentence: string) => req<SentenceResult>('POST', '/practice/sentence-check', { wordId, sentence }),
+  sentenceQuota: () => req<{ used: number; limit: number }>('GET', '/practice/sentence-check'),
   deleteWord: (id: string) => req<void>('DELETE', '/words/' + id),
   reviewWord: (id: string, rating: Rating, practice: boolean, day: string) =>
     req<{ word: Word; progress?: Progress }>('POST', '/words/' + id + '/review', { rating, practice, day }),

@@ -5,7 +5,7 @@ import { useWB, type PracticeMode } from '../state/WordbookContext';
 import { Icon, PageHead } from '../components/ui';
 
 /** The skill cards: a practice mode, or 'dictation' (opens the Dictation hub). */
-const MODES: [PracticeMode | 'flash' | 'dictation', string, string, IconName, string][] = [
+const MODES: [PracticeMode | 'flash' | 'dictation' | 'write', string, string, IconName, string][] = [
   ['flash', 'Flashcards', 'Review your words with flip cards.', 'cards', 't-indigo'],
   ['mc', 'Multiple Choice', 'Choose the right meaning for each word.', 'listcheck', 't-green'],
   ['fill', 'Fill in the Blank', 'Complete sentences with the missing word.', 'type', 't-orange'],
@@ -13,7 +13,8 @@ const MODES: [PracticeMode | 'flash' | 'dictation', string, string, IconName, st
   ['trans', 'Translation', 'Translate Vietnamese into English.', 'globe', 't-blue'],
   ['tense', 'Verb tenses', 'Put verbs in the right tense, in sentences with your words.', 'clock', 't-amber'],
   ['listen', 'Listening', 'Hear a word and type what you hear.', 'volume', 't-red'],
-  ['dictation', 'Dictation', 'Listen to sentences and type them — Nghe – chép.', 'headphones', 't-amber']
+  ['dictation', 'Dictation', 'Listen to sentences and type them — Nghe – chép.', 'headphones', 't-amber'],
+  ['write', 'Write a sentence', 'Use your words in your own sentences. AI scores them and fixes mistakes.', 'sparkle', 't-green']
 ];
 
 /** Word forms needs at least this many of my words with a usable word family. */
@@ -38,7 +39,7 @@ export function Practice() {
                 <p className="pnote sm" id={noteId}><Icon name="lock" size="sm" />Save words that have a word family first (look for “+N forms”).</p>
               )}
               <button className="btn btn-secondary" disabled={locked} aria-describedby={locked ? noteId : undefined}
-                onClick={() => (mode === 'dictation' ? a.go('dictation') : a.startPractice(mode))}>
+                onClick={() => (mode === 'dictation' ? a.go('dictation') : mode === 'write' ? a.go('writeSentence') : a.startPractice(mode))}>
                 Start<span className="c-sr"> {title.toLowerCase()}</span><Icon name="right" size="sm" />
               </button>
             </div>

@@ -1967,6 +1967,36 @@ button.tmini-row:hover{border-color:var(--primary)}
 .adm-row > :not(.adm-main):not(.adm-act){font-size:12.5px;color:var(--muted)}
 .adm-act{grid-column:1 / -1;justify-content:flex-start}
 }
+/* ---------- practice: write a sentence ---------- */
+.ws-card{max-width:720px;display:flex;flex-direction:column;gap:14px;padding:22px}
+.ws-top{display:flex;justify-content:space-between;gap:12px}
+.ws-word{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ws-word h2{margin:0;font-size:30px;letter-spacing:-.02em}
+.ws-vi{margin:-6px 0 0;color:var(--muted)}
+.ws-text{width:100%;min-height:96px;resize:vertical;font-size:16px;line-height:1.5}
+.ws-meta{display:flex;justify-content:space-between;margin-top:4px}
+.ws-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:6px}
+.ws-result{display:flex;flex-direction:column;gap:12px}
+.ws-score{display:inline-flex;align-items:baseline;gap:2px;align-self:flex-start;padding:6px 14px;border-radius:14px;font-weight:800}
+.ws-score b{font-size:34px;line-height:1}
+.ws-score span{font-size:15px;opacity:.75}
+.ws-score.good{background:var(--success-soft);color:var(--success)}
+.ws-score.ok{background:var(--warning-soft);color:var(--warning)}
+.ws-score.bad{background:var(--danger-soft);color:var(--danger)}
+.ws-mine{margin:0;font-size:16px;font-style:italic}
+.ws-fb{margin:0;padding:10px 12px;border-radius:var(--r-md);background:var(--surface2)}
+.ws-mistakes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.ws-mistakes li{display:flex;align-items:flex-start;gap:8px;font-size:14px}
+.ws-mistakes s{color:var(--danger)}
+.ws-line{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:start;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-md)}
+.ws-line .label{grid-column:1 / -1;margin:0;font-size:12px}
+.ws-line p{margin:0;font-size:15.5px}
+.ws-vi2{display:block;margin-top:2px}
+.ws-extra{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ws-good{display:inline-flex;align-items:center;gap:6px;color:var(--success);font-weight:700}
+.ws-bad{color:var(--danger)}
+.ws-done{align-items:center;text-align:center}
+.ws-done h2{margin:0}
 /* ---------- listening: chat + player ---------- */
 .lsdeck{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--r-lg);border:1px solid var(--border);background:var(--surface)}
 .lsbig{width:52px;height:52px;flex:none;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;background:var(--primary);color:var(--on-primary);cursor:pointer;box-shadow:0 6px 16px -6px color-mix(in srgb,var(--primary) 70%,transparent)}

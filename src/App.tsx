@@ -7,6 +7,7 @@ import { Vocabulary } from './pages/Vocabulary';
 import { VocabForm } from './pages/VocabForm';
 import { VocabDetail } from './pages/VocabDetail';
 import { Practice } from './pages/Practice';
+import { WriteSentence } from './pages/WriteSentence';
 import { Categories } from './pages/Categories';
 import { Tags } from './pages/Tags';
 import { Settings } from './pages/Settings';
@@ -84,6 +85,7 @@ function Page() {
     case 'edit': return <VocabForm />;
     case 'detail': return <VocabDetail />;
     case 'practice': return <Practice />;
+    case 'writeSentence': return <WriteSentence />;
     case 'dictation':
     case 'dictationPractice': return <DictationHub />;
     case 'categories': return <Categories />;

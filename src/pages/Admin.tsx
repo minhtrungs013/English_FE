@@ -131,14 +131,15 @@ function Courses() {
 
 /* ---------- plans (daily limits) ---------- */
 
-const PLAN_FIELDS: { key: 'chat' | 'autofill' | 'courseAi' | 'tokens'; label: string; hint: string }[] = [
+const PLAN_FIELDS: { key: 'chat' | 'autofill' | 'courseAi' | 'sentence' | 'tokens'; label: string; hint: string }[] = [
   { key: 'chat', label: 'Chatbot messages', hint: 'a day; 0 turns the chatbot off' },
   { key: 'autofill', label: 'Auto-fills', hint: 'a day (new words only); 0 turns it off' },
   { key: 'courseAi', label: 'Course AI', hint: 'generations a day; 0 turns it off' },
+  { key: 'sentence', label: 'Sentence checks', hint: 'a day (Write a sentence); 0 turns it off' },
   { key: 'tokens', label: 'AI tokens', hint: 'a day, all features together; 0 = no cap' }
 ];
-type PlanForm = { name: string; chat: string; autofill: string; courseAi: string; tokens: string };
-const toForm = (p?: AdminPlan): PlanForm => ({ name: p?.name ?? '', chat: String(p?.chat ?? 30), autofill: String(p?.autofill ?? 3), courseAi: String(p?.courseAi ?? 30), tokens: String(p?.tokens ?? 50000) });
+type PlanForm = { name: string; chat: string; autofill: string; courseAi: string; sentence: string; tokens: string };
+const toForm = (p?: AdminPlan): PlanForm => ({ name: p?.name ?? '', chat: String(p?.chat ?? 30), autofill: String(p?.autofill ?? 3), courseAi: String(p?.courseAi ?? 30), sentence: String(p?.sentence ?? 10), tokens: String(p?.tokens ?? 50000) });
 
 function PlanEditor({ plan, onSaved, onCancel }: { plan?: AdminPlan; onSaved: (list: AdminPlan[]) => void; onCancel: () => void }) {
   const { a } = useWB();
@@ -148,7 +149,7 @@ function PlanEditor({ plan, onSaved, onCancel }: { plan?: AdminPlan; onSaved: (l
     const nums = PLAN_FIELDS.map((x) => Number(f[x.key]));
     if (!f.name.trim()) { a.showToast('Please enter a plan name.', 'bad'); return; }
     if (nums.some((n) => !Number.isInteger(n) || n < 0)) { a.showToast('Limits must be whole numbers, 0 or more.', 'bad'); return; }
-    const body = { name: f.name.trim(), chat: nums[0], autofill: nums[1], courseAi: nums[2], tokens: nums[3] };
+    const body = { name: f.name.trim(), chat: nums[0], autofill: nums[1], courseAi: nums[2], sentence: nums[3], tokens: nums[4] };
     setBusy(true);
     try {
       onSaved(plan ? await api.adminPatchPlan(plan.id, body) : await api.adminCreatePlan(body));
@@ -215,6 +216,7 @@ function Plans() {
               <dt>Chatbot</dt><dd>{fmt(p.chat, 'messages', 'Off')}</dd>
               <dt>Auto-fill</dt><dd>{fmt(p.autofill, 'words', 'Off')}</dd>
               <dt>Course AI</dt><dd>{fmt(p.courseAi, 'times', 'Off')}</dd>
+              <dt>Sentence checks</dt><dd>{fmt(p.sentence, 'checks', 'Off')}</dd>
               <dt>AI tokens</dt><dd>{fmt(p.tokens, 'tokens', 'No cap')}</dd>
             </dl>
             <span className="muted xs">per user, per day</span>
@@ -327,7 +329,8 @@ const AUDIT_ACTIONS: { id: string; label: string }[] = [
   { id: 'lookup', label: 'Auto-fill' },
   { id: 'lookup-family', label: 'Word family' },
   { id: 'tense-questions', label: 'Tense questions' },
-  { id: 'dialogue', label: 'Listening dialogue' }
+  { id: 'dialogue', label: 'Listening dialogue' },
+  { id: 'sentence-check', label: 'Sentence check' }
 ];
 const actionLabel = (a: string) => AUDIT_ACTIONS.find((x) => x.id === a)?.label ?? a;
 const fmtTime = (t: number) => new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });

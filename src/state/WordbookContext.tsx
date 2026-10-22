@@ -12,7 +12,7 @@ import { cacheStyle, cachedStyle, isAppStyle, type AppStyle } from '../lib/appSt
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
 
 export type SettingsTab = 'account' | 'appearance' | 'learning' | 'voice' | 'notifications' | 'data';
-export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy' | 'notifications' | 'grammar' | 'grammarLesson' | 'grammarPractice' | 'dictation' | 'dictationPractice' | 'admin';
+export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'writeSentence' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy' | 'notifications' | 'grammar' | 'grammarLesson' | 'grammarPractice' | 'dictation' | 'dictationPractice' | 'admin';
 export type CourseTab = 'today' | 'map' | 'board' | 'members';
 /** A step of a course day in the study session. */
 export type StudyStep = 'review' | 'learn' | 'listen' | 'homework';
@@ -454,6 +454,11 @@ function useWordbookState() {
       set({ saving: false });
     }
   };
+  /** Saves a sentence as the word's example (Write a sentence). */
+  const setWordExample = async (id: string, ex: string) => {
+    const uw = await api.updateWord(id, { ex });
+    set((prev) => ({ words: prev.words.map((w) => (w.id === id ? uw : w)) }));
+  };
   const openEdit = (id: string) => {
     const w = ref.current.words.find((x) => x.id === id);
     if (!w) return;
@@ -739,7 +744,7 @@ function useWordbookState() {
     set, go, showToast, inSession,
     startReview, startDue, exitSession, flip, rate,
     startPractice, pUpdate, pPick, pCheck, pNext,
-    setF, addChip, generate, save, openEdit, goNew, formCancel,
+    setF, addChip, generate, save, openEdit, goNew, formCancel, setWordExample,
     askDeleteWord, confirmModal, submitModal, patchModal,
     exportData, setSettings, setStyle, setFilters, showWordsWith, reload: load, login, register, verifyRegister, resetPassword, logout, saveFromLibrary, shareWord, learnCourseDay, saveCourseWords, openCourse, openStudy,
     openGrammar, startGrammarPractice, exitGrammarPractice,
