@@ -471,6 +471,7 @@ export const api = {
   adminAudit: (f: { q: string; action: string; status: string; days: number; page: number }) => req<AuditPage>('GET', '/admin/audit?' + query(f)),
   adminUsers: (q: string, page: number) => req<Paged<AdminUser>>('GET', '/admin/users?' + query({ q, page })),
   adminSetRole: (id: string, role: 'user' | 'admin') => req<{ id: string; role: string }>('PATCH', '/admin/users/' + id, { role }),
+  adminDeleteUser: (id: string) => req<void>('DELETE', '/admin/users/' + id),
   adminSetUserPlan: (id: string, plan: string) => req<void>('PATCH', '/admin/users/' + id + '/plan', { plan }),
   adminPlans: () => req<AdminPlan[]>('GET', '/admin/plans'),
   adminCreatePlan: (p: PlanBody) => req<AdminPlan[]>('POST', '/admin/plans', p),

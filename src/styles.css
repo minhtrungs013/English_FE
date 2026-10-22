@@ -1918,7 +1918,16 @@ button.tmini-row:hover{border-color:var(--primary)}
 .adm-row{display:grid;grid-template-columns:minmax(220px,2.4fr) 90px 80px 90px 120px minmax(150px,auto);gap:10px;align-items:center;padding:10px 14px;border-top:1px solid var(--border);font-size:14px}
 .adm-row:first-child{border-top:none}
 .adm-row.head{background:var(--surface2);font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
-.adm-row.users{grid-template-columns:minmax(170px,2fr) 50px 60px 96px 140px 120px minmax(150px,auto)}
+.adm-row.usr{grid-template-columns:minmax(220px,2.2fr) 120px minmax(150px,1.2fr) 70px 70px 110px 84px;column-gap:16px}
+.adm-row.usr .num{text-align:right}
+.adm-main.usr-who{flex-direction:row;align-items:center;gap:10px}
+.usr-av{flex-shrink:0;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--primary-soft);color:var(--primary-ink);font-weight:800}
+.usr-id{display:flex;flex-direction:column;min-width:0}
+.usr-id > *{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.usr-tok{display:flex;flex-direction:column;gap:2px}
+.usr-opts{display:flex;flex-direction:column;gap:8px}
+.usr-opt{align-items:flex-start}
+.usr-opt-t{display:flex;flex-direction:column;gap:2px}
 .adm-sel{width:100%;height:34px;padding:0 6px;font-size:13px}
 .adm-meter{display:block;height:4px;margin-top:5px;border-radius:2px;background:var(--surface3);overflow:hidden}
 .adm-meter i{display:block;height:100%;background:var(--primary)}
@@ -1993,7 +2002,7 @@ button.tmini-row:hover{border-color:var(--primary)}
 .adm-tiles + .adm-table,.adm-chips + .adm-table{margin-top:12px}
 .adm-tools + .adm-tiles{margin-top:4px}
 @container (max-width: 760px){
-.adm-row,.adm-row.users,.adm-row.lib,.adm-row.audit{grid-template-columns:1fr auto;row-gap:4px}
+.adm-row,.adm-row.usr,.adm-row.lib,.adm-row.audit{grid-template-columns:1fr auto;row-gap:4px}
 .adm-row.head{display:none}
 .adm-row > :not(.adm-main):not(.adm-act){font-size:12.5px;color:var(--muted)}
 .adm-act{grid-column:1 / -1;justify-content:flex-start}

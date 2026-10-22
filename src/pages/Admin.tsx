@@ -264,32 +264,22 @@ function Plans() {
 function Users() {
   const { s, a } = useWB();
   const p = usePaged<AdminUser>((q, page) => api.adminUsers(q, page));
-  const [confirm, setConfirm] = useState<AdminUser | null>(null);
-  const [busy, setBusy] = useState(false);
   const [plans, setPlans] = useState<AdminPlan[]>([]);
+  const [edit, setEdit] = useState<AdminUser | null>(null);
+  const [del, setDel] = useState<AdminUser | null>(null);
+  const [busy, setBusy] = useState(false);
   useEffect(() => { api.adminPlans().then(setPlans).catch(() => setPlans([])); }, []);
   const def = plans.find((x) => x.isDefault);
-  const setPlan = async (u: AdminUser, plan: string) => {
-    try {
-      await api.adminSetUserPlan(u.id, plan);
-      p.setData((d) => d && { ...d, items: d.items.map((x) => (x.id === u.id ? { ...x, plan } : x)) });
-      a.showToast(u.name + ' is now on ' + (plans.find((x) => x.id === plan)?.name ?? def?.name ?? 'the default plan') + '.');
-    } catch (e) { a.showToast(errText(e), 'bad'); }
-  };
-  const tokenCap = (u: AdminUser) => (plans.find((x) => x.id === u.plan) ?? def)?.tokens ?? 0;
-  const setRole = async (u: AdminUser) => {
+  const planOf = (u: AdminUser) => plans.find((x) => x.id === u.plan) ?? def;
+  const patchRow = (id: string, patch: Partial<AdminUser>) => p.setData((d) => d && { ...d, items: d.items.map((x) => (x.id === id ? { ...x, ...patch } : x)) });
+  const remove = async (u: AdminUser) => {
     setBusy(true);
     try {
-      const role = u.role === 'admin' ? 'user' : 'admin';
-      await api.adminSetRole(u.id, role);
-      p.setData((d) => d && { ...d, items: d.items.map((x) => (x.id === u.id ? { ...x, role } : x)) });
-      a.showToast(u.name + (role === 'admin' ? ' is now an admin.' : ' is no longer an admin.'));
-      setConfirm(null);
-    } catch (e) {
-      a.showToast(errText(e), 'bad');
-    } finally {
-      setBusy(false);
-    }
+      await api.adminDeleteUser(u.id);
+      p.setData((d) => d && { ...d, total: d.total - 1, items: d.items.filter((x) => x.id !== u.id) });
+      a.showToast('Deleted ' + u.name + '’s account.');
+      setDel(null);
+    } catch (e) { a.showToast(errText(e), 'bad'); } finally { setBusy(false); }
   };
   return (
     <>
@@ -297,50 +287,99 @@ function Users() {
       {p.err ? <EmptyState icon="alert" tint="t-red" title="Can’t load users" text={p.err} /> : !p.data ? <div className="sk" style={{ height: 200 }} /> : (
         <>
           <div className="adm-table" role="table" aria-label="Users">
-            <div className="adm-row head users" role="row">
-              <span role="columnheader">User</span><span role="columnheader">Words</span><span role="columnheader">Courses</span><span role="columnheader">Joined</span>
-              <span role="columnheader">Plan</span><span role="columnheader">AI tokens today</span><span role="columnheader">Role</span>
+            <div className="adm-row head usr" role="row">
+              <span role="columnheader">User</span><span role="columnheader">Plan</span><span role="columnheader">AI tokens today</span>
+              <span role="columnheader" className="num">Words</span><span role="columnheader" className="num">Courses</span>
+              <span role="columnheader">Joined</span><span role="columnheader" className="c-sr">Actions</span>
             </div>
-            {p.data.items.map((u) => (
-              <div key={u.id} className="adm-row users" role="row">
-                <span role="cell" className="adm-main"><b>{u.name}</b><span className="muted xs">{u.email}</span></span>
-                <span role="cell">{u.words}</span>
-                <span role="cell">{u.courses}</span>
-                <span role="cell" className="muted sm">{fmtDay(u.createdAt)}</span>
-                <span role="cell">
-                  <select className="input adm-sel" value={plans.some((x) => x.id === u.plan) ? u.plan : ''} onChange={(e) => setPlan(u, e.target.value)} aria-label={'Plan for ' + u.name}>
-                    <option value="">{def ? def.name + ' (default)' : 'Default'}</option>
-                    {plans.filter((x) => !x.isDefault).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-                  </select>
-                </span>
-                <span role="cell" className="sm">
-                  {u.tokensToday.toLocaleString()}{tokenCap(u) ? <span className="muted"> / {tokenCap(u).toLocaleString()}</span> : null}
-                  {tokenCap(u) > 0 && (
-                    <span className="adm-meter" aria-hidden="true"><i className={u.tokensToday >= tokenCap(u) ? 'full' : ''} style={{ width: Math.min(100, (u.tokensToday / tokenCap(u)) * 100) + '%' }} /></span>
-                  )}
-                </span>
-                <span role="cell" className="adm-act">
-                  {u.role === 'admin' ? <span className="badge t-indigo">Admin</span> : <span className="muted sm">Learner</span>}
-                  {u.id !== s.userId && (
-                    <button className="btn btn-ghost btn-sm" onClick={() => setConfirm(u)}>{u.role === 'admin' ? 'Remove admin' : 'Make admin'}</button>
-                  )}
-                </span>
-              </div>
-            ))}
+            {p.data.items.map((u) => {
+              const pl = planOf(u);
+              const cap = pl?.tokens ?? 0;
+              const me = u.id === s.userId;
+              return (
+                <div key={u.id} className="adm-row usr" role="row">
+                  <span role="cell" className="adm-main usr-who">
+                    <span className="usr-av" aria-hidden="true">{(u.name || u.email).charAt(0).toUpperCase()}</span>
+                    <span className="usr-id">
+                      <b>{u.name}{me && <span className="muted xs"> (you)</span>}</b>
+                      <span className="muted xs">{u.email}</span>
+                    </span>
+                    {u.role === 'admin' && <span className="badge t-indigo">Admin</span>}
+                  </span>
+                  <span role="cell"><span className={'badge ' + (pl?.isDefault ? 'pos' : 't-green')}>{pl?.name ?? 'Default'}</span></span>
+                  <span role="cell" className="sm usr-tok">
+                    <span>{u.tokensToday.toLocaleString()}{cap ? <span className="muted"> / {cap.toLocaleString()}</span> : <span className="muted"> · no cap</span>}</span>
+                    {cap > 0 && <span className="adm-meter" aria-hidden="true"><i className={u.tokensToday >= cap ? 'full' : ''} style={{ width: Math.min(100, (u.tokensToday / cap) * 100) + '%' }} /></span>}
+                  </span>
+                  <span role="cell" className="num">{u.words}</span>
+                  <span role="cell" className="num">{u.courses}</span>
+                  <span role="cell" className="muted sm">{fmtDay(u.createdAt)}</span>
+                  <span role="cell" className="adm-act">
+                    <button className="iconbtn sm" onClick={() => setEdit(u)} aria-label={'Edit ' + u.name} title="Edit plan and role"><Icon name="edit" size="sm" /></button>
+                    <button className="iconbtn sm danger" onClick={() => setDel(u)} disabled={me || u.role === 'admin'} aria-label={'Delete ' + u.name}
+                      title={me ? 'You can’t delete your own account here' : u.role === 'admin' ? 'Remove the admin role first' : 'Delete account'}><Icon name="trash" size="sm" /></button>
+                  </span>
+                </div>
+              );
+            })}
           </div>
           <Pager page={p.page} pages={p.data.pages} total={p.data.total} onPage={p.setPage} />
         </>
       )}
-      {confirm && (
-        <ConfirmDialog
-          title={confirm.role === 'admin' ? 'Remove admin role?' : 'Make admin?'}
-          text={confirm.role === 'admin'
-            ? confirm.name + ' will no longer be able to create or edit courses or use this page.'
-            : confirm.name + ' (' + confirm.email + ') will be able to create and edit every course, manage users, the sentence bank and the library.'}
-          confirm={confirm.role === 'admin' ? 'Remove admin' : 'Make admin'} danger={confirm.role === 'admin'} busy={busy}
-          onConfirm={() => setRole(confirm)} onClose={() => setConfirm(null)} />
+      {edit && <UserModal u={edit} me={edit.id === s.userId} plans={plans} onSaved={(patch) => { patchRow(edit.id, patch); setEdit(null); }} onClose={() => setEdit(null)} />}
+      {del && (
+        <ConfirmDialog title={'Delete ' + del.name + '’s account?'} confirm="Delete account" danger busy={busy}
+          text={del.email + ' and everything it owns — words, progress, homework, sentences — will be deleted for good. This can’t be undone.'}
+          onConfirm={() => remove(del)} onClose={() => setDel(null)} />
       )}
     </>
+  );
+}
+
+/** Edit a user's plan and role. */
+function UserModal({ u, me, plans, onSaved, onClose }: { u: AdminUser; me: boolean; plans: AdminPlan[]; onSaved: (patch: Partial<AdminUser>) => void; onClose: () => void }) {
+  const { a } = useWB();
+  const valid = plans.some((x) => x.id === u.plan) ? u.plan : '';
+  const [plan, setPlan] = useState(valid);
+  const [role, setRole] = useState<'user' | 'admin'>(u.role);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const def = plans.find((x) => x.isDefault);
+  const save = async () => {
+    setBusy(true); setErr('');
+    try {
+      if (plan !== valid) await api.adminSetUserPlan(u.id, plan);
+      if (role !== u.role) await api.adminSetRole(u.id, role);
+      a.showToast('Saved ' + u.name + '.');
+      onSaved({ plan, role });
+    } catch (e) { setErr(errText(e)); setBusy(false); }
+  };
+  return (
+    <FormModal title={u.name} sub={u.email} save="Save" busy={busy} onSave={save} onClose={onClose}>
+      {err && <div className="formerr" role="alert"><Icon name="alert" size="sm" />{err}</div>}
+      <div className="field">
+        <span className="label" id="um-plan">Plan</span>
+        <div className="usr-opts" role="radiogroup" aria-labelledby="um-plan">
+          {[{ id: '', p: def }, ...plans.filter((x) => !x.isDefault).map((x) => ({ id: x.id, p: x }))].map(({ id, p }) => (
+            <label key={id || 'default'} className={'radio usr-opt' + (plan === id ? ' on' : '')}>
+              <input type="radio" name="um-plan" checked={plan === id} onChange={() => setPlan(id)} />
+              <span className="usr-opt-t">
+                <b>{p?.name ?? 'Default'}{id === '' && <span className="muted xs"> · default</span>}</b>
+                {p && <span className="hint">{p.chat} chat · {p.autofill} auto-fill · {p.sentence} sentence checks · {p.tokens ? p.tokens.toLocaleString() + ' tokens' : 'no token cap'} a day</span>}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="field">
+        <span className="label" id="um-role">Role</span>
+        <div className="seg" role="group" aria-labelledby="um-role" style={{ alignSelf: 'flex-start' }}>
+          <button type="button" className={role === 'user' ? 'on' : ''} aria-pressed={role === 'user'} disabled={me} onClick={() => setRole('user')}>Learner</button>
+          <button type="button" className={role === 'admin' ? 'on' : ''} aria-pressed={role === 'admin'} onClick={() => setRole('admin')}>Admin</button>
+        </div>
+        <span className="hint">{me ? 'You can’t remove your own admin role.' : role === 'admin' ? 'Admins create and edit every course, and manage users, plans, the sentence bank and the library.' : 'Learners use the app; they can’t open this page.'}</span>
+      </div>
+    </FormModal>
   );
 }
 
