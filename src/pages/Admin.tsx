@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { api, type AdminPlan, type AuditEntry, type AuditPage, type AdminCourse, type AdminLibraryWord, type AdminSentence, type AdminStats, type AdminUser, type Paged, type Tense, type Topic } from '../lib/api';
+import { api, type AdminInsights, type AdminSuggestion, type AdminPlan, type AuditEntry, type AuditPage, type AdminCourse, type AdminLibraryWord, type AdminSentence, type AdminStats, type AdminUser, type Paged, type Tense, type Topic } from '../lib/api';
 import { LEVELS, POS_LIST } from '../lib/data';
 import { EmptyState, Icon, PageHead } from '../components/ui';
 import { useWB } from '../state/WordbookContext';
 import { ConfirmDialog, CreateCourse, errText } from './Courses';
 import { TENSE_LABEL, TENSES } from './CourseQuestions';
 
-type Tab = 'overview' | 'courses' | 'users' | 'plans' | 'sentences' | 'library' | 'audit';
+type Tab = 'overview' | 'courses' | 'users' | 'plans' | 'sentences' | 'library' | 'insights' | 'audit';
 const TABS: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name'] }[] = [
   { id: 'overview', label: 'Overview', icon: 'grid' },
   { id: 'courses', label: 'Courses', icon: 'cap' },
@@ -14,6 +14,7 @@ const TABS: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name'] }
   { id: 'plans', label: 'Plans', icon: 'layers' },
   { id: 'sentences', label: 'Sentence bank', icon: 'layers' },
   { id: 'library', label: 'Library', icon: 'globe' },
+  { id: 'insights', label: 'Insights', icon: 'alert' },
   { id: 'audit', label: 'Audit log', icon: 'sparkle' }
 ];
 const TAB_KEY = 'wordbook:adminTab';
@@ -330,7 +331,8 @@ const AUDIT_ACTIONS: { id: string; label: string }[] = [
   { id: 'lookup-family', label: 'Word family' },
   { id: 'tense-questions', label: 'Tense questions' },
   { id: 'dialogue', label: 'Listening dialogue' },
-  { id: 'sentence-check', label: 'Sentence check' }
+  { id: 'sentence-check', label: 'Sentence check' },
+  { id: 'homework-sentence', label: 'Homework sentence' }
 ];
 const actionLabel = (a: string) => AUDIT_ACTIONS.find((x) => x.id === a)?.label ?? a;
 const fmtTime = (t: number) => new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -426,6 +428,131 @@ function AuditLog() {
   );
 }
 
+/* ---------- sentence suggestions (AI examples from Write a sentence) ---------- */
+
+function SuggestionRow({ x, onDone }: { x: AdminSuggestion; onDone: () => void }) {
+  const { a } = useWB();
+  const [text, setText] = useState(x.sentence);
+  const [edit, setEdit] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const act = async (fn: () => Promise<void>, ok: string) => {
+    setBusy(true);
+    try { await fn(); a.showToast(ok); onDone(); } catch (e) { a.showToast(errText(e), 'bad'); setBusy(false); }
+  };
+  return (
+    <li className="adm-sent">
+      <div className="adm-sent-body">
+        <span className="badge t-indigo">{x.word}</span>
+        {edit ? (
+          <textarea className="input" rows={2} value={text} maxLength={300} onChange={(e) => setText(e.target.value)} aria-label="Sentence" style={{ flex: 1 }} />
+        ) : (
+          <span className="sm">{x.sentence}{x.vi && <span className="muted xs" style={{ display: 'block' }}>{x.vi}</span>}</span>
+        )}
+      </div>
+      <div className="adm-act" style={{ justifyContent: 'flex-end' }}>
+        <span className="muted xs" style={{ marginRight: 'auto' }}>{fmtDay(x.at)}</span>
+        <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setEdit(!edit)}><Icon name="edit" size="sm" />{edit ? 'Cancel edit' : 'Edit'}</button>
+        <button className="btn btn-ghost btn-sm adm-bad" disabled={busy} onClick={() => act(() => api.adminRejectSuggestion(x.id), 'Suggestion rejected.')}>Reject</button>
+        <button className="btn btn-primary btn-sm" disabled={busy || !text.trim()} onClick={() => act(() => api.adminApproveSuggestion(x.id, text.trim() !== x.sentence ? text.trim() : undefined), 'Added to the sentence bank.')}>
+          <Icon name="check" size="sm" />Add to bank
+        </button>
+      </div>
+    </li>
+  );
+}
+
+function Suggestions() {
+  const p = usePaged<AdminSuggestion>((q, page) => api.adminSuggestions(q, page));
+  return (
+    <>
+      <Search value={p.q} onChange={p.setQ} placeholder="Search a word or part of a sentence">
+        <span className="muted sm">AI example sentences for library words, from learners’ Write a sentence checks. Learners’ own sentences are never shown here.</span>
+      </Search>
+      {p.err ? <EmptyState icon="alert" tint="t-red" title="Can’t load suggestions" text={p.err} /> : !p.data ? <div className="sk" style={{ height: 200 }} /> : !p.data.items.length ? (
+        <EmptyState icon="check" tint="t-green" title="Nothing to review" text="New suggestions appear here when learners check sentences with library words." />
+      ) : (
+        <>
+          <ul className="adm-sents">
+            {p.data.items.map((x) => <SuggestionRow key={x.id} x={x} onDone={() => p.setData((d) => d && { ...d, total: d.total - 1, items: d.items.filter((y) => y.id !== x.id) })} />)}
+          </ul>
+          <Pager page={p.page} pages={p.data.pages} total={p.data.total} onPage={p.setPage} />
+        </>
+      )}
+    </>
+  );
+}
+
+/* ---------- insights: what learners get wrong ---------- */
+
+const KIND_LABEL: Record<string, string> = {
+  tense: 'Tense', agreement: 'Subject–verb', article: 'Article (a/an/the)', preposition: 'Preposition', 'word-form': 'Word form',
+  'word-meaning': 'Word meaning', collocation: 'Collocation', 'word-order': 'Word order', spelling: 'Spelling', punctuation: 'Punctuation', other: 'Other'
+};
+
+function Insights({ onTab }: { onTab: (t: Tab) => void }) {
+  const [days, setDays] = useState(30);
+  const [d, setD] = useState<AdminInsights | null>(null);
+  const [err, setErr] = useState('');
+  useEffect(() => { setD(null); api.adminInsights(days).then(setD).catch((e) => setErr(errText(e))); }, [days]);
+  if (err) return <EmptyState icon="alert" tint="t-red" title="Can’t load insights" text={err} />;
+  const max = d?.byType[0]?.count ?? 1;
+  return (
+    <>
+      <div className="adm-tools">
+        <span className="muted sm">From learners’ sentences in Write a sentence and course homework.</span>
+        <div className="seg" role="group" aria-label="Period" style={{ marginLeft: 'auto' }}>
+          {[7, 30, 90].map((n) => <button key={n} className={days === n ? 'on' : ''} aria-pressed={days === n} onClick={() => setDays(n)}>{n}d</button>)}
+        </div>
+      </div>
+      {!d ? <div className="sk" style={{ height: 240 }} /> : (
+        <>
+          <div className="adm-tiles">
+            <div className="adm-tile"><span className="adm-tval">{d.attempts.toLocaleString()}</span><span className="adm-tlabel">Sentences checked</span><span className="muted xs">{d.practice} practice · {d.homework} homework</span></div>
+            <div className="adm-tile"><span className="adm-tval">{d.users}</span><span className="adm-tlabel">Learners</span><span className="muted xs">wrote at least one</span></div>
+            <div className="adm-tile"><span className="adm-tval">{d.avg ?? '—'}</span><span className="adm-tlabel">Average score</span><span className="muted xs">out of 10</span></div>
+            <button className={'adm-tile' + (d.pendingSuggestions ? ' warn' : '')} onClick={() => onTab('sentences')}>
+              <span className="adm-tval">{d.pendingSuggestions}</span><span className="adm-tlabel">Suggestions to review</span><span className="muted xs">AI examples for the sentence bank</span>
+            </button>
+          </div>
+          <div className="adm-ins">
+            <div className="card mk-card">
+              <h3 className="adm-h3">Most common mistakes</h3>
+              {!d.byType.length ? <p className="muted sm">No mistakes in this period.</p> : (
+                <ul className="adm-bars">
+                  {d.byType.map((t) => (
+                    <li key={t.type}>
+                      <span className="adm-bars-l">{KIND_LABEL[t.type] ?? t.type}</span>
+                      <span className="adm-bars-t" aria-hidden="true"><i style={{ width: Math.max(2, (t.count / max) * 100) + '%' }} /></span>
+                      <span className="adm-bars-v">{t.count}<span className="muted xs"> · {t.users} learner{t.users === 1 ? '' : 's'}</span></span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="card mk-card">
+              <h3 className="adm-h3">Hardest words</h3>
+              <p className="muted xs" style={{ margin: '0 0 8px' }}>Lowest average score, words written at least twice.</p>
+              {!d.hardWords.length ? <p className="muted sm">Not enough sentences yet.</p> : (
+                <div className="adm-table" role="table" aria-label="Hardest words">
+                  <div className="adm-row head hard" role="row"><span role="columnheader">Word</span><span role="columnheader">Avg</span><span role="columnheader">Sentences</span><span role="columnheader">Mistakes</span></div>
+                  {d.hardWords.map((w) => (
+                    <div key={w.word} className="adm-row hard" role="row">
+                      <span role="cell" className="adm-main"><b>{w.word}</b></span>
+                      <span role="cell"><span className={'mk-score ' + (w.avg >= 9 ? 'good' : w.avg >= 6 ? 'ok' : 'bad')} style={{ marginLeft: 0 }}>{w.avg}</span></span>
+                      <span role="cell">{w.attempts}</span>
+                      <span role="cell">{w.mistakes}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
 /* ---------- sentence bank ---------- */
 
 function SentenceRow({ s, onSaved, onDeleted }: { s: AdminSentence; onSaved: (x: AdminSentence) => void; onDeleted: () => void }) {
@@ -479,7 +606,23 @@ function SentenceRow({ s, onSaved, onDeleted }: { s: AdminSentence; onSaved: (x:
   );
 }
 
+/** The sentence bank, and the AI suggestions waiting to be added to it. */
 function Sentences() {
+  const [view, setView] = useState<'bank' | 'suggestions'>('bank');
+  const [pending, setPending] = useState<number | null>(null);
+  useEffect(() => { api.adminSuggestions('', 1).then((r) => setPending(r.total)).catch(() => setPending(null)); }, [view]);
+  return (
+    <>
+      <div className="seg" role="group" aria-label="Sentence bank view" style={{ marginBottom: 12 }}>
+        <button className={view === 'bank' ? 'on' : ''} aria-pressed={view === 'bank'} onClick={() => setView('bank')}>Sentence bank</button>
+        <button className={view === 'suggestions' ? 'on' : ''} aria-pressed={view === 'suggestions'} onClick={() => setView('suggestions')}>Suggestions{pending ? ' (' + pending + ')' : ''}</button>
+      </div>
+      {view === 'bank' ? <SentenceBank /> : <Suggestions />}
+    </>
+  );
+}
+
+function SentenceBank() {
   const [tense, setTense] = useState('');
   const p = usePaged<AdminSentence>((q, page) => api.adminSentences(q, tense, page), [tense]);
   return (
@@ -627,6 +770,7 @@ export function AdminPage() {
         {tab === 'plans' && <Plans />}
         {tab === 'sentences' && <Sentences />}
         {tab === 'library' && <Library />}
+        {tab === 'insights' && <Insights onTab={setTab} />}
         {tab === 'audit' && <AuditLog />}
       </div>
     </>

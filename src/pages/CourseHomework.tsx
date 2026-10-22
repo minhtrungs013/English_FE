@@ -50,7 +50,8 @@ export const ASK: Record<HomeworkQuestion['type'], string> = {
   tense: 'Put the verb in the right tense',
   tenseChoice: 'Choose the right verb form',
   dictation: 'Listen and type the sentence',
-  wordform: 'Use the right form of the word'
+  wordform: 'Use the right form of the word',
+  sentence: 'Write your own sentence with the word'
 };
 
 /** Questions whose prompt is a sentence with a gap ("_____" for blank, "___" for tense and word-form ones). */
@@ -96,6 +97,29 @@ function Kicker({ q, children }: { q: HomeworkQuestion; children: ReactNode }) {
   );
 }
 
+/** A graded "Write a sentence": my sentence, the AI's score, mistakes, corrected version and an example. */
+function SentenceReview({ q }: { q: HomeworkResult['review'][number] }) {
+  const f = q.ai;
+  return (
+    <>
+      <div className="hwrprompt">{q.prompt}</div>
+      <div className="hwans">
+        <span className="c-sr">{q.correct ? 'Passed.' : 'Not passed.'}</span>
+        <span>Your sentence: <b className={q.correct ? 'hw-ok' : 'hw-no'}>{q.yourAnswer || '(no answer)'}</b></span>
+        {f && f.score !== null && <span className={'mk-score ' + (f.score >= 9 ? 'good' : f.score >= 6 ? 'ok' : 'bad')} style={{ marginLeft: 0 }}>{f.score}/10</span>}
+      </div>
+      {f?.feedbackVi && <div className="ws-fb sm" lang="vi">{f.feedbackVi}</div>}
+      {!!f?.mistakes.length && (
+        <ul className="ws-mistakes">
+          {f.mistakes.map((m, k) => <li key={k}><span className="badge t-red">{m.type}</span><span><s>{m.wrong}</s> → <b>{m.fix}</b>{m.explainVi ? <span className="muted"> · {m.explainVi}</span> : null}</span></li>)}
+        </ul>
+      )}
+      {f?.corrected && f.corrected !== q.yourAnswer.trim() && <div className="sm"><span className="muted">Corrected: </span><b>{f.corrected}</b></div>}
+      <div className="sm"><span className="muted">Example: </span>{f?.better || q.answer}</div>
+    </>
+  );
+}
+
 function HomeworkReviewList({ r }: { r: HomeworkResult }) {
   return (
     <ol className="hwrev" aria-label="Your answers">
@@ -108,7 +132,9 @@ function HomeworkReviewList({ r }: { r: HomeworkResult }) {
               <PosHint q={q} />
               {q.review && <span className="badge t-amber">Review</span>}
             </div>
-            {q.type === 'dictation' ? (
+            {q.type === 'sentence' ? (
+              <SentenceReview q={q} />
+            ) : q.type === 'dictation' ? (
               <>
                 <div className="hwans">
                   <span className="c-sr">{q.correct ? 'Correct.' : 'Wrong.'}</span>
@@ -265,7 +291,7 @@ export function HomeworkSection({ c, day, onSubmitted, embedded, bare, onClose }
   useEffect(() => {
     if (phase !== 'taking' || !q) return;
     if (q.choices.length) qHead.current?.focus();
-    else if (q.type === 'dictation') area.current?.focus();
+    else if (q.type === 'dictation' || q.type === 'sentence') area.current?.focus();
     else input.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, i]);
@@ -379,6 +405,13 @@ export function HomeworkSection({ c, day, onSubmitted, embedded, bare, onClose }
                 ))}
               </div>
               <span className="keyhint">Press <span className="kbd">1</span>–<span className="kbd">{q.choices.length}</span> to choose, <span className="kbd">Enter</span> for next</span>
+            </>
+          ) : q.type === 'sentence' ? (
+            <>
+              <textarea ref={area} className="input dc-in" rows={3} placeholder={'Write a sentence with this word…'} value={answer} aria-labelledby={'hwq-' + day.day}
+                maxLength={300} onChange={(ev) => setAnswer(ev.target.value)}
+                onKeyDown={(ev) => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); next(); } }} />
+              <span className="keyhint">AI scores your sentence when you hand in (7/10 or more counts as correct). <span className="kbd">Enter</span> for next</span>
             </>
           ) : (
             <input ref={input} className="input input-lg" placeholder="Type your answer…" value={answer} aria-labelledby={'hwq-' + day.day}

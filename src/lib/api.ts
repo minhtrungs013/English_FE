@@ -23,6 +23,20 @@ export interface AuditPage extends Paged<AuditEntry> {
 export interface AdminUser { id: string; name: string; email: string; role: 'user' | 'admin'; createdAt: number | null; words: number; courses: number; plan: string; tokensToday: number }
 export interface AdminPlan { id: string; name: string; isDefault: boolean; chat: number; autofill: number; courseAi: number; sentence: number; tokens: number; users: number }
 type PlanBody = { name: string; chat: number; autofill: number; courseAi: number; sentence: number; tokens: number };
+export interface MistakeItem { type: string; wrong: string; fix: string; explainVi: string }
+export interface MistakeNotebook {
+  attempts: number; avg: number | null; withMistakes: number; drillable: number;
+  byType: { type: string; count: number; last7: number; prev7: number }[];
+  weeks: { week: number; attempts: number; avg: number | null; mistakes: number }[];
+  recent: { id: string; at: number; word: string; sentence: string; corrected: string; score: number; source: string; mistakes: MistakeItem[] }[];
+}
+export interface MistakeDrill { id: string; word: string; type: string; prompt: string; choices: string[]; answer: string; wrong: string; explainVi: string; sentence: string }
+export interface AdminSuggestion { id: string; word: string; sentence: string; vi: string; at: number }
+export interface AdminInsights {
+  attempts: number; users: number; avg: number | null; withMistakes: number; practice: number; homework: number; pendingSuggestions: number;
+  byType: { type: string; count: number; users: number }[];
+  hardWords: { word: string; attempts: number; avg: number; mistakes: number }[];
+}
 export interface SentenceResult {
   score: number; usesWord: boolean; meaningOk: boolean; natural: boolean;
   mistakes: { type: string; wrong: string; fix: string; explainVi: string }[];
@@ -158,7 +172,9 @@ export interface CourseLearnResult extends CourseSaveResult { course: CourseDeta
  * dictation: listen to a sentence (the device speaks `audio`) and type it ·
  * wordform: type the right form of the word in brackets ("The ___ (decide) was made."); hint = the part of speech ("noun").
  */
-export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice' | 'dictation' | 'wordform';
+export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice' | 'dictation' | 'wordform' | 'sentence';
+/** A homework "Write a sentence" answer graded by AI (score null: AI wasn't available, a basic check was used). */
+export interface SentenceFeedback { score: number | null; corrected: string; better: string; feedbackVi: string; mistakes: { type: string; wrong: string; fix: string; explainVi: string }[] }
 export interface HomeworkQuestion {
   type: HomeworkType;
   /** A word from an earlier day. */
@@ -170,6 +186,8 @@ export interface HomeworkQuestion {
   audio?: string;
 }
 export interface HomeworkReview extends HomeworkQuestion {
+  /** "Write a sentence" questions: the AI's grade. */
+  ai?: SentenceFeedback | null;
   yourAnswer: string; answer: string; correct: boolean;
   /** Tense questions only ('' otherwise); explain is in Vietnamese. */
   tense?: string; tenseLabel?: string; explain?: string;
@@ -483,6 +501,12 @@ export const api = {
   /** Practice → Write a sentence: AI grades a sentence with one of my words. */
   checkSentence: (wordId: string, sentence: string) => req<SentenceResult>('POST', '/practice/sentence-check', { wordId, sentence }),
   sentenceQuota: () => req<{ used: number; limit: number }>('GET', '/practice/sentence-check'),
+  mistakes: (type = '') => req<MistakeNotebook>('GET', '/practice/mistakes?' + query({ type })),
+  mistakeDrill: (type = '') => req<{ items: MistakeDrill[] }>('GET', '/practice/mistakes/drill?' + query({ type, n: 10 })),
+  adminSuggestions: (q: string, page: number) => req<Paged<AdminSuggestion>>('GET', '/admin/suggestions?' + query({ q, page })),
+  adminApproveSuggestion: (id: string, sentence?: string) => req<void>('POST', '/admin/suggestions/' + id + '/approve', sentence ? { sentence } : {}),
+  adminRejectSuggestion: (id: string) => req<void>('POST', '/admin/suggestions/' + id + '/reject'),
+  adminInsights: (days: number) => req<AdminInsights>('GET', '/admin/insights?' + query({ days })),
   deleteWord: (id: string) => req<void>('DELETE', '/words/' + id),
   reviewWord: (id: string, rating: Rating, practice: boolean, day: string) =>
     req<{ word: Word; progress?: Progress }>('POST', '/words/' + id + '/review', { rating, practice, day }),

@@ -16,7 +16,7 @@ function useInitial() {
 const isVocabish = (r: Route) => r === 'vocab' || r === 'new' || r === 'detail' || r === 'edit';
 const isCoursish = (r: Route) => r === 'courses' || r === 'course' || r === 'courseEdit' || r === 'courseStudy';
 // Pages under Practice (the Practice nav item stays highlighted).
-const isDictationish = (r: Route) => r === 'dictation' || r === 'dictationPractice' || r === 'writeSentence';
+const isDictationish = (r: Route) => r === 'dictation' || r === 'dictationPractice' || r === 'writeSentence' || r === 'mistakes';
 const isGrammarish = (r: Route) => r === 'grammar' || r === 'grammarLesson' || r === 'grammarPractice';
 
 export function Sidebar() {

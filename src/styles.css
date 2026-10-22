@@ -1997,6 +1997,48 @@ button.tmini-row:hover{border-color:var(--primary)}
 .ws-bad{color:var(--danger)}
 .ws-done{align-items:center;text-align:center}
 .ws-done h2{margin:0}
+/* ---------- practice: my mistakes ---------- */
+.mk-card{margin-top:14px;padding:18px}
+.mk-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.mk-head h3{margin:0;font-size:16px}
+.mk-chart{margin:0}
+.mk-plot{position:relative;height:150px;margin:10px 0 6px 22px}
+.mk-grid{position:absolute;left:0;right:0;border-top:1px solid var(--border)}
+.mk-grid i{position:absolute;left:-22px;top:-8px;font-size:11px;font-style:normal;color:var(--faint)}
+.mk-bars{position:absolute;inset:0;display:flex;align-items:flex-end;gap:2px}
+.mk-col{position:relative;flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center}
+.mk-bar{display:block;width:min(36px,70%);background:var(--primary);border-radius:4px 4px 0 0}
+.mk-tip{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);padding:4px 8px;border-radius:6px;background:var(--text);color:var(--surface);font-size:12px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s}
+.mk-col:hover .mk-tip{opacity:1}
+.mk-x{display:flex;gap:2px;margin-left:22px}
+.mk-x span{flex:1;text-align:center;font-size:11px;color:var(--muted)}
+.mk-list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.mk-item{display:flex;flex-direction:column;gap:8px;padding:14px 16px}
+.mk-item-top{display:flex;align-items:center;gap:10px}
+.mk-score{margin-left:auto;padding:2px 8px;border-radius:7px;font-size:12.5px;font-weight:800}
+.mk-score.good{background:var(--success-soft);color:var(--success)}
+.mk-score.ok{background:var(--warning-soft);color:var(--warning)}
+.mk-score.bad{background:var(--danger-soft);color:var(--danger)}
+.mk-wrong{margin:0;color:var(--muted);text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--danger) 60%,transparent)}
+.mk-right{margin:0;display:flex;gap:6px;align-items:flex-start;font-weight:600;color:var(--success)}
+.mk-q{margin:0;font-size:19px;line-height:1.6}
+.mk-gap{display:inline-block;min-width:70px;padding:0 6px;border-bottom:2px solid var(--primary);text-align:center;font-weight:800}
+.mk-gap.ok{color:var(--success);border-color:var(--success)}
+.mk-gap.bad{color:var(--danger);border-color:var(--danger)}
+.mk-choices{display:flex;flex-wrap:wrap;gap:10px}
+.mk-choice{min-height:44px;padding:0 18px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);font:inherit;font-weight:700;color:inherit;cursor:pointer}
+.mk-choice:not(:disabled):hover{border-color:var(--primary)}
+.mk-choice.ok{border-color:var(--success);background:var(--success-soft);color:var(--success)}
+.mk-choice.bad{border-color:var(--danger);background:var(--danger-soft);color:var(--danger)}
+.mk-choice:disabled{cursor:default}
+.adm-ins{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.adm-h3{margin:0 0 10px;font-size:16px}
+.adm-bars{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.adm-bars li{display:grid;grid-template-columns:140px 1fr auto;gap:10px;align-items:center;font-size:13.5px}
+.adm-bars-t{height:10px;border-radius:5px;background:var(--surface2);overflow:hidden}
+.adm-bars-t i{display:block;height:100%;background:var(--primary);border-radius:0 4px 4px 0}
+.adm-bars-v{font-weight:700;white-space:nowrap}
+.adm-row.hard{grid-template-columns:minmax(120px,1fr) 70px 90px 90px}
 /* ---------- listening: chat + player ---------- */
 .lsdeck{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--r-lg);border:1px solid var(--border);background:var(--surface)}
 .lsbig{width:52px;height:52px;flex:none;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;background:var(--primary);color:var(--on-primary);cursor:pointer;box-shadow:0 6px 16px -6px color-mix(in srgb,var(--primary) 70%,transparent)}

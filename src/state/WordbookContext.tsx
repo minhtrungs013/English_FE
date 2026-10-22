@@ -12,7 +12,7 @@ import { cacheStyle, cachedStyle, isAppStyle, type AppStyle } from '../lib/appSt
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
 
 export type SettingsTab = 'account' | 'appearance' | 'learning' | 'voice' | 'notifications' | 'data';
-export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'writeSentence' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy' | 'notifications' | 'grammar' | 'grammarLesson' | 'grammarPractice' | 'dictation' | 'dictationPractice' | 'admin';
+export type Route = 'dashboard' | 'library' | 'vocab' | 'new' | 'edit' | 'detail' | 'practice' | 'writeSentence' | 'mistakes' | 'categories' | 'tags' | 'settings' | 'review' | 'courses' | 'course' | 'courseEdit' | 'courseStudy' | 'notifications' | 'grammar' | 'grammarLesson' | 'grammarPractice' | 'dictation' | 'dictationPractice' | 'admin';
 export type CourseTab = 'today' | 'map' | 'board' | 'members';
 /** A step of a course day in the study session. */
 export type StudyStep = 'review' | 'learn' | 'listen' | 'homework';

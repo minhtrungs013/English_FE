@@ -82,6 +82,7 @@ export function WriteSentence() {
           <p className="muted">{scores.length ? 'You checked ' + scores.length + ' sentence' + (scores.length === 1 ? '' : 's') + ' · average score ' + avg + '/10' : 'You skipped every word this time.'}</p>
           <div className="ws-actions">
             <button className="btn btn-secondary" onClick={() => a.go('practice')}>Back to Practice</button>
+            <button className="btn btn-secondary" onClick={() => a.go('mistakes')}>My mistakes</button>
             <button className="btn btn-primary" onClick={() => { setRound(pickRound(s.words)); setI(0); setScores([]); }}>New round</button>
           </div>
         </div>
