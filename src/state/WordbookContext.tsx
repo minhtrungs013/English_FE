@@ -7,6 +7,7 @@ import type { IconName } from '../lib/icons';
 import { api, ApiError, getToken, setToken, setUnauthorizedHandler, type AuthResponse, type CourseDetail, type CourseSaveResult, type GrammarView, type LibraryWord, type Note, type Topic } from '../lib/api';
 import { stopSpeaking } from '../lib/speech';
 import { buildWordform, normalizeAnswer } from '../lib/wordform';
+import { pathOf, routeOf } from '../lib/routes';
 import { cacheStyle, cachedStyle, isAppStyle, type AppStyle } from '../lib/appStyle';
 
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
@@ -92,12 +93,15 @@ function errMsg(e: unknown): string {
 }
 
 function initialState(): State {
+  // Open the page in the URL (reload, shared link).
+  const fromUrl = typeof window !== 'undefined' ? routeOf(window.location.pathname, window.location.search) : {};
   return {
     ...EMPTY_DATA, status: getToken() ? 'loading' : 'auth', loadError: '', saving: false,
     route: 'dashboard', prevRoute: 'dashboard', sel: null, rail: false,
     filters: NO_FILTERS, menu: null, notif: false, account: false,
     form: emptyForm(), editForm: emptyForm(), formErr: '', aiBusy: false, aiStep: 0,
-    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: '', courseTab: '', settingsTab: 'account', study: null, unread: 0, grammarId: '', grammarVerb: '', grammarPractice: null, dictation: null
+    review: null, practice: null, modal: null, toast: null, chart: '7', libraryQ: '', courseId: '', courseTab: '', settingsTab: 'account', study: null, unread: 0, grammarId: '', grammarVerb: '', grammarPractice: null, dictation: null,
+    ...fromUrl
   };
 }
 
@@ -109,6 +113,21 @@ function useWordbookState() {
 
   const set = (p: Partial<State> | ((prev: State) => Partial<State>)) =>
     setS((prev) => ({ ...prev, ...(typeof p === 'function' ? p(prev) : p) }));
+
+  // Keep the URL in step with the page (a new history entry per page), and follow Back / Forward.
+  const path = pathOf(s);
+  useEffect(() => {
+    const now = window.location.pathname + window.location.search;
+    if (now !== path) window.history.pushState(null, '', path);
+  }, [path]);
+  useEffect(() => {
+    const onPop = () => setS((prev) => ({
+      ...prev, review: null, practice: null, study: null, grammarPractice: null, dictation: null, menu: null, modal: null,
+      courseTab: '', sel: null, ...routeOf(window.location.pathname, window.location.search)
+    }));
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   const load = async () => {
     set({ status: 'loading', loadError: '' });
