@@ -124,7 +124,7 @@ export function WarmupSection({ c, day, embedded, onDone, onClose }: {
 
   let body: ReactNode;
   if (phase === 'quiz' && q) {
-    const fill = checked ? (ok ? answer.trim() : q.answer) : q.type === 'tenseChoice' ? '' : answer.trim();
+    const fill = checked ? (ok ? answer.trim() : q.answer) : q.choices.length ? '' : answer.trim();
     body = (
       <>
         <div className="hwbar">

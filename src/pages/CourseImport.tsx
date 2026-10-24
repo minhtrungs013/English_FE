@@ -12,6 +12,17 @@ const MAX_FILE = 1024 * 1024;
 
 /* ---------- templates ---------- */
 
+/** Verbs get tense rows; other words (leg, careful…) get word rows, where the blank is the word itself. No part of speech: a verb. */
+const isVerb = (pos: string) => !pos.trim() || /\bverb\b|^v\.?$/i.test(pos.trim());
+
+/** An example sentence for a word row, by part of speech (the answer is the word). */
+function wordSample(w: string, pos: string): string {
+  if (/adj/i.test(pos)) return 'The new design looks really ___.';
+  if (/adv/i.test(pos)) return 'She explained the problem ___.';
+  if (/noun|^n\.?$/i.test(pos)) return 'Please check the ___ before the meeting.';
+  return 'Write a sentence with ___ where “' + w + '” goes.';
+}
+
 /** An example sentence for each tense, to be replaced by the owner. */
 const SAMPLE: Record<Tense, (w: string) => string> = {
   'present-simple': (w) => 'Every Monday our team ___ (' + w + ') the weekly report.',
@@ -24,15 +35,36 @@ const SAMPLE: Record<Tense, (w: string) => string> = {
 };
 type TemplateRow = Record<string, string>;
 
-/** perWord rows for each word (typed and multiple choice in turn), cycling the chosen tenses; with a day column for the whole course. */
-function templateRows(entries: { day?: number; word: string }[], perWord: number, tenses: Tense[]): TemplateRow[] {
+type Entry = { day?: number; word: string; pos: string; vi: string };
+
+/**
+ * perWord rows for each word, typed and multiple choice in turn; with a day column for the whole course.
+ * Verbs: tense rows cycling the chosen tenses. Other words: word rows (the blank is the word, the answer starts as the word).
+ */
+function templateRows(entries: Entry[], perWord: number, tenses: Tense[]): TemplateRow[] {
   const blank = { answer: '', choice1: '', choice2: '', choice3: '', choice4: '', accept: '', explain: '' };
   const ts = tenses.length ? tenses : TENSES;
   let k = 0;
-  return entries.flatMap(({ day, word }) => Array.from({ length: perWord }, (_, i) => {
+  return entries.flatMap(({ day, word, pos }) => Array.from({ length: perWord }, (_, i) => {
+    const d: TemplateRow = day ? { day: String(day) } : {};
+    if (!isVerb(pos)) return { ...d, type: i % 2 ? 'word-multi' : 'word', word, tense: '', sentence: wordSample(word, pos), ...blank, answer: word };
     const tense = ts[k++ % ts.length];
-    return { ...(day ? { day: String(day) } : {}), type: i % 2 ? 'multi' : 'typed', word, tense, sentence: SAMPLE[tense](word), ...blank };
+    return { ...d, type: i % 2 ? 'multi' : 'typed', word, tense, sentence: SAMPLE[tense](word), ...blank };
   }));
+}
+
+/** The JSON template: the rules (for a person or an AI filling it in), the words, and the rows to fill. */
+function templateJson(entries: Entry[], rows: TemplateRow[], course: string): string {
+  return JSON.stringify({
+    _task: 'Fill in every item and return this JSON with the same items (keep "type", "word" and "day"). Use natural workplace English (A2–B1). '
+      + 'typed / multi: a verb tense question — the sentence has exactly one ___ followed by the base verb in brackets, e.g. "Yesterday we ___ (deploy) the hotfix."; answer = the verb in that tense ("deployed"). '
+      + 'word / word-multi: the blank is the word itself — exactly one ___ and NO brackets, e.g. "My ___ hurts after the long run."; answer = the word in the form the sentence uses ("legs"). '
+      + 'multi / word-multi: choice1–choice4 = 4 different options, one of them the answer (for word-multi, take the wrong options from the other words of the same day). '
+      + 'accept: other right answers separated by |, or empty. explain: a short explanation in Vietnamese. tense: keep it for typed / multi, empty for word rows.',
+    course,
+    words: entries.map((e) => ({ ...(e.day ? { day: e.day } : {}), word: e.word, pos: e.pos, vi: e.vi })),
+    items: rows
+  }, null, 2) + '\n';
 }
 
 const csvCell = (v: string) => (/[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v);
@@ -140,16 +172,27 @@ function fromJson(text: string): Parsed[] {
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
 const strList = (v: unknown) => (Array.isArray(v) ? v.map(str).filter(Boolean) : str(v) ? str(v).split('|').map((x) => x.trim()).filter(Boolean) : []);
 
-interface View { day: number | null; kind: 'typed' | 'multi' | ''; word: string; tense: string; sentence: string; answer: string; choices: string[]; accept: string[] }
+type ViewKind = 'typed' | 'multi' | 'word' | 'word-multi' | '';
+interface View { day: number | null; kind: ViewKind; word: string; tense: string; sentence: string; answer: string; choices: string[]; accept: string[] }
 
 function viewOf(r: ImportRow): View {
   const t = str(r.kind ?? r.type).toLowerCase();
-  const kind = ['tense', 'typed', 'type'].includes(t) ? 'typed' : ['tensechoice', 'multi', 'choice', 'mc', 'multiple'].includes(t) ? 'multi' : '';
+  const kind: ViewKind = ['tense', 'typed', 'type'].includes(t) ? 'typed' : ['tensechoice', 'multi', 'choice', 'mc', 'multiple'].includes(t) ? 'multi'
+    : ['word', 'word-typed', 'wordfill', 'word-fill'].includes(t) ? 'word' : ['word-multi', 'wordmulti', 'word-choice', 'wordfillchoice'].includes(t) ? 'word-multi' : '';
+  const multi = kind === 'multi' || kind === 'word-multi';
   const answer = str(r.answer);
-  const choices = kind !== 'multi' ? [] : Array.isArray(r.choices) ? strList(r.choices) : [r.choice1, r.choice2, r.choice3, r.choice4].map(str).filter(Boolean);
-  if (kind === 'multi' && choices.length === 3 && answer && !choices.includes(answer)) choices.push(answer);
+  const choices = !multi ? [] : Array.isArray(r.choices) ? strList(r.choices) : [r.choice1, r.choice2, r.choice3, r.choice4].map(str).filter(Boolean);
+  if (multi && choices.length === 3 && answer && !choices.includes(answer)) choices.push(answer);
   const d = Number(str(r.day));
   return { day: Number.isInteger(d) && d > 0 ? d : null, kind, word: str(r.word), tense: str(r.tense), sentence: str(r.prompt ?? r.sentence), answer, choices, accept: strList(r.accept) };
+}
+
+/** The server's check: the answer is the word or a form of it (short words: at least the same first letter). */
+function formOf(answer: string, word: string): boolean {
+  const s = ' ' + answer.toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ') + ' ';
+  const w = word.toLowerCase().trim();
+  if (w.includes(' ')) return s.includes(' ' + w.split(' ')[0]);
+  return w.length <= 4 ? answer.trim().toLowerCase().startsWith(w[0]) : s.includes(' ' + w.slice(0, Math.max(4, w.length - 2)));
 }
 
 function problemOf(v: View, wordsByDay: Map<number, Map<string, string>>, day: number, course: boolean): string {
@@ -157,13 +200,16 @@ function problemOf(v: View, wordsByDay: Map<number, Map<string, string>>, day: n
   if (course && !v.day) return 'The day is missing (1–' + Math.max(...wordsByDay.keys(), 30) + ').';
   const words = d ? wordsByDay.get(d) : undefined;
   if (!words || !words.size) return 'Day ' + d + ' has no words yet.';
-  if (!v.kind) return 'Type must be “typed” or “multi”.';
+  if (!v.kind) return 'Type must be “typed” or “multi” (verb tense), or “word” or “word-multi” (the blank is the word).';
   if (!v.word) return 'The word is empty.';
   if (!words.has(v.word.toLowerCase())) return '“' + v.word + '” isn’t one of day ' + d + '’s words.';
-  if (v.tense && !(TENSES as string[]).includes(v.tense)) return 'Unknown tense “' + v.tense + '”.';
+  const wordRow = v.kind === 'word' || v.kind === 'word-multi';
+  if (!wordRow && v.tense && !(TENSES as string[]).includes(v.tense)) return 'Unknown tense “' + v.tense + '”.';
   if ((v.sentence.match(/___/g) ?? []).length !== 1) return 'The sentence needs exactly one blank (___).';
   if (!v.answer) return 'The answer is empty.';
-  if (v.kind === 'multi' && (new Set(v.choices.map((x) => x.toLowerCase())).size !== 4 || !v.choices.includes(v.answer))) {
+  if (wordRow && /___\s*\([^)]*\)/.test(v.sentence)) return 'A word row has no hint in brackets after ___ — the blank is the word itself.';
+  if (wordRow && !formOf(v.answer, v.word)) return 'The answer must be “' + v.word + '” (or a form of it), not “' + v.answer + '”.';
+  if ((v.kind === 'multi' || v.kind === 'word-multi') && (new Set(v.choices.map((x) => x.toLowerCase())).size !== 4 || !v.choices.includes(v.answer))) {
     return 'Needs 4 different choices, one of them the answer.';
   }
   if (v.sentence.length > 1500 || v.answer.length > 80 || v.choices.some((x) => x.length > 80)) return 'Text is too long.';
@@ -195,7 +241,9 @@ export function ImportQuestions({ c, day, words, perWord, tenses, onImported, on
   const course = scope === 'course';
   const wordsByDay = new Map(c.days.map((d) => [d.day, new Map((d.words ?? []).map((w) => [w.word.toLowerCase(), w.word]))]));
   if (!course) wordsByDay.set(day, new Map(words.map((w) => [w.toLowerCase(), w])));
-  const courseEntries = c.days.flatMap((d) => (d.words ?? []).map((w) => ({ day: d.day, word: w.word })));
+  const courseEntries: Entry[] = c.days.flatMap((d) => (d.words ?? []).map((w) => ({ day: d.day, word: w.word, pos: w.pos ?? '', vi: w.vi ?? '' })));
+  const dayInfo = new Map((c.days.find((d) => d.day === day)?.words ?? []).map((w) => [w.word.toLowerCase(), w]));
+  const dayEntries: Entry[] = words.map((w) => ({ word: w, pos: dayInfo.get(w.toLowerCase())?.pos ?? '', vi: dayInfo.get(w.toLowerCase())?.vi ?? '' }));
   const daysWithWords = new Set(courseEntries.map((x) => x.day)).size;
 
   const switchScope = (s: 'day' | 'course') => { setScope(s); setLines(null); setFile(''); setParseErr(''); setResult(''); };
@@ -271,7 +319,9 @@ export function ImportQuestions({ c, day, words, perWord, tenses, onImported, on
   };
 
   const fname = course ? 'course-questions' : 'day-' + day + '-questions';
-  const rows = course ? templateRows(courseEntries, perWord, tenses) : templateRows(words.map((w) => ({ word: w })), perWord, tenses);
+  const entries = course ? courseEntries : dayEntries;
+  const rows = templateRows(entries, perWord, tenses);
+  const wordRows = entries.filter((e) => !isVerb(e.pos)).length;
   const count = course ? courseEntries.length : words.length;
   return (
     <Dialog label={course ? 'Import questions for the whole course' : 'Import questions for day ' + day} onClose={onClose} wide className="impmodal">
@@ -289,13 +339,15 @@ export function ImportQuestions({ c, day, words, perWord, tenses, onImported, on
         <span className="hint">
           {perWord} example {perWord === 1 ? 'row' : 'rows'} for each of the {course ? 'course’s' : 'day’s'} {count} {count === 1 ? 'word' : 'words'}
           {' '}({rows.length} rows; typed and multiple choice in turn, using the tenses you picked){course ? ', with a day column' : ''} — replace the sentences and fill in the answers.
+          {wordRows > 0 && <> {wordRows} {wordRows === 1 ? 'word isn’t a verb' : 'words aren’t verbs'}, so {wordRows === 1 ? 'it gets' : 'they get'} <code>word</code> rows: the blank is the word itself.</>}
+          {' '}The JSON template also has the rules and the words, ready to hand to an AI.
           Change “Questions per word” and the tenses above to get a different template.
         </span>
         <div className="actions">
           <button className="btn btn-secondary btn-sm" onClick={() => download(fname + '.csv', templateCsv(rows, course), 'text/csv;charset=utf-8')} autoFocus>
             <Icon name="download" size="sm" />Download CSV template
           </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => download(fname + '.json', JSON.stringify(rows, null, 2) + '\n', 'application/json')}>
+          <button className="btn btn-ghost btn-sm" onClick={() => download(fname + '.json', templateJson(entries, rows, c.title), 'application/json')}>
             <Icon name="download" size="sm" />Download JSON template
           </button>
         </div>
@@ -303,12 +355,12 @@ export function ImportQuestions({ c, day, words, perWord, tenses, onImported, on
           <summary>What goes in each column</summary>
           <ul>
             {course && <li><b>day</b> — the course day (1–{c.days.length}); the word must be one of that day’s words.</li>}
-            <li><b>type</b> — <code>typed</code> (learners type the verb) or <code>multi</code> (4 choices).</li>
+            <li><b>type</b> — verb tense: <code>typed</code> (learners type the verb) or <code>multi</code> (4 choices). The word itself is the blank (nouns, adjectives… like <i>leg</i>): <code>word</code> (typed) or <code>word-multi</code> (4 choices).</li>
             <li><b>word</b> — {course ? 'one of that day’s words.' : <>one of this day’s words: {words.join(', ')}.</>}</li>
-            <li><b>tense</b> — optional: {TENSES.join(', ')}.</li>
-            <li><b>sentence</b> — exactly one <code>___</code>; for typed, put the base verb in brackets after it: <i>We ___ (deploy) it yesterday.</i></li>
-            <li><b>answer</b> — the right form, e.g. <i>deployed</i>.</li>
-            <li><b>choice1–choice4</b> — multi only: 4 different choices, one of them the answer.</li>
+            <li><b>tense</b> — optional, verb tense rows only: {TENSES.join(', ')}.</li>
+            <li><b>sentence</b> — exactly one <code>___</code>; for typed, put the base verb in brackets after it: <i>We ___ (deploy) it yesterday.</i> For word rows, no brackets: <i>My ___ hurts after the run.</i></li>
+            <li><b>answer</b> — the right form, e.g. <i>deployed</i>; for word rows the word in the form used, e.g. <i>legs</i>.</li>
+            <li><b>choice1–choice4</b> — multi and word-multi only: 4 different choices, one of them the answer (for word-multi, other words of the day make good wrong choices).</li>
             <li><b>accept</b> — optional other right answers, separated by <code>|</code>.</li>
             <li><b>explain</b> — optional explanation in Vietnamese.</li>
           </ul>

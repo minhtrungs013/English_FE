@@ -170,9 +170,10 @@ export interface CourseLearnResult extends CourseSaveResult { course: CourseDeta
  * type: type the word for the meaning · blank: type the word missing from the sentence ("_____") ·
  * tense: type the verb in brackets in the right tense ("___ (deploy)") · tenseChoice: pick the right verb form ·
  * dictation: listen to a sentence (the device speaks `audio`) and type it ·
- * wordform: type the right form of the word in brackets ("The ___ (decide) was made."); hint = the part of speech ("noun").
+ * wordform: type the right form of the word in brackets ("The ___ (decide) was made."); hint = the part of speech ("noun") ·
+ * wordFill: type the course word missing from the sentence ("My ___ hurts.", any form: legs) · wordFillChoice: the same with 4 choices.
  */
-export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice' | 'dictation' | 'wordform' | 'sentence';
+export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice' | 'dictation' | 'wordform' | 'sentence' | 'wordFill' | 'wordFillChoice';
 /** A homework "Write a sentence" answer graded by AI (score null: AI wasn't available, a basic check was used). */
 export interface SentenceFeedback { score: number | null; corrected: string; better: string; feedbackVi: string; mistakes: { type: string; wrong: string; fix: string; explainVi: string }[] }
 export interface HomeworkQuestion {
@@ -227,10 +228,15 @@ export const TENSES: readonly Tense[] = ['present-simple', 'present-continuous',
 export const isTense = (t: unknown): t is Tense => typeof t === 'string' && (TENSES as readonly string[]).includes(t);
 /**
  * tense: typed — the sentence has one "___" and the base verb in brackets ("Yesterday we ___ (deploy) the hotfix.") ·
- * tenseChoice: the same with 4 choices · recap: a short story using earlier days' words (explain = its Vietnamese translation) ·
+ * tenseChoice: the same with 4 choices · wordFill: the blank is the word itself, no brackets ("My ___ hurts.", answer "leg") ·
+ * wordFillChoice: the same with 4 choices · recap: a short story using earlier days' words (explain = its Vietnamese translation) ·
  * dialogue: a listening dialogue (data; prompt = its title, explain = its scenario).
  */
-export type BankKind = 'tense' | 'tenseChoice' | 'recap' | 'dialogue';
+export type BankKind = 'tense' | 'tenseChoice' | 'wordFill' | 'wordFillChoice' | 'recap' | 'dialogue';
+/** Bank kinds that are questions (not the recap story or a dialogue). */
+export type QuestionKind = 'tense' | 'tenseChoice' | 'wordFill' | 'wordFillChoice';
+export const isChoiceKind = (k: string) => k === 'tenseChoice' || k === 'wordFillChoice';
+export const isWordKind = (k: string) => k === 'wordFill' || k === 'wordFillChoice';
 export type BankStatus = 'pending' | 'approved' | 'rejected';
 export interface BankItem {
   id: string; day: number; kind: BankKind; word: string; tense: Tense | ''; tenseLabel: string;
@@ -246,7 +252,7 @@ export interface BankGenerateResult { source: 'ai' | 'template' | 'course'; aiPr
 /** Other courses' approved tense questions for one of the day's words. */
 export interface ReuseWord {
   word: string;
-  items: { id: string; kind: 'tense' | 'tenseChoice'; tense: string; tenseLabel: string; prompt: string; answer: string; choices: string[]; explain: string; course: string }[];
+  items: { id: string; kind: QuestionKind; tense: string; tenseLabel: string; prompt: string; answer: string; choices: string[]; explain: string; course: string }[];
 }
 /**
  * One row of a question import (CSV columns or JSON keys). type: 'typed' | 'multi' · word: one of the day's words ·

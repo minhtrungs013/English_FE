@@ -51,11 +51,14 @@ export const ASK: Record<HomeworkQuestion['type'], string> = {
   tenseChoice: 'Choose the right verb form',
   dictation: 'Listen and type the sentence',
   wordform: 'Use the right form of the word',
-  sentence: 'Write your own sentence with the word'
+  sentence: 'Write your own sentence with the word',
+  wordFill: 'Fill in the missing word',
+  wordFillChoice: 'Choose the missing word'
 };
 
 /** Questions whose prompt is a sentence with a gap ("_____" for blank, "___" for tense and word-form ones). */
-export const isSentence = (t: HomeworkQuestion['type']) => t === 'blank' || t === 'tense' || t === 'tenseChoice' || t === 'wordform';
+export const isSentence = (t: HomeworkQuestion['type']) =>
+  t === 'blank' || t === 'tense' || t === 'tenseChoice' || t === 'wordform' || t === 'wordFill' || t === 'wordFillChoice';
 
 /** A word-form question's part of speech after its label: "(noun)". */
 export const PosHint = ({ q }: { q: Pick<HomeworkQuestion, 'type' | 'hint'> }) =>
@@ -421,6 +424,7 @@ export function HomeworkSection({ c, day, onSubmitted, embedded, bare, onClose }
           )}
           {q.type === 'wordform' && <span className="keyhint">Type only the missing word in its right form — e.g. “decision” for “(decide)”.</span>}
           {q.type === 'tense' && <span className="keyhint">Type only the missing words — e.g. “has finished”, not “She has finished”.</span>}
+          {q.type === 'wordFill' && <span className="keyhint">Type only the missing word, in the form the sentence needs — e.g. “legs”.</span>}
         </div>
         <div className="hwnav">
           <button className="btn btn-secondary" onClick={() => setI(i - 1)} disabled={i === 0 || phase === 'sending'}><Icon name="left" size="sm" />Back</button>

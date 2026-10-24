@@ -4,7 +4,7 @@ import { Icon } from '../components/ui';
 import { useWB } from '../state/WordbookContext';
 import { Dialog, errText } from './Courses';
 import { Prompt } from './CourseHomework';
-import { TENSE_LABEL, TENSES } from './CourseQuestions';
+import { KIND_LABEL, TENSE_LABEL, TENSES } from './CourseQuestions';
 
 /** Up to `per` questions per word, one per tense first (the chosen tenses only). */
 function autoPick(words: ReuseWord[], per: number, tenses: Tense[]): Set<string> {
@@ -63,7 +63,7 @@ export function ReusePicker({ c, day, onAdded, onClose }: { c: CourseDetail; day
     <Dialog label={'Reuse questions from other courses for day ' + day} onClose={onClose} wide className="impmodal sbk">
       <h2>Reuse from other courses · day {day}</h2>
       <p className="sm" style={{ margin: 0 }}>
-        Approved tense questions that other courses already have for this day’s words. The ones you pick are copied into this course and <b>approved straight away</b> — no AI needed.
+        Approved questions that other courses already have for this day’s words. The ones you pick are copied into this course and <b>approved straight away</b> — no AI needed.
       </p>
 
       <div className="sbk-tools">
@@ -105,7 +105,7 @@ export function ReusePicker({ c, day, onAdded, onClose }: { c: CourseDetail; day
                           <label htmlFor={id}>
                             <span className="sbk-text"><Prompt q={{ type: q.kind, prompt: q.prompt }} fill={q.answer} /></span>
                             <span className="badges">
-                              <span className="badge pos">{q.kind === 'tenseChoice' ? 'Multiple choice' : 'Typed'}</span>
+                              <span className="badge pos">{KIND_LABEL[q.kind]}</span>
                               {q.tenseLabel && <span className="badge t-blue">{q.tenseLabel}</span>}
                               {q.course && <span className="muted xs">from “{q.course}”</span>}
                             </span>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, ApiError, type BankInput, type BankItem, type BankKind, type BankStatus, type CourseDay, type CourseDetail, type Quota, type Tense, type BankGenerateResult } from '../lib/api';
+import { api, ApiError, isChoiceKind, isWordKind, type QuestionKind, type BankInput, type BankItem, type BankKind, type BankStatus, type CourseDay, type CourseDetail, type Quota, type Tense, type BankGenerateResult } from '../lib/api';
 import { Icon } from '../components/ui';
 import { errText } from './Courses';
 import { Prompt } from './CourseHomework';
@@ -19,7 +19,9 @@ export const TENSE_LABEL: Record<Tense, string> = {
   'future-simple': 'Future simple (will)',
   'going-to': 'Future (be going to)'
 };
-const KIND_LABEL: Record<BankKind, string> = { tense: 'Typed', tenseChoice: 'Multiple choice', recap: 'Recap story', dialogue: 'Listening dialogue' };
+export const KIND_LABEL: Record<BankKind, string> = {
+  tense: 'Tense · typed', tenseChoice: 'Tense · choice', wordFill: 'Word · typed', wordFillChoice: 'Word · choice', recap: 'Recap story', dialogue: 'Listening dialogue'
+};
 const SOURCE_LABEL: Record<BankItem['source'], string> = { ai: 'AI', template: 'Template', manual: 'Manual', bank: 'Sentence bank', course: 'From another course' };
 const GROUPS: { status: BankStatus; title: string }[] = [
   { status: 'pending', title: 'Waiting for approval' },
@@ -52,17 +54,19 @@ function QuestionForm({ init, kind: kind0, words, review = [], busy, err, onSave
   const first = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { first.current?.focus(); }, [kind]);
 
+  const wordKind = isWordKind(kind);
   const wordOpts = Array.from(new Set([...words, ...(init?.word ? [init.word] : [])]));
   const switchKind = (k: BankKind) => {
     // Carry the typed answer into the choices (and back) so nothing is lost.
-    if (k === 'tenseChoice' && kind === 'tense' && !choices.some((c) => c.trim())) { setChoices([answer, '', '', '']); setCorrect(0); }
-    if (k === 'tense' && kind === 'tenseChoice' && !answer.trim()) setAnswer(choices[correct] ?? '');
+    if (isChoiceKind(k) && !isChoiceKind(kind) && !choices.some((c) => c.trim())) { setChoices([answer, '', '', '']); setCorrect(0); }
+    if (!isChoiceKind(k) && isChoiceKind(kind) && !answer.trim()) setAnswer(choices[correct] ?? '');
+    if (isWordKind(k) && !word && wordOpts[0]) setWord(wordOpts[0]);
     setKind(k);
   };
   const save = () => {
     if (kind === 'recap') { onSave({ kind, prompt: prompt.trim(), explain: explain.trim() }); return; }
-    const base = { kind, word, tense, prompt: prompt.trim(), explain: explain.trim() };
-    if (kind === 'tenseChoice') {
+    const base = { kind, word, tense: wordKind ? '' : tense, prompt: prompt.trim(), explain: explain.trim() };
+    if (isChoiceKind(kind)) {
       const cs = choices.map((c) => c.trim());
       onSave({ ...base, choices: cs, answer: cs[correct] ?? '' });
     } else {
@@ -75,7 +79,7 @@ function QuestionForm({ init, kind: kind0, words, review = [], busy, err, onSave
     <form className="qbform" onSubmit={(e) => { e.preventDefault(); if (!busy) save(); }} aria-label={init ? 'Edit question' : kind === 'recap' ? 'Write recap' : 'Add question'}>
       {!init && kind !== 'recap' && (
         <div className="seg" role="group" aria-label="Question type">
-          {(['tense', 'tenseChoice'] as BankKind[]).map((k) => (
+          {(['tense', 'tenseChoice', 'wordFill', 'wordFillChoice'] as BankKind[]).map((k) => (
             <button key={k} type="button" className={kind === k ? 'on' : ''} aria-pressed={kind === k} onClick={() => switchKind(k)}>{KIND_LABEL[k]}</button>
           ))}
         </div>
@@ -99,28 +103,32 @@ function QuestionForm({ init, kind: kind0, words, review = [], busy, err, onSave
           <div className="field">
             <label className="label" htmlFor={id('prompt')}>Sentence</label>
             <textarea ref={first} id={id('prompt')} className="input qbsentence" value={prompt} maxLength={400} aria-describedby={id('ph')}
-              placeholder="Yesterday we ___ (deploy) the hotfix." onChange={(e) => setPrompt(e.target.value)} />
-            <span className="hint" id={id('ph')}>Use one ___ for the gap and put the base verb in brackets after it.</span>
+              placeholder={wordKind ? 'My ___ hurts after the long run.' : 'Yesterday we ___ (deploy) the hotfix.'} onChange={(e) => setPrompt(e.target.value)} />
+            <span className="hint" id={id('ph')}>{wordKind
+              ? 'Use one ___ where the word goes (any form: legs, rode…). No hint in brackets — learners see the word’s Vietnamese meaning.'
+              : 'Use one ___ for the gap and put the base verb in brackets after it.'}</span>
           </div>
           <div className="form2 qbgrid">
-            <div className="field">
-              <label className="label" htmlFor={id('tense')}>Tense</label>
-              <select id={id('tense')} className="input" value={tense} onChange={(e) => setTense(e.target.value)}>
-                {TENSES.map((t) => <option key={t} value={t}>{TENSE_LABEL[t]}</option>)}
-              </select>
-            </div>
+            {!wordKind && (
+              <div className="field">
+                <label className="label" htmlFor={id('tense')}>Tense</label>
+                <select id={id('tense')} className="input" value={tense} onChange={(e) => setTense(e.target.value)}>
+                  {TENSES.map((t) => <option key={t} value={t}>{TENSE_LABEL[t]}</option>)}
+                </select>
+              </div>
+            )}
             <div className="field">
               <label className="label" htmlFor={id('word')}>Word</label>
               <select id={id('word')} className="input" value={word} onChange={(e) => setWord(e.target.value)}>
-                <option value="">No word</option>
+                {!wordKind && <option value="">No word</option>}
                 {wordOpts.map((w) => <option key={w} value={w}>{w}</option>)}
               </select>
             </div>
-            {kind === 'tense' && (
+            {!isChoiceKind(kind) && (
               <>
                 <div className="field">
                   <label className="label" htmlFor={id('answer')}>Answer</label>
-                  <input id={id('answer')} className="input" value={answer} maxLength={120} placeholder="deployed" autoComplete="off" onChange={(e) => setAnswer(e.target.value)} />
+                  <input id={id('answer')} className="input" value={answer} maxLength={120} placeholder={wordKind ? word || 'legs' : 'deployed'} autoComplete="off" onChange={(e) => setAnswer(e.target.value)} />
                 </div>
                 <div className="field">
                   <label className="label" htmlFor={id('accept')}>Also accept <span className="muted xs">(optional, comma-separated)</span></label>
@@ -129,7 +137,7 @@ function QuestionForm({ init, kind: kind0, words, review = [], busy, err, onSave
               </>
             )}
           </div>
-          {kind === 'tenseChoice' && (
+          {isChoiceKind(kind) && (
             <fieldset className="qbchoiceset">
               <legend className="label">Choices <span className="muted xs">— pick the right one</span></legend>
               {choices.map((ch, k) => (
@@ -146,7 +154,7 @@ function QuestionForm({ init, kind: kind0, words, review = [], busy, err, onSave
           <div className="field">
             <label className="label" htmlFor={id('explain')}>Explanation (Vietnamese)</label>
             <textarea id={id('explain')} className="input" lang="vi" style={{ minHeight: 64 }} value={explain} maxLength={600}
-              placeholder="Vì sao dùng thì này…" onChange={(e) => setExplain(e.target.value)} />
+              placeholder={wordKind ? 'Nghĩa của từ trong câu này…' : 'Vì sao dùng thì này…'} onChange={(e) => setExplain(e.target.value)} />
           </div>
         </>
       )}
@@ -170,8 +178,8 @@ function QuestionView({ q }: { q: BankItem }) {
   }
   return (
     <div className="stack" style={{ gap: 6 }}>
-      <div className="qbprompt"><Prompt q={{ type: q.kind as 'tense' | 'tenseChoice', prompt: q.prompt }} fill={q.answer} /></div>
-      {q.kind === 'tenseChoice' ? (
+      <div className="qbprompt"><Prompt q={{ type: q.kind as QuestionKind, prompt: q.prompt }} fill={q.answer} /></div>
+      {isChoiceKind(q.kind) ? (
         <ul className="qbchoices" aria-label="Choices">
           {q.choices.map((ch, k) => <li key={k} className={ch === q.answer ? 'ok' : ''}>{ch}{ch === q.answer && <span className="c-sr"> (answer)</span>}</li>)}
         </ul>
