@@ -4,6 +4,7 @@ import { Icon } from '../components/ui';
 import { errText } from './Courses';
 import { Prompt } from './CourseHomework';
 import { ImportQuestions } from './CourseImport';
+import { ReusePicker } from './CourseReuse';
 import { SentenceBankPicker } from './CourseSentenceBank';
 import { DialogueBank } from './CourseDialogue';
 import { useWB } from '../state/WordbookContext';
@@ -19,7 +20,7 @@ export const TENSE_LABEL: Record<Tense, string> = {
   'going-to': 'Future (be going to)'
 };
 const KIND_LABEL: Record<BankKind, string> = { tense: 'Typed', tenseChoice: 'Multiple choice', recap: 'Recap story', dialogue: 'Listening dialogue' };
-const SOURCE_LABEL: Record<BankItem['source'], string> = { ai: 'AI', template: 'Template', manual: 'Manual', bank: 'Sentence bank' };
+const SOURCE_LABEL: Record<BankItem['source'], string> = { ai: 'AI', template: 'Template', manual: 'Manual', bank: 'Sentence bank', course: 'From another course' };
 const GROUPS: { status: BankStatus; title: string }[] = [
   { status: 'pending', title: 'Waiting for approval' },
   { status: 'approved', title: 'Approved' },
@@ -196,6 +197,9 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
   /** Generate for this day, or every day with words (one day after another). */
   const [scope, setScope] = useState<'day' | 'all'>('day');
   const [skipFilled, setSkipFilled] = useState(true);
+  /** Use other courses' approved questions for these words first; AI only for what's missing. */
+  const [reuse, setReuse] = useState(true);
+  const [reusing, setReusing] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number; day: number; waiting?: boolean } | null>(null);
   const stopAll = useRef(false);
   const [quota, setQuota] = useState<Quota | null>(null);
@@ -240,7 +244,7 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
 
   const focusLater = (id: string) => window.setTimeout(() => document.getElementById(id)?.focus(), 0);
 
-  const opts = () => ({ tenses: tenses.length === TENSES.length ? undefined : tenses, perWord });
+  const opts = () => ({ tenses: tenses.length === TENSES.length ? undefined : tenses, perWord, reuse });
   /** "AI skipped: x, y" / "AI isn't set up…" for one day's result. */
   const noteOf = (r: BankGenerateResult) => r.source === 'template'
     ? (r.aiProblem === 'off' ? 'AI isn’t set up on the server' : 'AI couldn’t answer') + ', so built-in templates were used — they only work for verbs'
@@ -302,7 +306,9 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
       setQuota(r.quota);
       const n = r.added + (r.added === 1 ? ' question' : ' questions');
       const note = noteOf(r);
-      a.showToast(r.source === 'ai' ? 'Added ' + n + ' with AI — review them below.' + (note ? ' ' + note + '.' : '') : 'Added ' + n + '. ' + note + '.', note ? 'bad' : 'ok');
+      const from = r.reused ? ' (' + r.reused + ' from other courses)' : '';
+      a.showToast(r.source === 'course' ? 'Added ' + n + ' from other courses — no AI needed. Review them below.'
+        : r.source === 'ai' ? 'Added ' + n + from + ' — review them below.' + (note ? ' ' + note + '.' : '') : 'Added ' + n + from + '. ' + note + '.', note ? 'bad' : 'ok');
       if (note) setReport([note]);
     } catch (e) {
       const qb = e instanceof ApiError ? (e.body?.quota as Quota | undefined) : undefined;
@@ -444,6 +450,7 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
               )}
           </div>
         </div>
+        <label className="checkrow sm"><input type="checkbox" checked={reuse} onChange={(e) => setReuse(e.target.checked)} disabled={gen} />Use questions other courses already have for these words first — AI only writes what’s missing</label>
         {scope === 'all' && (
           <label className="checkrow sm"><input type="checkbox" checked={skipFilled} onChange={(e) => setSkipFilled(e.target.checked)} disabled={gen} />Skip days that already have questions</label>
         )}
@@ -478,6 +485,9 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
         <button id={base + '-bank'} className="btn btn-secondary btn-sm" onClick={() => setPicking(true)} disabled={!words.length} aria-haspopup="dialog">
           <Icon name="layers" size="sm" />Pick from sentence bank
         </button>
+        <button id={base + '-reuse'} className="btn btn-secondary btn-sm" onClick={() => setReusing(true)} disabled={!words.length} aria-haspopup="dialog">
+          <Icon name="copy" size="sm" />Reuse from other courses
+        </button>
         {!words.length && <span className="hint" id={base + '-imph'}>Add words to this day first.</span>}
         {words.length > 0 && !review.length && <span className="hint">The recap retells earlier days’ words, so day 1 has none.</span>}
         {n.pending > 0 && (
@@ -492,6 +502,9 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
           <QuestionForm key={adding} kind={adding} words={words} review={review} busy={busy === 'new'} err={formErr} idBase={base + '-new'}
             onSave={saveNew} onCancel={() => { openForm(null); focusLater(base + '-add'); }} />
         </div>
+      )}
+      {reusing && (
+        <ReusePicker c={c} day={day.day} onAdded={setItems} onClose={() => { setReusing(false); focusLater(base + '-reuse'); }} />
       )}
       {picking && (
         <SentenceBankPicker c={c} day={day.day} onAdded={setItems} onClose={() => { setPicking(false); focusLater(base + '-bank'); }} />

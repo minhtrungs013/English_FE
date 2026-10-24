@@ -10,7 +10,7 @@ const MAX_FILE = 1024 * 1024;
 const MAX_QUESTIONS = 5;
 const STATUS_ORDER: BankStatus[] = ['approved', 'pending', 'rejected'];
 const STATUS_LABEL: Record<BankStatus, string> = { approved: 'Approved — learners get this one', pending: 'Waiting for approval', rejected: 'Rejected' };
-const SOURCE_LABEL: Record<BankItem['source'], string> = { ai: 'AI', template: 'Template', manual: 'Manual', bank: 'Sentence bank' };
+const SOURCE_LABEL: Record<BankItem['source'], string> = { ai: 'AI', template: 'Template', manual: 'Manual', bank: 'Sentence bank', course: 'From another course' };
 
 const plural = (n: number, one: string, many = one + 's') => n + ' ' + (n === 1 ? one : many);
 

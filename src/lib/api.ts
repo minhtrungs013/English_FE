@@ -235,14 +235,19 @@ export type BankStatus = 'pending' | 'approved' | 'rejected';
 export interface BankItem {
   id: string; day: number; kind: BankKind; word: string; tense: Tense | ''; tenseLabel: string;
   prompt: string; choices: string[]; answer: string; accept: string[]; explain: string;
-  source: 'ai' | 'template' | 'manual' | 'bank'; status: BankStatus;
+  source: 'ai' | 'template' | 'manual' | 'bank' | 'course'; status: BankStatus;
   /** Dialogues only. */
   data?: Dialogue;
 }
 export interface BankInput { kind: BankKind; word?: string; tense?: string; prompt: string; choices?: string[]; answer?: string; accept?: string[]; explain?: string }
 export type BankPatch = Partial<Omit<BankInput, 'kind'>> & { status?: BankStatus; data?: Dialogue };
 /** source 'template' = built-in questions, used when AI isn't available. items: the day's whole bank. */
-export interface BankGenerateResult { source: 'ai' | 'template'; aiProblem: 'off' | 'failed' | ''; missing: string[]; added: number; quota: Quota; items: BankItem[] }
+export interface BankGenerateResult { source: 'ai' | 'template' | 'course'; aiProblem: 'off' | 'failed' | ''; missing: string[]; reused?: number; added: number; quota: Quota; items: BankItem[] }
+/** Other courses' approved tense questions for one of the day's words. */
+export interface ReuseWord {
+  word: string;
+  items: { id: string; kind: 'tense' | 'tenseChoice'; tense: string; tenseLabel: string; prompt: string; answer: string; choices: string[]; explain: string; course: string }[];
+}
 /**
  * One row of a question import (CSV columns or JSON keys). type: 'typed' | 'multi' · word: one of the day's words ·
  * sentence: one "___" · multi: choice1..choice4 (or choices) · accept: "a|b" or a list · explain: Vietnamese.
@@ -588,7 +593,7 @@ export const api = {
   /* Owner: the tense question bank. Homework uses approved items and is frozen once someone hands that day in. */
   listQuestions: (id: string, day: number) => req<BankItem[]>('GET', '/courses/' + id + '/questions?day=' + day),
   /** Adds pending questions (AI, or built-in templates when AI is unavailable). Can take a while. */
-  generateQuestions: (id: string, day: number, opts: { tenses?: Tense[]; perWord?: number }) =>
+  generateQuestions: (id: string, day: number, opts: { tenses?: Tense[]; perWord?: number; reuse?: boolean }) =>
     req<BankGenerateResult>('POST', '/courses/' + id + '/days/' + day + '/questions/generate', opts),
   /** A question (or recap) written by hand; approved straight away. A new recap replaces the day's old one. */
   addQuestion: (id: string, day: number, q: BankInput) => req<BankItem>('POST', '/courses/' + id + '/days/' + day + '/questions', q),
@@ -607,6 +612,9 @@ export const api = {
   /** Turn picked bank sentences into the day's questions (approved). items: the day's whole bank. */
   addFromBank: (id: string, day: number, items: { id: string; kind: 'tense' | 'tenseChoice' }[]) =>
     req<{ added: number; skipped: number; items: BankItem[] }>('POST', '/courses/' + id + '/days/' + day + '/sentence-bank', { items }),
+  /** Other courses' approved questions for the day's words; copying them approves them. */
+  reuseQuestions: (id: string, day: number) => req<{ words: ReuseWord[] }>('GET', '/courses/' + id + '/days/' + day + '/reuse'),
+  reuseAdd: (id: string, day: number, ids: string[]) => req<{ added: number; skipped: number; items: BankItem[] }>('POST', '/courses/' + id + '/days/' + day + '/reuse', { ids }),
   importQuestions: (id: string, day: number, items: ImportRow[]) =>
     req<ImportResult>('POST', '/courses/' + id + '/days/' + day + '/questions/import', { items }),
 
