@@ -2145,3 +2145,7 @@ button.tmini-row:hover{border-color:var(--primary)}
 .qbreport li{display:flex;gap:6px;align-items:flex-start}
 .qb-used{color:var(--success)}
 .qb-used::after{content:" ✓"}
+.dlchecks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;font-size:13px}
+.dlchecks li{display:flex;gap:6px;align-items:flex-start}
+.dlchecks li.ok{color:var(--success)}
+.dlchecks li.bad{color:var(--danger)}

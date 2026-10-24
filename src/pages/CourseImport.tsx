@@ -278,7 +278,7 @@ export function ImportQuestions({ c, day, words, perWord, tenses, onImported, on
       <h2>Import questions · {course ? 'whole course' : 'day ' + day}</h2>
       <div className="seg" role="group" aria-label="What to import" style={{ alignSelf: 'flex-start' }}>
         <button className={!course ? 'on' : ''} aria-pressed={!course} onClick={() => switchScope('day')} disabled={!!busy}>Day {day}</button>
-        <button className={course ? 'on' : ''} aria-pressed={course} onClick={() => switchScope('course')} disabled={!!busy || !daysWithWords}>Whole course ({daysWithWords} days)</button>
+        <button className={course ? 'on' : ''} aria-pressed={course} onClick={() => switchScope('course')} disabled={!!busy || !daysWithWords}>Whole course ({daysWithWords} {daysWithWords === 1 ? 'day' : 'days'})</button>
       </div>
       <p className="sm">
         Fill in a template, then upload it. Imported questions are <b>approved straight away</b> and apply to homework nobody has handed in yet.

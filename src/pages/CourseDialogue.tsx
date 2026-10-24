@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type Dispatch, type SetStateAction } from 'react';
-import { api, ApiError, type BankItem, type BankStatus, type CourseDay, type CourseDetail, type Dialogue, type DialogueSpeaker, type Quota } from '../lib/api';
+import { api, ApiError, type BankItem, type BankStatus, type CourseDay, type CourseDetail, type Dialogue, type DialogueSpeaker, type Quota, type CourseWord } from '../lib/api';
 import { Icon } from '../components/ui';
 import { useWB } from '../state/WordbookContext';
 import { ConfirmDialog, Dialog, errText } from './Courses';
@@ -16,30 +16,42 @@ const plural = (n: number, one: string, many = one + 's') => n + ' ' + (n === 1 
 
 /* ---------- template & import ---------- */
 
-/** A filled-in example with the day's words as blanks, for the owner to rewrite. */
-export function templateDialogue(words: string[]): Dialogue & { _help: string } {
-  const ws = words.slice(0, 10);
-  while (ws.length < 2) ws.push(ws.length ? 'schedule' : 'meeting');
-  const lines: Dialogue['lines'] = ws.map((w, k) => ({
-    s: (k % 2) as 0 | 1,
-    text: k === 0 ? 'Hi, have you got a minute to talk about the [[' + w + ']]?' : 'Replace this line with a natural sentence that uses [[' + w + ']].',
-    vi: 'Bản dịch tiếng Việt của câu này.'
-  }));
-  const fill = ['Sure. What do you need?', 'Thanks, that really helps.', 'No problem. Let me know if anything changes.'];
-  for (let k = 0; lines.length < 4; k++) lines.push({ s: (lines.length % 2) as 0 | 1, text: fill[k], vi: 'Bản dịch tiếng Việt của câu này.' });
+/** Blanks vs the day's words: the words without a blank, and blanks that aren't the day's words (as the server checks). */
+export function wordProblem(lines: { text: string }[], words: string[], day: number): { missing: string[]; extra: string[]; text: string } {
+  const norm = (x: string) => x.trim().toLowerCase().replace(/\s+/g, ' ');
+  const bases = parseDialogue(lines).blanks.map((b) => b.base.trim());
+  const have = new Set(bases.map(norm));
+  const want = new Set(words.map(norm));
+  const missing = words.filter((w) => !have.has(norm(w)));
+  const extra = [...new Set(bases)].filter((b) => !want.has(norm(b)));
+  const text = [missing.length ? 'Missing a blank for: ' + missing.join(', ') : '', extra.length ? 'Not day ' + day + '’s words: ' + extra.join(', ') : ''].filter(Boolean).join(' · ');
+  return { missing, extra, text };
+}
+
+/** What an AI (or a person) needs to write a day's dialogue; no double quotes inside, so copying it can't break the JSON. */
+const TASK = 'Fill in this JSON. Write ONE natural two-person conversation (8-12 lines, B1 level) set at work or in daily life, for Vietnamese adults learning English. '
+  + 'Use EVERY word in the words list exactly once as a blank: write [[word]] when the line uses the word exactly as listed, or [[said form|word]] when it uses another form (e.g. [[rode|ride]], [[is called|be called]]); the part after | is the listed word exactly. '
+  + 'Use each word with the meaning given in vi / meaning. No other blanks. Never repeat a blanked word in the very next line. '
+  + 'title: a short English title. scenario: one Vietnamese sentence describing the situation. Exactly 2 speakers: one female, one male. '
+  + 'In lines, s is 0 for the first speaker and 1 for the second, text is the English line with blanks, vi is a natural Vietnamese translation without brackets. '
+  + 'Add 2-3 TOEIC Part 3 style questions, each with exactly 4 different choices, answer exactly one of the choices, and a short Vietnamese explain. '
+  + 'Keep day and words unchanged. Return ONLY the completed JSON, nothing else.';
+const FORMAT = {
+  line: { s: 0, text: 'Are you taking any days off for the [[holiday]]?', vi: 'Bạn có nghỉ ngày nào dịp lễ không?' },
+  question: { question: 'What are the speakers mainly discussing?', choices: ['A holiday trip', 'A new project', 'A job interview', 'A team dinner'], answer: 'A holiday trip', explain: 'Hai người nói về chuyến đi trong kỳ nghỉ.' }
+};
+const blankDialogue = () => ({ title: '', scenario: '', speakers: [{ name: '', gender: 'female' }, { name: '', gender: 'male' }], lines: [], questions: [] });
+const wordInfo = (ws: CourseWord[]) => ws.map((w) => ({ word: w.word, pos: w.pos, vi: w.vi, meaning: w.meaning }));
+
+/** One day's task file: the brief, the day and its words, and an empty dialogue to fill in. */
+export function dayTask(c: CourseDetail, day: number) {
+  return { _task: TASK, _format: FORMAT, course: c.title, day, words: wordInfo(c.days.find((d) => d.day === day)?.words ?? []), ...blankDialogue() };
+}
+/** The whole course: one item per day with words. */
+export function courseTask(c: CourseDetail) {
   return {
-    _help: 'Blanks: [[word]], or [[said form|word]] when the line uses another form, e.g. [[deployed|deploy]]. ' +
-      'Exactly 2 speakers (gender "female" or "male"), 4–16 lines (s = 0 or 1), 2–10 blanks, up to 5 questions with 4 different choices including the answer. "scenario", "vi" and "explain" are in Vietnamese.',
-    title: 'Talking about the ' + ws[0],
-    scenario: 'Hai đồng nghiệp trao đổi về công việc trong văn phòng.',
-    speakers: [{ name: 'Anna', gender: 'female' }, { name: 'Tom', gender: 'male' }],
-    lines,
-    questions: [{
-      question: 'What are the speakers mainly discussing?',
-      choices: ['The ' + ws[0], 'A holiday plan', 'A new office', 'A job interview'],
-      answer: 'The ' + ws[0],
-      explain: 'Họ đang nói về ' + ws[0] + '.'
-    }]
+    _task: 'For EACH item in items, do the following. ' + TASK, _format: FORMAT, course: c.title,
+    items: c.days.filter((d) => (d.words ?? []).length).map((d) => ({ day: d.day, words: wordInfo(d.words ?? []), ...blankDialogue() }))
   };
 }
 
@@ -49,7 +61,7 @@ function dialogueFromJson(text: string): Record<string, unknown> {
   try { raw = JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text); } catch { throw new Error('This isn’t valid JSON.'); }
   if (raw && typeof raw === 'object' && !Array.isArray(raw) && !('lines' in raw) && 'data' in raw) raw = (raw as { data: unknown }).data;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('The JSON must be one dialogue object: { "title", "scenario", "speakers", "lines", "questions" }.');
-  return Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([k]) => !k.startsWith('_')));
+  return Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([k]) => !k.startsWith('_') && !['day', 'words', 'course'].includes(k)));
 }
 
 /** Counts for the import preview, read defensively (the server does the real checks). */
@@ -206,10 +218,13 @@ export function DialogueForm({ init, edit, words, busy, err, onSave, onCancel, i
           <div className="dlins">
             <span className="label xs" id={id('ins')}>Insert blank for</span>
             <div className="chips" role="group" aria-labelledby={id('ins')}>
-              {words.map((w) => (
-                <button key={w} type="button" className="chip soft" onMouseDown={(e) => e.preventDefault()} onClick={() => insertBlank(w)}
-                  aria-label={'Insert a blank for ' + w}><Icon name="plus" size="sm" />{w}</button>
-              ))}
+              {words.map((w) => {
+                const used = !wordProblem(lines, [w], 0).missing.length;
+                return (
+                  <button key={w} type="button" className={'chip soft' + (used ? ' on' : '')} onMouseDown={(e) => e.preventDefault()} onClick={() => insertBlank(w)}
+                    aria-label={(used ? 'Has a blank: ' : 'Insert a blank for ') + w}><Icon name={used ? 'check' : 'plus'} size="sm" />{w}</button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -317,13 +332,18 @@ function ImportDialogue({ c, day, words, onImport, onCourseImported, onEdit, onC
           const o = it as Record<string, unknown>;
           const dn = Number(o.day);
           if (!Number.isInteger(dn) || dn < 1 || dn > c.days.length) throw new Error('Item ' + (k + 1) + ': "day" must be 1–' + c.days.length + '.');
-          return { day: dn, d: Object.fromEntries(Object.entries(o).filter(([key]) => key !== 'day' && !key.startsWith('_'))) };
+          return { day: dn, d: Object.fromEntries(Object.entries(o).filter(([key]) => !['day', 'words', 'course'].includes(key) && !key.startsWith('_'))) };
         });
         if (!list.length) throw new Error('The list is empty.');
       } catch (e) { parseErr = errText(e, 'This isn’t valid JSON.'); list = []; }
     }
   }
   const look = parsed ? looksOf(parsed) : null;
+  const linesOf = (o: Record<string, unknown>) => (Array.isArray(o.lines) ? o.lines : []).map((l) => ({ text: l && typeof l === 'object' && typeof (l as { text?: unknown }).text === 'string' ? (l as { text: string }).text : '' }));
+  const wordsOf = (dn: number) => (c.days.find((d) => d.day === dn)?.words ?? []).map((w) => w.word);
+  const dayCheck = parsed ? wordProblem(linesOf(parsed), words, day) : null;
+  const checks = list.map((it) => ({ ...it, problem: wordProblem(linesOf(it.d), wordsOf(it.day), it.day).text }));
+  const okItems = checks.filter((x) => !x.problem);
 
   const pick = async (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -337,7 +357,7 @@ function ImportDialogue({ c, day, words, onImport, onCourseImported, onEdit, onC
   const run = async () => {
     if (busy) return;
     if (!course) {
-      if (!parsed) return;
+      if (!parsed || dayCheck?.text) return;
       setBusy('Importing…');
       setErr('');
       const msg = await onImport(parsed as unknown as Dialogue);
@@ -345,11 +365,11 @@ function ImportDialogue({ c, day, words, onImport, onCourseImported, onEdit, onC
       if (msg) setErr(msg);
       return;
     }
-    if (!list.length) return;
+    if (!okItems.length) return;
     setErr('');
     const out: { day: number; ok: boolean; msg: string }[] = [];
-    for (const [k, it] of list.entries()) {
-      setBusy('Importing day ' + it.day + ' (' + (k + 1) + '/' + list.length + ')…');
+    for (const [k, it] of okItems.entries()) {
+      setBusy('Importing day ' + it.day + ' (' + (k + 1) + '/' + okItems.length + ')…');
       try {
         await api.addDialogue(c.id, it.day, it.d as unknown as Dialogue);
         out.push({ day: it.day, ok: true, msg: '' });
@@ -361,21 +381,19 @@ function ImportDialogue({ c, day, words, onImport, onCourseImported, onEdit, onC
     setResults(out);
     await onCourseImported();
     const good = out.filter((x) => x.ok).length;
-    a.showToast('Imported ' + good + (good === 1 ? ' dialogue' : ' dialogues') + (good < out.length ? ' · ' + (out.length - good) + ' failed' : ''), good === out.length ? 'ok' : 'bad');
-    if (good === out.length) onClose();
+    const blocked = checks.length - okItems.length;
+    a.showToast('Imported ' + good + (good === 1 ? ' dialogue' : ' dialogues') + (good < out.length ? ' · ' + (out.length - good) + ' failed' : '') + (blocked ? ' · ' + blocked + ' blocked (wrong words)' : ''), good === out.length && !blocked ? 'ok' : 'bad');
+    if (good === out.length && !blocked) onClose();
   };
   const switchScope = (sc: 'day' | 'course') => { setScope(sc); setText(''); setFile(''); setErr(''); setResults([]); };
-  const courseTemplate = () => daysWithWords.map((d) => {
-    const { _help, ...t } = templateDialogue((d.words ?? []).map((w) => w.word));
-    return { day: d.day, _help, ...t };
-  });
+
 
   return (
     <Dialog label={course ? 'Import dialogues for the whole course' : 'Import a dialogue for day ' + day} onClose={onClose} wide className="impmodal">
       <h2>Import {course ? 'dialogues · whole course' : 'dialogue · day ' + day}</h2>
       <div className="seg" role="group" aria-label="What to import" style={{ alignSelf: 'flex-start' }}>
         <button className={!course ? 'on' : ''} aria-pressed={!course} onClick={() => switchScope('day')} disabled={!!busy}>Day {day}</button>
-        <button className={course ? 'on' : ''} aria-pressed={course} onClick={() => switchScope('course')} disabled={!!busy || !daysWithWords.length}>Whole course ({daysWithWords.length} days)</button>
+        <button className={course ? 'on' : ''} aria-pressed={course} onClick={() => switchScope('course')} disabled={!!busy || !daysWithWords.length}>Whole course ({daysWithWords.length} {daysWithWords.length === 1 ? 'day' : 'days'})</button>
       </div>
       <p className="sm">
         {course
@@ -384,14 +402,17 @@ function ImportDialogue({ c, day, words, onImport, onCourseImported, onEdit, onC
       </p>
       <div className="impstep">
         <span className="label">1. Start from the template</span>
-        <span className="hint">{course ? 'One example dialogue for each of the ' + daysWithWords.length + ' days with words, using that day’s words as blanks — rewrite the lines and questions.' : 'It uses this day’s words as example blanks — rewrite the lines and questions.'}</span>
+        <span className="hint">
+          {course ? 'A task for each of the ' + daysWithWords.length + ' days with words' : 'A task for day ' + day} — the brief, the day’s words with their meanings, and an empty dialogue to fill in.
+          You can hand the file to an AI as it is. Every word of the day must be a blank, and only those words — otherwise the import is blocked.
+        </span>
         <div className="actions">
           {course ? (
-            <button className="btn btn-secondary btn-sm" autoFocus onClick={() => download('course-dialogues.json', JSON.stringify(courseTemplate(), null, 2) + '\n', 'application/json')}>
+            <button className="btn btn-secondary btn-sm" autoFocus onClick={() => download('course-dialogues.json', JSON.stringify(courseTask(c), null, 2) + '\n', 'application/json')}>
               <Icon name="download" size="sm" />Download JSON template
             </button>
           ) : (
-            <button className="btn btn-secondary btn-sm" autoFocus onClick={() => download('day-' + day + '-dialogue.json', JSON.stringify(templateDialogue(words), null, 2) + '\n', 'application/json')}>
+            <button className="btn btn-secondary btn-sm" autoFocus onClick={() => download('day-' + day + '-dialogue.json', JSON.stringify(dayTask(c, day), null, 2) + '\n', 'application/json')}>
               <Icon name="download" size="sm" />Download JSON template
             </button>
           )}
@@ -412,8 +433,18 @@ function ImportDialogue({ c, day, words, onImport, onCourseImported, onEdit, onC
             <b>{look.title || 'Untitled'}</b> · {plural(look.speakers, 'speaker')} · {plural(look.lines, 'line')} · {plural(look.blanks, 'blank')} · {plural(look.questions, 'question')}
           </p>
         )}
-        {course && list.length > 0 && !results.length && (
-          <p className="note sm dlnote">{plural(list.length, 'dialogue')} for {list.length === 1 ? 'day' : 'days'} {list.map((x) => x.day).join(', ')}</p>
+        {dayCheck && (dayCheck.text
+          ? <p className="errtxt" role="alert"><Icon name="alert" size="sm" />Blocked — {dayCheck.text}.</p>
+          : <p className="note sm dlnote" style={{ color: 'var(--success)' }}><Icon name="check" size="sm" /> All {words.length} words of day {day} are blanks.</p>)}
+        {course && checks.length > 0 && !results.length && (
+          <ul className="dlchecks">
+            {checks.map((x, k) => (
+              <li key={k} className={x.problem ? 'bad' : 'ok'}>
+                <Icon name={x.problem ? 'alert' : 'check'} size="sm" />
+                <b>Day {x.day}</b>{x.problem ? <span> — blocked: {x.problem}</span> : <span> — all {wordsOf(x.day).length} words ✓</span>}
+              </li>
+            ))}
+          </ul>
         )}
         {results.some((x) => !x.ok) && (
           <ul className="qbreport">{results.filter((x) => !x.ok).map((x) => <li key={x.day + x.msg}><Icon name="alert" size="sm" />Day {x.day}: {x.msg}</li>)}</ul>
@@ -424,8 +455,8 @@ function ImportDialogue({ c, day, words, onImport, onCourseImported, onEdit, onC
       <div className="mfoot">
         <button className="btn btn-secondary" onClick={onClose} disabled={!!busy}>{results.length ? 'Done' : 'Cancel'}</button>
         {!course && <button className="btn btn-secondary" onClick={() => parsed && onEdit(parsed as unknown as Dialogue)} disabled={!parsed || !!busy}><Icon name="edit" size="sm" />Edit first</button>}
-        <button className="btn btn-primary" onClick={run} disabled={(course ? !list.length : !parsed) || !!busy}>
-          <Icon name="upload" size="sm" />{busy ? 'Importing…' : course ? 'Import and approve ' + plural(list.length, 'dialogue') : 'Import and approve'}
+        <button className="btn btn-primary" onClick={run} disabled={(course ? !okItems.length : !parsed || !!dayCheck?.text) || !!busy}>
+          <Icon name="upload" size="sm" />{busy ? 'Importing…' : course ? 'Import and approve ' + plural(okItems.length, 'dialogue') : 'Import and approve'}
         </button>
       </div>
     </Dialog>
