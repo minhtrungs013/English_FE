@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, ApiError, type BankInput, type BankItem, type BankKind, type BankStatus, type CourseDay, type CourseDetail, type Quota, type Tense } from '../lib/api';
+import { api, ApiError, type BankInput, type BankItem, type BankKind, type BankStatus, type CourseDay, type CourseDetail, type Quota, type Tense, type BankGenerateResult } from '../lib/api';
 import { Icon } from '../components/ui';
 import { errText } from './Courses';
 import { Prompt } from './CourseHomework';
@@ -184,13 +184,20 @@ function QuestionView({ q }: { q: BankItem }) {
  * under it, the day's listening dialogue (the same bank, kind 'dialogue').
  */
 export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: CourseDay; onCounts: (day: number, bank: { pending: number; approved: number }) => void }) {
-  const { a } = useWB();
+  const { s, a } = useWB();
   const [items, setItems] = useState<BankItem[] | null>(null);
   const [failed, setFailed] = useState('');
   const [tenses, setTenses] = useState<Tense[]>(TENSES);
   const [perWord, setPerWord] = useState(1);
   const [gen, setGen] = useState(false);
+  /** Generate for this day, or every day with words (one day after another). */
+  const [scope, setScope] = useState<'day' | 'all'>('day');
+  const [skipFilled, setSkipFilled] = useState(true);
+  const [progress, setProgress] = useState<{ done: number; total: number; day: number; waiting?: boolean } | null>(null);
+  const stopAll = useRef(false);
   const [quota, setQuota] = useState<Quota | null>(null);
+  /** Problems from the last generation (days that failed, words AI skipped). */
+  const [report, setReport] = useState<string[]>([]);
   /** Item id (or 'all') being saved. */
   const [busy, setBusy] = useState('');
   const [editing, setEditing] = useState('');
@@ -219,17 +226,70 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
 
   const focusLater = (id: string) => window.setTimeout(() => document.getElementById(id)?.focus(), 0);
 
-  const generate = async () => {
+  const opts = () => ({ tenses: tenses.length === TENSES.length ? undefined : tenses, perWord });
+  /** "AI skipped: x, y" / "AI isn't set up…" for one day's result. */
+  const noteOf = (r: BankGenerateResult) => r.source === 'template'
+    ? (r.aiProblem === 'off' ? 'AI isn’t set up on the server' : 'AI couldn’t answer') + ', so built-in templates were used — they only work for verbs'
+      + (r.missing.length ? '; no questions for ' + r.missing.join(', ') : '')
+    : r.missing.length ? 'AI wrote nothing for ' + r.missing.join(', ') : '';
+
+  /** Every day with words, one after another (each day is one AI request). */
+  const generateAll = async () => {
+    const days: (CourseDay & { retried?: boolean })[] = c.days.filter((d) => (d.words ?? []).length && !(skipFilled && ((d.bank?.pending ?? 0) + (d.bank?.approved ?? 0)) > 0)).map((d) => ({ ...d }));
+    if (!days.length) { a.showToast(skipFilled ? 'Every day with words already has questions.' : 'No day has words yet.', 'bad'); return; }
+    const total = days.length;
     setGen(true);
+    stopAll.current = false;
+    let added = 0;
+    const failed: string[] = [];
+    const notes: string[] = [];
     try {
-      const r = await api.generateQuestions(c.id, day.day, { tenses: tenses.length === TENSES.length ? undefined : tenses, perWord });
+      for (const [k, d] of days.entries()) {
+        if (stopAll.current) break;
+        setProgress({ done: Math.min(k, total), total, day: d.day });
+        try {
+          const r = await api.generateQuestions(c.id, d.day, opts());
+          added += r.added;
+          setQuota(r.quota);
+          onCounts(d.day, countsOf(r.items));
+          if (d.day === day.day) setItems(r.items);
+          const note = noteOf(r);
+          if (note) notes.push('Day ' + d.day + ': ' + note);
+        } catch (e) {
+          // Too many requests in a minute (not the daily limit): wait, then try this day again.
+          if (e instanceof ApiError && e.status === 429 && !/daily|today/i.test(e.message) && !d.retried) {
+            d.retried = true;
+            setProgress({ done: Math.min(k, total), total, day: d.day, waiting: true });
+            await new Promise((r) => setTimeout(r, 30_000));
+            days.splice(k + 1, 0, d);
+            continue;
+          }
+          failed.push('Day ' + d.day + ': ' + errText(e, 'failed'));
+          if (e instanceof ApiError && e.status === 429) break;
+        }
+      }
+      const stopped = stopAll.current;
+      a.showToast((stopped ? 'Stopped. ' : '') + 'Added ' + added + (added === 1 ? ' question' : ' questions') + ' across the course — review each day’s questions.'
+        + (failed.length ? ' ' + failed.length + (failed.length === 1 ? ' day' : ' days') + ' failed.' : ''), failed.length ? 'bad' : 'ok');
+      setReport([...failed, ...notes]);
+    } finally {
+      setGen(false);
+      setProgress(null);
+    }
+  };
+
+  const generate = async () => {
+    if (scope === 'all') { await generateAll(); return; }
+    setGen(true);
+    setReport([]);
+    try {
+      const r = await api.generateQuestions(c.id, day.day, opts());
       setItems(r.items);
       setQuota(r.quota);
-      const left = Math.max(0, r.quota.limit - r.quota.used);
       const n = r.added + (r.added === 1 ? ' question' : ' questions');
-      a.showToast(r.source === 'ai'
-        ? 'Added ' + n + ' with AI — review them below. ' + left + ' of ' + r.quota.limit + ' AI generations left today.'
-        : 'AI isn’t available, so ' + n + ' came from built-in templates. Review them below.');
+      const note = noteOf(r);
+      a.showToast(r.source === 'ai' ? 'Added ' + n + ' with AI — review them below.' + (note ? ' ' + note + '.' : '') : 'Added ' + n + '. ' + note + '.', note ? 'bad' : 'ok');
+      if (note) setReport([note]);
     } catch (e) {
       const qb = e instanceof ApiError ? (e.body?.quota as Quota | undefined) : undefined;
       if (qb) setQuota(qb);
@@ -352,18 +412,41 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
               {[1, 2, 3].map((k) => <button key={k} className={perWord === k ? 'on' : ''} aria-pressed={perWord === k} onClick={() => setPerWord(k)} disabled={gen}>{k}</button>)}
             </div>
           </div>
+          <div className="field">
+            <span className="label" id={base + '-scope'}>Generate for</span>
+            <div className="seg" role="group" aria-labelledby={base + '-scope'}>
+              <button className={scope === 'day' ? 'on' : ''} aria-pressed={scope === 'day'} onClick={() => setScope('day')} disabled={gen}>Day {day.day}</button>
+              <button className={scope === 'all' ? 'on' : ''} aria-pressed={scope === 'all'} onClick={() => setScope('all')} disabled={gen}>All {c.days.length} days</button>
+            </div>
+          </div>
           <div className="qbgenbtn">
-            {left !== null && <span className="hint">{left} AI {left === 1 ? 'generation' : 'generations'} left today</span>}
-            <button className="btn btn-primary" onClick={generate} disabled={gen || !words.length || !tenses.length}>
-              {gen ? <span className="spin" /> : <Icon name="sparkle" size="sm" />}{gen ? 'Generating…' : 'Generate with AI'}
-            </button>
+            {left !== null && s.role !== 'admin' && <span className="hint">{left} AI {left === 1 ? 'generation' : 'generations'} left today</span>}
+            {gen && scope === 'all'
+              ? <button className="btn btn-secondary" onClick={() => { stopAll.current = true; }}><Icon name="x" size="sm" />Stop after this day</button>
+              : (
+                <button className="btn btn-primary" onClick={generate} disabled={gen || (scope === 'day' && !words.length) || !tenses.length}>
+                  {gen ? <span className="spin" /> : <Icon name="sparkle" size="sm" />}{gen ? 'Generating…' : scope === 'all' ? 'Generate for all days' : 'Generate with AI'}
+                </button>
+              )}
           </div>
         </div>
+        {scope === 'all' && (
+          <label className="checkrow sm"><input type="checkbox" checked={skipFilled} onChange={(e) => setSkipFilled(e.target.checked)} disabled={gen} />Skip days that already have questions</label>
+        )}
+        {progress && (
+          <div className="qbprog" role="progressbar" aria-label="Generating for all days" aria-valuemin={0} aria-valuemax={progress.total} aria-valuenow={progress.done}>
+            <span className="hint">{progress.waiting ? 'Too many requests — waiting a moment, then day ' + progress.day + ' again' : 'Day ' + progress.day} · {progress.done} of {progress.total} days done</span>
+            <span className="adm-meter"><i style={{ width: (progress.done / progress.total) * 100 + '%' }} /></span>
+          </div>
+        )}
         <div aria-live="polite" className="hint">
-          {gen ? 'Writing questions for ' + words.length + (words.length === 1 ? ' word' : ' words') + ' — this can take up to a minute…'
-            : !words.length ? 'Add words to this day first.'
+          {gen ? (scope === 'all' ? 'Writing questions day by day — about half a minute per day. You can keep this page open and review later.' : 'Writing questions for ' + words.length + (words.length === 1 ? ' word' : ' words') + ' — this can take up to a minute…')
+            : scope === 'day' && !words.length ? 'Add words to this day first.'
             : !tenses.length ? 'Pick at least one tense.' : 'New questions wait for your approval before learners see them.'}
         </div>
+        {report.length > 0 && !gen && (
+          <ul className="qbreport" aria-label="Generation notes">{report.map((x, k) => <li key={k}><Icon name="alert" size="sm" />{x}</li>)}</ul>
+        )}
       </div>
 
       <div className="actions">
@@ -394,7 +477,8 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
         <SentenceBankPicker c={c} day={day.day} onAdded={setItems} onClose={() => { setPicking(false); focusLater(base + '-bank'); }} />
       )}
       {importing && (
-        <ImportQuestions c={c} day={day.day} words={words} onImported={setItems}
+        <ImportQuestions c={c} day={day.day} words={words} perWord={perWord} tenses={tenses} onImported={setItems}
+          onDayImported={(d, list) => onCounts(d, countsOf(list))}
           onClose={() => { setImporting(false); focusLater(base + '-import'); }} />
       )}
 

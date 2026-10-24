@@ -242,7 +242,7 @@ export interface BankItem {
 export interface BankInput { kind: BankKind; word?: string; tense?: string; prompt: string; choices?: string[]; answer?: string; accept?: string[]; explain?: string }
 export type BankPatch = Partial<Omit<BankInput, 'kind'>> & { status?: BankStatus; data?: Dialogue };
 /** source 'template' = built-in questions, used when AI isn't available. items: the day's whole bank. */
-export interface BankGenerateResult { source: 'ai' | 'template'; added: number; quota: Quota; items: BankItem[] }
+export interface BankGenerateResult { source: 'ai' | 'template'; aiProblem: 'off' | 'failed' | ''; missing: string[]; added: number; quota: Quota; items: BankItem[] }
 /**
  * One row of a question import (CSV columns or JSON keys). type: 'typed' | 'multi' · word: one of the day's words ·
  * sentence: one "___" · multi: choice1..choice4 (or choices) · accept: "a|b" or a list · explain: Vietnamese.

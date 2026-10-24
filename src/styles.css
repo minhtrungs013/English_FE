@@ -2140,3 +2140,6 @@ button.tmini-row:hover{border-color:var(--primary)}
 
 .sd-more.sd-ai{color:var(--primary-ink);gap:8px}
 .sd-more.sd-ai svg:last-child{margin-left:auto}
+.qbprog{display:flex;flex-direction:column;gap:6px}
+.qbreport{list-style:none;margin:0;max-height:220px;overflow-y:auto;padding:10px 12px;border-radius:var(--r-md);background:var(--warning-soft);color:var(--warning);display:flex;flex-direction:column;gap:4px;font-size:13px}
+.qbreport li{display:flex;gap:6px;align-items:flex-start}
