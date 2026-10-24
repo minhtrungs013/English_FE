@@ -32,8 +32,8 @@ const countsOf = (items: BankItem[]) => ({
 });
 
 /** Add / edit form for one question or the recap story. Server validation errors are shown under it. */
-function QuestionForm({ init, kind: kind0, words, busy, err, onSave, onCancel, idBase }: {
-  init?: BankItem; kind: BankKind; words: string[]; busy: boolean; err: string;
+function QuestionForm({ init, kind: kind0, words, review = [], busy, err, onSave, onCancel, idBase }: {
+  init?: BankItem; kind: BankKind; words: string[]; review?: string[]; busy: boolean; err: string;
   onSave: (q: BankInput) => void; onCancel: () => void; idBase: string;
 }) {
   const [kind, setKind] = useState<BankKind>(init?.kind ?? kind0);
@@ -83,6 +83,9 @@ function QuestionForm({ init, kind: kind0, words, busy, err, onSave, onCancel, i
         <>
           <div className="field">
             <label className="label" htmlFor={id('story')}>Story</label>
+            {review.length > 0 && (
+              <span className="hint">Use as many of the earlier days’ words as you can: {review.map((w, k) => <span key={w}>{k ? ', ' : ''}<b className={prompt.toLowerCase().includes(w.toLowerCase()) ? 'qb-used' : ''}>{w}</b></span>)}</span>
+            )}
             <textarea ref={first} id={id('story')} className="input" value={prompt} maxLength={2000} placeholder="A short story that uses words from earlier days…" onChange={(e) => setPrompt(e.target.value)} />
           </div>
           <div className="field">
@@ -208,6 +211,17 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
   const [picking, setPicking] = useState(false);
   const words = (day.words ?? []).map((w) => w.word);
   const base = 'qb-' + day.day;
+  /** The words a recap should use: the last 12 words of the earlier days (as the server's AI uses). */
+  const review = c.days.filter((d) => d.day < day.day).flatMap((d) => (d.words ?? []).map((w) => w.word)).slice(-12);
+  const [recapGen, setRecapGen] = useState(false);
+  const recapAi = async () => {
+    setRecapGen(true);
+    try {
+      const r = await api.generateRecap(c.id, day.day);
+      setItems(r.items);
+      a.showToast('AI wrote a recap — review and approve it below.');
+    } catch (e) { a.showToast(errText(e, 'Couldn’t write a recap.'), 'bad'); } finally { setRecapGen(false); }
+  };
 
   const load = async () => {
     setFailed('');
@@ -451,7 +465,12 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
 
       <div className="actions">
         <button id={base + '-add'} className="btn btn-secondary btn-sm" onClick={() => openForm('tense')} aria-expanded={adding === 'tense'}><Icon name="plus" size="sm" />Add question</button>
-        <button className="btn btn-secondary btn-sm" onClick={() => openForm('recap')} aria-expanded={adding === 'recap'}><Icon name="pen" size="sm" />{hasRecap ? 'Rewrite recap' : 'Write recap'}</button>
+        <button className="btn btn-secondary btn-sm" onClick={() => openForm('recap')} aria-expanded={adding === 'recap'} disabled={!review.length}
+          title={review.length ? undefined : 'Day 1 has no earlier words to recap'}><Icon name="pen" size="sm" />{hasRecap ? 'Rewrite recap' : 'Write recap'}</button>
+        <button className="btn btn-secondary btn-sm" onClick={recapAi} disabled={!review.length || recapGen}
+          title={review.length ? 'AI writes a short story with the earlier days’ words' : 'Day 1 has no earlier words to recap'}>
+          {recapGen ? <span className="spin" /> : <Icon name="sparkle" size="sm" />}{recapGen ? 'Writing recap…' : 'Recap with AI'}
+        </button>
         <button id={base + '-import'} className="btn btn-secondary btn-sm" onClick={() => setImporting(true)} disabled={!words.length}
           aria-haspopup="dialog" aria-describedby={!words.length ? base + '-imph' : undefined}>
           <Icon name="upload" size="sm" />Import questions
@@ -460,6 +479,7 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
           <Icon name="layers" size="sm" />Pick from sentence bank
         </button>
         {!words.length && <span className="hint" id={base + '-imph'}>Add words to this day first.</span>}
+        {words.length > 0 && !review.length && <span className="hint">The recap retells earlier days’ words, so day 1 has none.</span>}
         {n.pending > 0 && (
           <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={approveAll} disabled={!!busy}>
             <Icon name="checkc" size="sm" />{busy === 'all' ? 'Approving…' : 'Approve all pending (' + n.pending + ')'}
@@ -469,7 +489,7 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
       {adding && (
         <div className="qbnew">
           {adding === 'recap' && hasRecap && <p className="hint" style={{ margin: 0 }}>Saving a new recap replaces this day’s current one.</p>}
-          <QuestionForm key={adding} kind={adding} words={words} busy={busy === 'new'} err={formErr} idBase={base + '-new'}
+          <QuestionForm key={adding} kind={adding} words={words} review={review} busy={busy === 'new'} err={formErr} idBase={base + '-new'}
             onSave={saveNew} onCancel={() => { openForm(null); focusLater(base + '-add'); }} />
         </div>
       )}

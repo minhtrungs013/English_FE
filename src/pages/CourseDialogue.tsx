@@ -285,20 +285,43 @@ export function DialogueForm({ init, edit, words, busy, err, onSave, onCancel, i
   );
 }
 
-/** Paste or upload a dialogue as JSON; saving approves it. "Edit first" opens it in the form instead. */
-function ImportDialogue({ day, words, onImport, onEdit, onClose }: {
-  day: number; words: string[]; onImport: (d: Dialogue) => Promise<string>; onEdit: (d: Dialogue) => void; onClose: () => void;
+/** Paste or upload a dialogue as JSON (one day), or a list of dialogues with a "day" each (the whole course); saving approves them. */
+function ImportDialogue({ c, day, words, onImport, onCourseImported, onEdit, onClose }: {
+  c: CourseDetail; day: number; words: string[]; onImport: (d: Dialogue) => Promise<string>; onCourseImported: () => Promise<void>;
+  onEdit: (d: Dialogue) => void; onClose: () => void;
 }) {
+  const { a } = useWB();
+  const [scope, setScope] = useState<'day' | 'course'>('day');
   const [text, setText] = useState('');
   const [file, setFile] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
+  const [results, setResults] = useState<{ day: number; ok: boolean; msg: string }[]>([]);
   const base = 'di-' + day;
+  const course = scope === 'course';
+  const daysWithWords = c.days.filter((d) => (d.words ?? []).length);
 
   let parsed: Record<string, unknown> | null = null;
+  let list: { day: number; d: Record<string, unknown> }[] = [];
   let parseErr = '';
   if (text.trim()) {
-    try { parsed = dialogueFromJson(text); } catch (e) { parseErr = errText(e, 'This isn’t valid JSON.'); }
+    if (!course) {
+      try { parsed = dialogueFromJson(text); } catch (e) { parseErr = errText(e, 'This isn’t valid JSON.'); }
+    } else {
+      try {
+        const raw = JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text) as unknown;
+        const arr = Array.isArray(raw) ? raw : raw && typeof raw === 'object' && Array.isArray((raw as { items?: unknown }).items) ? (raw as { items: unknown[] }).items : null;
+        if (!arr) throw new Error('For the whole course, the JSON must be a list of dialogues, each with a "day".');
+        list = arr.map((it, k) => {
+          if (!it || typeof it !== 'object' || Array.isArray(it)) throw new Error('Item ' + (k + 1) + ' isn’t a dialogue object.');
+          const o = it as Record<string, unknown>;
+          const dn = Number(o.day);
+          if (!Number.isInteger(dn) || dn < 1 || dn > c.days.length) throw new Error('Item ' + (k + 1) + ': "day" must be 1–' + c.days.length + '.');
+          return { day: dn, d: Object.fromEntries(Object.entries(o).filter(([key]) => key !== 'day' && !key.startsWith('_'))) };
+        });
+        if (!list.length) throw new Error('The list is empty.');
+      } catch (e) { parseErr = errText(e, 'This isn’t valid JSON.'); list = []; }
+    }
   }
   const look = parsed ? looksOf(parsed) : null;
 
@@ -307,37 +330,80 @@ function ImportDialogue({ day, words, onImport, onEdit, onClose }: {
     e.target.value = '';
     if (!f) return;
     setErr('');
-    if (f.size > MAX_FILE) { setFile(f.name); setErr('This file is too big (over 1 MB).'); return; }
+    setResults([]);
+    if (f.size > MAX_FILE * (course ? 10 : 1)) { setFile(f.name); setErr('This file is too big (over ' + (course ? 10 : 1) + ' MB).'); return; }
     try { setText(await f.text()); setFile(f.name); } catch (er) { setErr(errText(er, 'Couldn’t read this file.')); }
   };
   const run = async () => {
-    if (!parsed || busy) return;
-    setBusy(true);
+    if (busy) return;
+    if (!course) {
+      if (!parsed) return;
+      setBusy('Importing…');
+      setErr('');
+      const msg = await onImport(parsed as unknown as Dialogue);
+      setBusy('');
+      if (msg) setErr(msg);
+      return;
+    }
+    if (!list.length) return;
     setErr('');
-    const msg = await onImport(parsed as unknown as Dialogue);
-    setBusy(false);
-    if (msg) setErr(msg);
+    const out: { day: number; ok: boolean; msg: string }[] = [];
+    for (const [k, it] of list.entries()) {
+      setBusy('Importing day ' + it.day + ' (' + (k + 1) + '/' + list.length + ')…');
+      try {
+        await api.addDialogue(c.id, it.day, it.d as unknown as Dialogue);
+        out.push({ day: it.day, ok: true, msg: '' });
+      } catch (e) {
+        out.push({ day: it.day, ok: false, msg: errText(e, 'Couldn’t import it.') });
+      }
+    }
+    setBusy('');
+    setResults(out);
+    await onCourseImported();
+    const good = out.filter((x) => x.ok).length;
+    a.showToast('Imported ' + good + (good === 1 ? ' dialogue' : ' dialogues') + (good < out.length ? ' · ' + (out.length - good) + ' failed' : ''), good === out.length ? 'ok' : 'bad');
+    if (good === out.length) onClose();
   };
+  const switchScope = (sc: 'day' | 'course') => { setScope(sc); setText(''); setFile(''); setErr(''); setResults([]); };
+  const courseTemplate = () => daysWithWords.map((d) => {
+    const { _help, ...t } = templateDialogue((d.words ?? []).map((w) => w.word));
+    return { day: d.day, _help, ...t };
+  });
 
   return (
-    <Dialog label={'Import a dialogue for day ' + day} onClose={onClose} wide className="impmodal">
-      <h2>Import dialogue · day {day}</h2>
-      <p className="sm">Paste or upload one dialogue as JSON. Importing <b>approves it straight away</b> and replaces day {day}’s current dialogue.</p>
+    <Dialog label={course ? 'Import dialogues for the whole course' : 'Import a dialogue for day ' + day} onClose={onClose} wide className="impmodal">
+      <h2>Import {course ? 'dialogues · whole course' : 'dialogue · day ' + day}</h2>
+      <div className="seg" role="group" aria-label="What to import" style={{ alignSelf: 'flex-start' }}>
+        <button className={!course ? 'on' : ''} aria-pressed={!course} onClick={() => switchScope('day')} disabled={!!busy}>Day {day}</button>
+        <button className={course ? 'on' : ''} aria-pressed={course} onClick={() => switchScope('course')} disabled={!!busy || !daysWithWords.length}>Whole course ({daysWithWords.length} days)</button>
+      </div>
+      <p className="sm">
+        {course
+          ? <>Upload a list of dialogues, each with a <code>day</code>. Importing <b>approves them straight away</b> and replaces each day’s current dialogue.</>
+          : <>Paste or upload one dialogue as JSON. Importing <b>approves it straight away</b> and replaces day {day}’s current dialogue.</>}
+      </p>
       <div className="impstep">
         <span className="label">1. Start from the template</span>
-        <span className="hint">It uses this day’s words as example blanks — rewrite the lines and questions.</span>
+        <span className="hint">{course ? 'One example dialogue for each of the ' + daysWithWords.length + ' days with words, using that day’s words as blanks — rewrite the lines and questions.' : 'It uses this day’s words as example blanks — rewrite the lines and questions.'}</span>
         <div className="actions">
-          <button className="btn btn-secondary btn-sm" autoFocus onClick={() => download('day-' + day + '-dialogue.json', JSON.stringify(templateDialogue(words), null, 2) + '\n', 'application/json')}>
-            <Icon name="download" size="sm" />Download JSON template
-          </button>
+          {course ? (
+            <button className="btn btn-secondary btn-sm" autoFocus onClick={() => download('course-dialogues.json', JSON.stringify(courseTemplate(), null, 2) + '\n', 'application/json')}>
+              <Icon name="download" size="sm" />Download JSON template
+            </button>
+          ) : (
+            <button className="btn btn-secondary btn-sm" autoFocus onClick={() => download('day-' + day + '-dialogue.json', JSON.stringify(templateDialogue(words), null, 2) + '\n', 'application/json')}>
+              <Icon name="download" size="sm" />Download JSON template
+            </button>
+          )}
         </div>
       </div>
       <div className="impstep">
         <label className="label" htmlFor={base + '-file'}>2. Upload the file…</label>
-        <input id={base + '-file'} type="file" className="input fileinput" accept=".json,application/json" onChange={pick} disabled={busy} />
+        <input id={base + '-file'} type="file" className="input fileinput" accept=".json,application/json" onChange={pick} disabled={!!busy} />
         <label className="label" htmlFor={base + '-text'}>…or paste the JSON</label>
-        <textarea id={base + '-text'} className="input dljson" value={text} spellCheck={false} placeholder='{ "title": "…", "scenario": "…", "speakers": [ … ], "lines": [ … ], "questions": [ … ] }'
-          onChange={(e) => { setText(e.target.value); setFile(''); setErr(''); }} />
+        <textarea id={base + '-text'} className="input dljson" value={text} spellCheck={false}
+          placeholder={course ? '[ { "day": 1, "title": "…", "speakers": [ … ], "lines": [ … ], "questions": [ … ] }, … ]' : '{ "title": "…", "scenario": "…", "speakers": [ … ], "lines": [ … ], "questions": [ … ] }'}
+          onChange={(e) => { setText(e.target.value); setFile(''); setErr(''); setResults([]); }} />
         {parseErr && <span className="errtxt" role="alert"><Icon name="alert" size="sm" />{file ? file + ': ' : ''}{parseErr}</span>}
       </div>
       <div aria-live="polite">
@@ -346,12 +412,21 @@ function ImportDialogue({ day, words, onImport, onEdit, onClose }: {
             <b>{look.title || 'Untitled'}</b> · {plural(look.speakers, 'speaker')} · {plural(look.lines, 'line')} · {plural(look.blanks, 'blank')} · {plural(look.questions, 'question')}
           </p>
         )}
+        {course && list.length > 0 && !results.length && (
+          <p className="note sm dlnote">{plural(list.length, 'dialogue')} for {list.length === 1 ? 'day' : 'days'} {list.map((x) => x.day).join(', ')}</p>
+        )}
+        {results.some((x) => !x.ok) && (
+          <ul className="qbreport">{results.filter((x) => !x.ok).map((x) => <li key={x.day + x.msg}><Icon name="alert" size="sm" />Day {x.day}: {x.msg}</li>)}</ul>
+        )}
+        {busy && <p className="hint" style={{ margin: 0 }}><span className="spin" /> {busy}</p>}
       </div>
       {err && <span className="errtxt" role="alert"><Icon name="alert" size="sm" />{err}</span>}
       <div className="mfoot">
-        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        <button className="btn btn-secondary" onClick={() => parsed && onEdit(parsed as unknown as Dialogue)} disabled={!parsed || busy}><Icon name="edit" size="sm" />Edit first</button>
-        <button className="btn btn-primary" onClick={run} disabled={!parsed || busy}><Icon name="upload" size="sm" />{busy ? 'Importing…' : 'Import and approve'}</button>
+        <button className="btn btn-secondary" onClick={onClose} disabled={!!busy}>{results.length ? 'Done' : 'Cancel'}</button>
+        {!course && <button className="btn btn-secondary" onClick={() => parsed && onEdit(parsed as unknown as Dialogue)} disabled={!parsed || !!busy}><Icon name="edit" size="sm" />Edit first</button>}
+        <button className="btn btn-primary" onClick={run} disabled={(course ? !list.length : !parsed) || !!busy}>
+          <Icon name="upload" size="sm" />{busy ? 'Importing…' : course ? 'Import and approve ' + plural(list.length, 'dialogue') : 'Import and approve'}
+        </button>
       </div>
     </Dialog>
   );
@@ -381,7 +456,7 @@ export function DialogueBank({ c, day, items, setItems, reload }: {
   c: CourseDetail; day: CourseDay; items: BankItem[] | null;
   setItems: Dispatch<SetStateAction<BankItem[] | null>>; reload: () => Promise<void>;
 }) {
-  const { a } = useWB();
+  const { s, a } = useWB();
   const [gen, setGen] = useState(false);
   const [genMsg, setGenMsg] = useState('');
   const [quota, setQuota] = useState<Quota | null>(null);
@@ -398,15 +473,52 @@ export function DialogueBank({ c, day, items, setItems, reload }: {
   const focusLater = (el: string) => window.setTimeout(() => document.getElementById(el)?.focus(), 0);
   const replace = (q: BankItem) => setItems((prev) => prev && prev.map((x) => (x.id === q.id ? q : x)));
 
+  const [scope, setScope] = useState<'day' | 'all'>('day');
+  const [skipFilled, setSkipFilled] = useState(true);
+  const [progress, setProgress] = useState<{ done: number; total: number; day: number } | null>(null);
+  const [report, setReport] = useState<string[]>([]);
+  const stopAll = useRef(false);
+  const generateAll = async () => {
+    const days = c.days.filter((d) => (d.words ?? []).length);
+    setGen(true);
+    setGenMsg('');
+    setReport([]);
+    stopAll.current = false;
+    let made = 0, skipped = 0;
+    const problems: string[] = [];
+    try {
+      for (let k = 0; k < days.length; k++) {
+        const d = days[k];
+        if (stopAll.current) break;
+        setProgress({ done: k, total: days.length, day: d.day });
+        try {
+          const r = await api.generateDialogue(c.id, d.day, skipFilled);
+          if (r.skipped) skipped++; else made++;
+          if (d.day === day.day) setItems(r.items);
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 429 && !/daily|today/i.test(e.message)) { await new Promise((res) => setTimeout(res, 30_000)); k--; continue; }
+          problems.push('Day ' + d.day + ': ' + errText(e, 'failed'));
+          if (e instanceof ApiError && (e.status === 429 || /set up/i.test(e.message))) break;
+        }
+      }
+      a.showToast((stopAll.current ? 'Stopped. ' : '') + 'AI wrote ' + made + (made === 1 ? ' dialogue' : ' dialogues') + (skipped ? ' · ' + skipped + ' days skipped (already had one)' : '') + ' — preview and approve them day by day.'
+        + (problems.length ? ' ' + problems.length + ' failed.' : ''), problems.length ? 'bad' : 'ok');
+      setReport(problems);
+    } finally {
+      setGen(false);
+      setProgress(null);
+    }
+  };
+
   const generate = async () => {
+    if (scope === 'all') { await generateAll(); return; }
     setGen(true);
     setGenMsg('');
     try {
       const r = await api.generateDialogue(c.id, day.day);
       setItems(r.items);
       setQuota(r.quota);
-      const left = Math.max(0, r.quota.limit - r.quota.used);
-      a.showToast('AI wrote a dialogue — preview and approve it below. ' + left + ' of ' + r.quota.limit + ' AI generations left today.');
+      a.showToast('AI wrote a dialogue — preview and approve it below.');
     } catch (e) {
       const qb = e instanceof ApiError ? (e.body?.quota as Quota | undefined) : undefined;
       if (qb) setQuota(qb);
@@ -501,15 +613,33 @@ export function DialogueBank({ c, day, items, setItems, reload }: {
       </p>
 
       <div className="actions">
-        <button className="btn btn-primary btn-sm" onClick={generate} disabled={gen || !words.length}>
-          {gen ? <span className="spin" /> : <Icon name="sparkle" size="sm" />}{gen ? 'Writing…' : 'Generate with AI'}
-        </button>
+        <div className="seg" role="group" aria-label="Generate for">
+          <button className={scope === 'day' ? 'on' : ''} aria-pressed={scope === 'day'} onClick={() => setScope('day')} disabled={gen}>Day {day.day}</button>
+          <button className={scope === 'all' ? 'on' : ''} aria-pressed={scope === 'all'} onClick={() => setScope('all')} disabled={gen}>All {c.days.length} days</button>
+        </div>
+        {gen && scope === 'all' ? (
+          <button className="btn btn-secondary btn-sm" onClick={() => { stopAll.current = true; }}><Icon name="x" size="sm" />Stop after this day</button>
+        ) : (
+          <button className="btn btn-primary btn-sm" onClick={generate} disabled={gen || (scope === 'day' && !words.length)}>
+            {gen ? <span className="spin" /> : <Icon name="sparkle" size="sm" />}{gen ? 'Writing…' : scope === 'all' ? 'Generate for all days' : 'Generate with AI'}
+          </button>
+        )}
         <button id={base + '-write'} className="btn btn-secondary btn-sm" onClick={() => openForm('new')} aria-expanded={editing === 'new'}><Icon name="pen" size="sm" />Write dialogue</button>
         <button id={base + '-import'} className="btn btn-secondary btn-sm" onClick={() => setImporting(true)} aria-haspopup="dialog"><Icon name="upload" size="sm" />Import JSON</button>
-        {left !== null && <span className="hint">{left} AI {left === 1 ? 'generation' : 'generations'} left today</span>}
+        {left !== null && s.role !== 'admin' && <span className="hint">{left} AI {left === 1 ? 'generation' : 'generations'} left today</span>}
       </div>
+      {scope === 'all' && (
+        <label className="checkrow sm"><input type="checkbox" checked={skipFilled} onChange={(e) => setSkipFilled(e.target.checked)} disabled={gen} />Skip days that already have a dialogue</label>
+      )}
+      {progress && (
+        <div className="qbprog" role="progressbar" aria-label="Writing dialogues for all days" aria-valuemin={0} aria-valuemax={progress.total} aria-valuenow={progress.done}>
+          <span className="hint">Day {progress.day} · {progress.done} of {progress.total} days done</span>
+          <span className="adm-meter"><i style={{ width: (progress.done / progress.total) * 100 + '%' }} /></span>
+        </div>
+      )}
+      {report.length > 0 && !gen && <ul className="qbreport" aria-label="Problems">{report.map((x, k) => <li key={k}><Icon name="alert" size="sm" />{x}</li>)}</ul>}
       <div aria-live="polite">
-        {gen ? <span className="hint">Writing a dialogue with day {day.day}’s words — this can take up to a minute…</span>
+        {gen ? <span className="hint">{scope === 'all' ? 'Writing dialogues day by day — about half a minute per day.' : 'Writing a dialogue with day ' + day.day + '’s words — this can take up to a minute…'}</span>
           : genMsg ? <p className="note sm" role="alert">{genMsg}</p>
           : !words.length && <span className="hint">Add words to this day first to generate one.</span>}
       </div>
@@ -555,7 +685,7 @@ export function DialogueBank({ c, day, items, setItems, reload }: {
       )}
 
       {importing && (
-        <ImportDialogue day={day.day} words={words} onImport={importOne}
+        <ImportDialogue c={c} day={day.day} words={words} onImport={importOne} onCourseImported={reload}
           onEdit={(d) => { setImporting(false); openForm('new', d); }}
           onClose={() => { setImporting(false); focusLater(base + '-import'); }} />
       )}

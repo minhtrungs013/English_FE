@@ -392,7 +392,8 @@ const AUDIT_ACTIONS: { id: string; label: string }[] = [
   { id: 'tense-questions', label: 'Tense questions' },
   { id: 'dialogue', label: 'Listening dialogue' },
   { id: 'sentence-check', label: 'Sentence check' },
-  { id: 'homework-sentence', label: 'Homework sentence' }
+  { id: 'homework-sentence', label: 'Homework sentence' },
+  { id: 'recap', label: 'Course recap' }
 ];
 const actionLabel = (a: string) => AUDIT_ACTIONS.find((x) => x.id === a)?.label ?? a;
 const fmtTime = (t: number) => new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });

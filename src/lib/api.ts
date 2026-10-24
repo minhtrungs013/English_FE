@@ -294,7 +294,7 @@ export interface Dialogue { title: string; scenario: string; speakers: DialogueS
 /** The day's approved dialogue for practice (answers included), with the blanks' base words shuffled. */
 export interface ListeningDialogue extends Dialogue { id: string; wordBank: string[] }
 export interface Listening { day: number; dialogue: ListeningDialogue | null }
-export interface DialogueGenerateResult { quota: Quota; items: BankItem[] }
+export interface DialogueGenerateResult { skipped?: boolean; quota: Quota; items: BankItem[] }
 
 export interface Warmup { day: number; recap: { text: string; vi: string } | null; words: WarmupWord[]; questions: WarmupQuestion[] }
 
@@ -596,7 +596,9 @@ export const api = {
   /** A listening dialogue written by hand or imported; approved straight away (replaces the day's approved one). */
   addDialogue: (id: string, day: number, data: Dialogue) => req<BankItem>('POST', '/courses/' + id + '/days/' + day + '/questions', { kind: 'dialogue', data }),
   /** AI writes a pending dialogue with the day's words (one daily AI generation). 422 when AI isn't available. */
-  generateDialogue: (id: string, day: number) => req<DialogueGenerateResult>('POST', '/courses/' + id + '/days/' + day + '/dialogue/generate'),
+  generateDialogue: (id: string, day: number, skipIfExists = false) => req<DialogueGenerateResult>('POST', '/courses/' + id + '/days/' + day + '/dialogue/generate' + (skipIfExists ? '?skip=1' : '')),
+  /** AI writes only the day's recap story (pending). 400 on day 1 (no earlier words). */
+  generateRecap: (id: string, day: number) => req<{ review: string[]; items: BankItem[] }>('POST', '/courses/' + id + '/days/' + day + '/recap/generate'),
   setQuestionsStatus: (id: string, ids: string[], status: BankStatus) => req<{ updated: number }>('POST', '/courses/' + id + '/questions/status', { ids, status }),
   deleteQuestion: (id: string, qid: string) => req<void>('DELETE', '/courses/' + id + '/questions/' + qid),
   /** Imports up to 100 rows; good ones are approved straight away, bad ones come back in errors. */
