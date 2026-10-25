@@ -296,10 +296,10 @@ export function Settings() {
     </>
   );
   else if (tab === 'learning') body = (
-    <Card title="Review & flashcards" desc="These apply to every review session.">
+    <Card title="Review & practice" desc="These apply to every review and practice session.">
       <div className="setrow">
-        <div className="setlbl"><b>Daily review goal</b><span className="muted sm">The most words one review session will show</span></div>
-        <select className="input" value={st.goal} onChange={(e) => a.setSettings({ goal: e.target.value })} aria-label="Daily review goal">
+        <div className="setlbl"><b>Words per session</b><span className="muted sm">The most words one review, flashcard or practice session will show</span></div>
+        <select className="input" value={st.goal} onChange={(e) => a.setSettings({ goal: e.target.value })} aria-label="Words per session">
           {['10', '20', '30', '50'].map((g) => <option key={g} value={g}>{g} words</option>)}
         </select>
       </div>

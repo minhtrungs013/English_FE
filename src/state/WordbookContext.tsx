@@ -295,9 +295,11 @@ function useWordbookState() {
   const markSentence = (q: PracticeQuestion, ok: boolean) => { if (q.key) void api.practiceSeen([{ key: q.key, ok }]).catch(() => undefined); };
   const startPractice = async (mode: PracticeMode | 'flash') => {
     const ws = ref.current.words;
+    /** Words per session: the same setting as review (Settings → Learning). */
+    const n = Number(ref.current.settings.goal) || 20;
     if (mode === 'flash') {
       if (!ws.length) { showToast('Add some words first to practice.', 'bad'); return; }
-      const ids = shuffle(ws.map((w) => w.id)).slice(0, 20);
+      const ids = shuffle(ws.map((w) => w.id)).slice(0, n);
       startReview(ids, 'Flashcards', true);
       // A different example for each card when the sentence bank has one (optional).
       api.practiceSentences('flash', ids.length, ids).then((r) => set((prev) => (prev.review?.queue === ids
@@ -306,7 +308,7 @@ function useWordbookState() {
     }
     if (mode === 'fill' || mode === 'tense') {
       // Sentences from the sentence bank (fresh ones first); fill falls back to the words' own examples offline.
-      const r = await api.practiceSentences(mode, 10).catch(() => null);
+      const r = await api.practiceSentences(mode, n).catch(() => null);
       let qs: PracticeQuestion[] = [];
       if (r && mode === 'fill') {
         qs = r.items.flatMap((x) => {
@@ -333,13 +335,13 @@ function useWordbookState() {
     if (mode === 'mc') {
       const withMeaning = ws.filter((w) => w.meaning);
       if (withMeaning.length < 4) { showToast('You need at least 4 words with meanings for multiple choice.', 'bad'); return; }
-      qs = shuffle(withMeaning).slice(0, 10).map((w) => {
+      qs = shuffle(withMeaning).slice(0, n).map((w) => {
         const others = shuffle(withMeaning.filter((o) => o.id !== w.id && o.meaning !== w.meaning)).slice(0, 3).map((o) => o.meaning);
         const opts = shuffle([w.meaning, ...others]);
         return { id: w.id, opts, ans: opts.indexOf(w.meaning) };
       });
     } else if (mode === 'fill') {
-      qs = shuffle(ws.filter((w) => w.ex && w.ex.toLowerCase().includes(w.word.toLowerCase()))).slice(0, 10).map((w) => {
+      qs = shuffle(ws.filter((w) => w.ex && w.ex.toLowerCase().includes(w.word.toLowerCase()))).slice(0, n).map((w) => {
         const k = w.ex.toLowerCase().indexOf(w.word.toLowerCase());
         return { id: w.id, before: w.ex.slice(0, k), after: w.ex.slice(k + w.word.length), answer: w.word };
       });
@@ -347,12 +349,12 @@ function useWordbookState() {
       qs = shuffle(ws).flatMap((w) => {
         const q = buildWordform(w.family);
         return q ? [{ id: w.id, before: q.before, after: q.after, answer: q.answer, hint: q.hint, pos: q.pos, vi: q.vi, family: q.family }] : [];
-      }).slice(0, 10);
+      }).slice(0, n);
       if (qs.length < 3) { showToast('Save words that have a word family first (look for “+N forms”).', 'bad'); return; }
     } else if (mode === 'trans') {
-      qs = shuffle(ws.filter((w) => w.vi)).slice(0, 10).map((w) => ({ id: w.id, answer: w.word }));
+      qs = shuffle(ws.filter((w) => w.vi)).slice(0, n).map((w) => ({ id: w.id, answer: w.word }));
     } else {
-      qs = shuffle(ws).slice(0, 10).map((w) => ({ id: w.id, answer: w.word }));
+      qs = shuffle(ws).slice(0, n).map((w) => ({ id: w.id, answer: w.word }));
     }
     if (!qs.length) { showToast('Not enough words with the needed details yet.', 'bad'); return; }
     set({ route: 'practice', menu: null, review: null, practice: { pid: Date.now(), mode, qs, i: 0, picked: null, input: '', checked: false, correct: false, score: 0, done: false, anim: 0 } });
