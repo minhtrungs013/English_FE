@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  DAY, MIN, cleanFamily, dayKey, emptyForm, familyToSave, isDue, shuffle,
+  DAY, MIN, POS_LIST, cleanFamily, dayKey, emptyForm, familyToSave, isDue, shuffle,
   type Data, type FormData, type Rating, type Settings, type Word
 } from '../lib/data';
 import type { IconName } from '../lib/icons';
@@ -8,6 +8,7 @@ import { api, ApiError, getToken, setToken, setUnauthorizedHandler, type AuthRes
 import { stopSpeaking } from '../lib/speech';
 import { buildWordform, normalizeAnswer } from '../lib/wordform';
 import { pathOf, routeOf } from '../lib/routes';
+import { hasMeaning, type ChatCard } from '../lib/chat';
 import { cacheStyle, cachedStyle, isAppStyle, type AppStyle } from '../lib/appStyle';
 
 export const LOOKUP_STEPS = ['Checking your word list', 'Looking up the dictionary', 'Translating to Vietnamese', 'Filling in the details'];
@@ -648,6 +649,43 @@ function useWordbookState() {
     showToast('Saved “' + lw.word + '” to your vocabulary.');
     return res.word;
   };
+  /**
+   * Chat → a new word's card: saves it with everything the card has (as the New word form would, without leaving the chat)
+   * and shares it to the library (only checked AI data, not the free dictionaries'). A word already in the library is just saved.
+   * The meaning the chat was about goes first.
+   */
+  const addChatWord = async (card: ChatCard): Promise<Word | undefined> => {
+    const word = card.word.trim();
+    const have = ref.current.words.find((w) => w.word.toLowerCase() === word.toLowerCase());
+    if (have) return have;
+    const pos0 = card.pos ? card.pos.charAt(0).toUpperCase() + card.pos.slice(1).toLowerCase() : '';
+    const pos = POS_LIST.includes(pos0) ? pos0 : 'Other';
+    const vi = card.sense && !hasMeaning(card.vi, card.sense) ? [card.sense, card.vi.trim()].filter(Boolean).join(', ') : card.vi.trim();
+    const nw = await call(api.createWord({
+      word, ipa: card.ipa.trim(), pos, meaning: card.meaning.trim(), vi, ex: card.ex.trim(), syn: card.syn ?? [], ant: card.ant ?? [],
+      level: card.level || 'B1', cat: '', tags: [], notes: '', family: familyToSave(cleanFamily(card.family ?? []), word, pos, vi)
+    }));
+    if (!nw) return undefined;
+    set((prev) => ({ words: [nw, ...prev.words] }));
+    let shared = false;
+    if ((nw.meaning || nw.vi) && card.source !== 'online') {
+      const topic = (['it', 'interview', 'customer', 'leader', 'toeic', 'other'].includes(card.topic ?? '') ? card.topic : 'other') as Topic;
+      shared = await api.shareToLibrary(nw.id, topic).then(() => true, () => false);
+      if (shared) set((prev) => ({ shared: prev.shared.includes(word.toLowerCase()) ? prev.shared : [...prev.shared, word.toLowerCase()] }));
+    }
+    showToast(shared ? 'Saved “' + word + '” and shared it to the library.' : 'Saved “' + word + '” to your vocabulary.');
+    return nw;
+  };
+  /** Adds a Vietnamese meaning in front of my word's (the chat's "In this question" meaning). */
+  const addWordMeaning = async (id: string, sense: string): Promise<boolean> => {
+    const w = ref.current.words.find((x) => x.id === id);
+    if (!w || hasMeaning(w.vi, sense)) return true;
+    const uw = await call(api.updateWord(id, { vi: [sense.trim(), w.vi.trim()].filter(Boolean).join(', ') }));
+    if (!uw) return false;
+    set((prev) => ({ words: prev.words.map((x) => (x.id === id ? uw : x)) }));
+    showToast('Added “' + sense.trim() + '” to “' + w.word + '”.');
+    return true;
+  };
   const shareWord = async (w: Word, topic: Topic): Promise<boolean> => {
     const res = await call(api.shareToLibrary(w.id, topic));
     if (!res) return false;
@@ -767,7 +805,7 @@ function useWordbookState() {
     startPractice, pUpdate, pPick, pCheck, pNext,
     setF, addChip, generate, save, openEdit, goNew, formCancel, setWordExample,
     askDeleteWord, confirmModal, submitModal, patchModal,
-    exportData, setSettings, setStyle, setFilters, showWordsWith, reload: load, login, register, verifyRegister, resetPassword, logout, saveFromLibrary, shareWord, learnCourseDay, saveCourseWords, openCourse, openStudy,
+    exportData, setSettings, setStyle, setFilters, showWordsWith, reload: load, login, register, verifyRegister, resetPassword, logout, saveFromLibrary, addChatWord, addWordMeaning, shareWord, learnCourseDay, saveCourseWords, openCourse, openStudy,
     openGrammar, startGrammarPractice, exitGrammarPractice,
     startDictation, exitDictation,
     markNotesRead, deleteNote, openNote,

@@ -4,9 +4,22 @@ import type { FamilyMember, Level } from './data';
 /** A word card from the server: the data and the status (in my words / in the library / new) are real, not the bot's words. */
 export interface ChatCard {
   word: string; ipa: string; pos: string; meaning: string; vi: string; ex: string; level: Level | ''; family: FamilyMember[];
+  /** Missing on cards saved in the chat history before they were sent. */
+  syn?: string[]; ant?: string[]; topic?: string;
   status: 'mine' | 'library' | 'new';
   /** My word's id ("mine") or the library word's id ("library"). */
   id?: string;
+  /** New words: 'ai' (shared to the library when added) or 'online' (free dictionaries: only saved). */
+  source?: 'ai' | 'online';
+  /** The meaning this question is about, when the card's Vietnamese doesn't have it. */
+  sense?: string;
+}
+
+/** True when a Vietnamese field ("nền tảng, sân ga") already has this meaning (the server's rule). */
+export function hasMeaning(vi: string, sense: string): boolean {
+  const s = sense.toLowerCase().normalize('NFC').replace(/\s+/g, ' ').trim();
+  const parts = vi.toLowerCase().normalize('NFC').split(/[,;/]/).map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  return !!s && parts.some((p) => p === s || p.includes(s) || s.includes(p));
 }
 export interface ChatLesson { id: string; name: string; vi: string }
 

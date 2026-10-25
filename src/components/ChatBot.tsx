@@ -1,8 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ASK_AI_EVENT } from '../lib/askAi';
-import { ApiError } from '../lib/api';
-import { applyEvent, chatAsk, chatStatus, loadChat, saveChat, type ChatCard, type ChatMsg, type ChatStatus } from '../lib/chat';
-import { emptyForm } from '../lib/data';
+import { api, ApiError } from '../lib/api';
+import { applyEvent, chatAsk, chatStatus, hasMeaning, loadChat, saveChat, type ChatCard, type ChatMsg, type ChatStatus } from '../lib/chat';
 import { speak } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { Icon } from './ui';
@@ -46,10 +45,22 @@ function WordCard({ card, onLeave }: { card: ChatCard; onLeave: () => void }) {
   // The live state wins: a word saved after the answer came shows as saved.
   const mine = s.words.find((w) => w.word.toLowerCase() === card.word.toLowerCase());
   const status = mine ? 'mine' : card.status;
-  const addNew = () => {
-    a.set({ form: { ...emptyForm(), word: card.word, ipa: card.ipa, pos: card.pos || 'Noun', meaning: card.meaning, vi: card.vi, ex: card.ex, level: card.level || 'B1', family: card.family.map((m) => ({ ...m })) } });
-    a.goNew();
-    onLeave();
+  const inLibrary = s.shared.includes(card.word.toLowerCase());
+  /** The meaning this question is about, while the word (mine or the library's) doesn't have it yet. */
+  const sense = card.sense && !hasMeaning(mine ? mine.vi : card.vi, card.sense) ? card.sense : '';
+  const [suggested, setSuggested] = useState(false);
+  const suggest = async () => {
+    if (!card.id || !sense) return;
+    setBusy(true);
+    try {
+      const r = await api.suggestMeaning(card.id, sense);
+      setSuggested(true);
+      a.showToast(r.status === 'exists' ? 'Thư viện đã có nghĩa này.' : 'Đã gửi đề xuất — admin sẽ duyệt nghĩa “' + sense + '”.');
+    } catch (e) {
+      a.showToast(e instanceof Error ? e.message : 'Không gửi được đề xuất.', 'bad');
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <div className="cb-card">
@@ -64,7 +75,21 @@ function WordCard({ card, onLeave }: { card: ChatCard; onLeave: () => void }) {
         {card.pos ? <span className="badge" style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>{card.pos}</span> : null}
         {card.level ? <span className={'badge lv-' + card.level}>{card.level}</span> : null}
       </div>
-      {card.vi ? <div className="cb-vi">{card.vi}</div> : null}
+      {(mine?.vi || card.vi) ? <div className="cb-vi">{mine?.vi || card.vi}</div> : null}
+      {sense ? (
+        <div className="cb-sense">
+          <span>Trong câu này: <b>{sense}</b></span>
+          {status === 'mine' && mine ? (
+            <button className="btn btn-ghost btn-sm" disabled={busy} onClick={async () => { setBusy(true); await a.addWordMeaning(mine.id, sense); setBusy(false); }}>
+              <Icon name="plus" size="sm" />Thêm nghĩa này vào từ của tôi
+            </button>
+          ) : status === 'library' && card.id ? (
+            suggested ? <span className="cb-note"><Icon name="checkc" size="sm" />Đã gửi đề xuất</span> : (
+              <button className="btn btn-ghost btn-sm" disabled={busy} onClick={suggest}><Icon name="plus" size="sm" />Đề xuất thêm nghĩa này cho thư viện</button>
+            )
+          ) : status === 'new' ? <span className="muted xs">Nghĩa này sẽ được lưu đầu tiên.</span> : null}
+        </div>
+      ) : null}
       {card.meaning ? <div className="cb-mean">{card.meaning}</div> : null}
       {card.ex ? (
         <div className="cb-ex">
@@ -75,7 +100,7 @@ function WordCard({ card, onLeave }: { card: ChatCard; onLeave: () => void }) {
       <div className="cb-cardfoot">
         {status === 'mine' ? (
           <>
-            <span className="cb-note"><Icon name="checkc" size="sm" />Đã có trong sổ của bạn</span>
+            <span className="cb-note"><Icon name="checkc" size="sm" />{card.status === 'new' && inLibrary ? 'Đã lưu và chia sẻ lên thư viện' : card.status === 'new' ? 'Đã lưu vào sổ của bạn' : 'Đã có trong sổ của bạn'}</span>
             <button className="btn btn-ghost btn-sm" onClick={() => { a.go('detail', { sel: mine?.id ?? card.id ?? null }); onLeave(); }}>Xem từ</button>
           </>
         ) : status === 'library' && card.id ? (
@@ -87,7 +112,9 @@ function WordCard({ card, onLeave }: { card: ChatCard; onLeave: () => void }) {
             </button>
           </>
         ) : (
-          <button className="btn btn-primary btn-sm" onClick={addNew}><Icon name="plus" size="sm" />Thêm vào My Vocabulary</button>
+          <button className="btn btn-primary btn-sm" disabled={busy} onClick={async () => { setBusy(true); await a.addChatWord(card); setBusy(false); }}>
+            <Icon name="plus" size="sm" />{busy ? 'Đang thêm…' : 'Thêm vào My Vocabulary'}
+          </button>
         )}
       </div>
     </div>

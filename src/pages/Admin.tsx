@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { api, type AdminInsights, type AdminSuggestion, type AdminPlan, type AuditEntry, type AuditPage, type AdminCourse, type AdminLibraryWord, type AdminSentence, type AdminStats, type AdminUser, type Paged, type Tense, type Topic } from '../lib/api';
+import { api, type AdminInsights, type AdminMeaning, type AdminSuggestion, type AdminPlan, type AuditEntry, type AuditPage, type AdminCourse, type AdminLibraryWord, type AdminSentence, type AdminStats, type AdminUser, type Paged, type Tense, type Topic } from '../lib/api';
 import { LEVELS, POS_LIST } from '../lib/data';
 import { EmptyState, Icon, PageHead } from '../components/ui';
 import { useWB } from '../state/WordbookContext';
@@ -787,7 +787,87 @@ function LibraryRow({ w, onSaved, onDelete }: { w: AdminLibraryWord; onSaved: (x
   );
 }
 
+/* ---------- meanings learners suggested for library words (from the chat) ---------- */
+
+function MeaningRow({ x, onDone }: { x: AdminMeaning; onDone: () => void }) {
+  const { a } = useWB();
+  const [edit, setEdit] = useState(false);
+  // The suggested meaning first: it's usually the work meaning the entry was missing.
+  const [vi, setVi] = useState([x.vi, x.current].filter(Boolean).join(', '));
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const act = async (fn: () => Promise<void>, ok: string) => {
+    setBusy(true); setErr('');
+    try { await fn(); a.showToast(ok); setEdit(false); onDone(); } catch (e) { const m = errText(e); if (edit) setErr(m); else a.showToast(m, 'bad'); setBusy(false); }
+  };
+  return (
+    <li className="adm-sent">
+      <div className="adm-sent-body">
+        <span className="badge t-indigo">{x.word}</span>
+        <span className="sm" style={{ flex: 1 }}>
+          <b>{x.vi}</b>
+          <span className="muted xs" style={{ display: 'block' }}>Now: {x.current || '—'}{x.meaning ? ' · ' + x.meaning : ''}</span>
+        </span>
+      </div>
+      <div className="adm-act" style={{ justifyContent: 'flex-end' }}>
+        <span className="muted xs" style={{ marginRight: 'auto' }}>{x.by ? x.by + ' · ' : ''}{fmtDay(x.at)}</span>
+        <button className="btn btn-ghost btn-sm adm-bad" disabled={busy} onClick={() => act(() => api.adminRejectMeaning(x.id), 'Suggestion rejected.')}>Reject</button>
+        <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => setEdit(true)}><Icon name="check" size="sm" />Approve…</button>
+      </div>
+      {edit && (
+        <FormModal title={'Add a meaning · ' + x.word} sub="This becomes the library word’s Vietnamese. Put the meaning used at work first; separate meanings with commas." save="Save meanings" busy={busy}
+          onSave={() => { if (!vi.trim()) { setErr('The Vietnamese is empty.'); return; } void act(() => api.adminApproveMeaning(x.id, vi.trim()), 'Saved the meanings of “' + x.word + '”.'); }}
+          onClose={() => { setEdit(false); setErr(''); }}>
+          {err && <div className="formerr" role="alert"><Icon name="alert" size="sm" />{err}</div>}
+          <div className="field">
+            <label className="label" htmlFor={'mn-' + x.id}>Vietnamese</label>
+            <input id={'mn-' + x.id} className="input" value={vi} maxLength={200} onChange={(e) => setVi(e.target.value)} autoFocus />
+            <span className="muted xs">Suggested: {x.vi} · now: {x.current || '—'}</span>
+          </div>
+        </FormModal>
+      )}
+    </li>
+  );
+}
+
+function MeaningSuggestions() {
+  const p = usePaged<AdminMeaning>((q, page) => api.adminMeanings(q, page));
+  return (
+    <>
+      <Search value={p.q} onChange={p.setQ} placeholder="Search a word">
+        <span className="muted sm">Vietnamese meanings learners suggested in the chat, when a library word meant something its entry doesn’t have.</span>
+      </Search>
+      {p.err ? <EmptyState icon="alert" tint="t-red" title="Can’t load suggestions" text={p.err} /> : !p.data ? <div className="sk" style={{ height: 200 }} /> : !p.data.items.length ? (
+        <EmptyState icon="check" tint="t-green" title="Nothing to review" text="Meanings learners suggest from the chat appear here." />
+      ) : (
+        <>
+          <ul className="adm-sents">
+            {p.data.items.map((x) => <MeaningRow key={x.id} x={x} onDone={() => p.setData((d) => d && { ...d, total: d.total - 1, items: d.items.filter((y) => y.id !== x.id) })} />)}
+          </ul>
+          <Pager page={p.page} pages={p.data.pages} total={p.data.total} onPage={p.setPage} />
+        </>
+      )}
+    </>
+  );
+}
+
+/** The library, and the meanings learners suggested for its words. */
 function Library() {
+  const [view, setView] = useState<'words' | 'meanings'>('words');
+  const [pending, setPending] = useState<number | null>(null);
+  useEffect(() => { api.adminMeanings('', 1).then((r) => setPending(r.total)).catch(() => setPending(null)); }, [view]);
+  return (
+    <>
+      <div className="seg" role="group" aria-label="Library view" style={{ marginBottom: 12 }}>
+        <button className={view === 'words' ? 'on' : ''} aria-pressed={view === 'words'} onClick={() => setView('words')}>Library words</button>
+        <button className={view === 'meanings' ? 'on' : ''} aria-pressed={view === 'meanings'} onClick={() => setView('meanings')}>Meaning suggestions{pending ? ' (' + pending + ')' : ''}</button>
+      </div>
+      {view === 'words' ? <LibraryWords /> : <MeaningSuggestions />}
+    </>
+  );
+}
+
+function LibraryWords() {
   const { a } = useWB();
   const p = usePaged<AdminLibraryWord>((q, page) => api.adminLibrary(q, page));
   const [del, setDel] = useState<AdminLibraryWord | null>(null);

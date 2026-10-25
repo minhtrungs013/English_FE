@@ -1825,6 +1825,7 @@ button.tmini-row:hover{border-color:var(--primary)}
 .cb-ex span{flex:1}
 .cb-cardfoot{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;border-top:1px solid var(--border);padding-top:8px;margin-top:2px}
 .cb-note{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);font-weight:600}
+.cb-sense{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 8px;padding:6px 10px;border-radius:var(--r-sm,8px);background:var(--surface2);font-size:13px}
 .cb-actions{display:flex;flex-wrap:wrap;gap:6px}
 .cb-error{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--danger);background:var(--danger-soft);padding:8px 10px;border-radius:var(--r)}
 .cb-typing{display:flex;gap:4px;padding:12px;background:var(--surface2);border-radius:14px;width:max-content}

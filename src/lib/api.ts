@@ -31,6 +31,8 @@ export interface MistakeNotebook {
   recent: { id: string; at: number; word: string; sentence: string; corrected: string; score: number; source: string; mistakes: MistakeItem[] }[];
 }
 export interface MistakeDrill { id: string; word: string; type: string; prompt: string; choices: string[]; answer: string; wrong: string; explainVi: string; sentence: string }
+/** A Vietnamese meaning a learner suggested for a library word; current = the word's meanings now. */
+export interface AdminMeaning { id: string; libraryWordId: string; word: string; vi: string; current: string; meaning: string; by: string; at: number }
 export interface AdminSuggestion { id: string; word: string; sentence: string; vi: string; at: number }
 export interface AdminInsights {
   attempts: number; users: number; avg: number | null; withMistakes: number; practice: number; homework: number; pendingSuggestions: number;
@@ -495,6 +497,10 @@ export const api = {
   adminLibrary: (q: string, page: number) => req<Paged<AdminLibraryWord>>('GET', '/admin/library?' + query({ q, page })),
   adminPatchLibrary: (id: string, patch: Partial<Omit<AdminLibraryWord, 'id' | 'authorName' | 'saves'>>) => req<AdminLibraryWord>('PATCH', '/admin/library/' + id, patch),
   adminDeleteLibrary: (id: string) => req<void>('DELETE', '/admin/library/' + id),
+  adminMeanings: (q: string, page: number) => req<Paged<AdminMeaning>>('GET', '/admin/meanings?' + query({ q, page })),
+  /** vi: the library word's whole Vietnamese field after approving. */
+  adminApproveMeaning: (id: string, vi: string) => req<void>('POST', '/admin/meanings/' + id + '/approve', { vi }),
+  adminRejectMeaning: (id: string) => req<void>('POST', '/admin/meanings/' + id + '/reject'),
   /** Starts sign-up: the server emails a 6-digit code; registerVerify creates the account. */
   register: (name: string, email: string, password: string) => req<{ email: string }>('POST', '/auth/register', { name, email, password }),
   registerVerify: (email: string, code: string) => req<AuthResponse>('POST', '/auth/register/verify', { email, code }),
@@ -541,6 +547,8 @@ export const api = {
   /** Exact library entry for a word (case-insensitive), or null. */
   findInLibrary: (word: string) => req<{ word: LibraryWord | null }>('GET', '/library/find?word=' + encodeURIComponent(word)),
   saveFromLibrary: (id: string) => req<{ word: Word; tag: string }>('POST', '/library/' + id + '/save'),
+  /** Suggest another Vietnamese meaning for a library word (an admin approves it). */
+  suggestMeaning: (id: string, vi: string) => req<{ status: 'exists' | 'pending' }>('POST', '/library/' + id + '/meanings', { vi }),
   shareToLibrary: (wordId: string, topic: Topic) => req<LibraryWord>('POST', '/library/share', { wordId, topic }),
   unshare: (id: string) => req<void>('DELETE', '/library/' + id),
   /** Library id / my word id for 1–10 family member words. */
