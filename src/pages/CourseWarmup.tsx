@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { api, ApiError, type CourseDetail, type Warmup, type WarmupQuestion } from '../lib/api';
+import { api, ApiError, type CourseDetail, type Warmup, type WarmupQuestion, type WarmupAnswer } from '../lib/api';
 import { speak } from '../lib/speech';
 import { Icon } from '../components/ui';
 import { errText } from './Courses';
@@ -21,7 +21,7 @@ type Phase = 'intro' | 'quiz' | 'done';
  * to practise, the words were reviewed) · onClose: the learner is done with it (Done on the summary).
  */
 export function WarmupSection({ c, day, embedded, onDone, onClose }: {
-  c: CourseDetail; day: number; embedded?: boolean; onDone?: (correct: number, total: number) => void; onClose?: () => void;
+  c: CourseDetail; day: number; embedded?: boolean; onDone?: (correct: number, total: number, results?: WarmupAnswer[]) => void; onClose?: () => void;
 }) {
   const [w, setW] = useState<Warmup | null>(null);
   const [failed, setFailed] = useState('');
@@ -66,7 +66,8 @@ export function WarmupSection({ c, day, embedded, onDone, onClose }: {
   const next = () => {
     if (i < n - 1) { setI(i + 1); setAnswer(''); return; }
     setPhase('done');
-    onDone?.(marks.filter(Boolean).length, n);
+    // Each answer goes along, so the next warm-ups know which words are still weak.
+    onDone?.(marks.filter(Boolean).length, n, qs.map((x, k) => ({ word: x.word, ok: !!marks[k] })).filter((x) => x.word));
   };
   const finish = () => {
     if (phase === 'done' && onClose) { onClose(); return; }
@@ -231,7 +232,7 @@ export function WarmupSection({ c, day, embedded, onDone, onClose }: {
                   <div className="cwhead">
                     <b>{x.word}</b>
                     <button className="iconbtn sm" onClick={() => speak(x.word)} aria-label={'Play pronunciation of ' + x.word} title="Play"><Icon name="volume" size="sm" /></button>
-                    {x.missed > 0 && <span className="badge t-red" style={{ marginLeft: 'auto' }}>missed {x.missed}×</span>}
+                    {x.missed > 0 && <span className="badge t-red" style={{ marginLeft: 'auto' }} title="Answer it right twice in a row and it stops coming back">missed {x.wrong ?? x.missed}×{x.right ? ' · right ' + x.right + '×' : ''}</span>}
                   </div>
                   {x.ipa && <span className="ipa xs">{x.ipa}</span>}
                   <span className="vi sm">{x.vi || x.meaning}</span>

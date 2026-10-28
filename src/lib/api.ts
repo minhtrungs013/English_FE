@@ -273,7 +273,6 @@ export interface BankSentence {
 export interface BankWord { word: string; has: Tense[]; sentences: BankSentence[] }
 /** errors[].index points into the sent items; good rows are saved as approved. items: the day's whole bank. */
 export interface ImportResult { added: number; errors: { index: number; message: string }[]; items: BankItem[] }
-/** missed: times I got the word wrong in earlier homework. */
 /** A sentence's grammar: tense, formula and lesson from the grammar lessons; parts/explain from storage when analysed ('full'). */
 export interface GrammarView {
   text: string; tense: string;
@@ -285,7 +284,10 @@ export interface GrammarView {
   explain: string; notes: { on: string; text: string }[];
   level: 'full' | 'basic';
 }
-export interface WarmupWord { word: string; ipa: string; vi: string; meaning: string; missed: number }
+/** missed: mistakes still to fix (0 once answered right twice in a row) · wrong / right: all my answers about it (homework and warm-ups). */
+export interface WarmupWord { word: string; ipa: string; vi: string; meaning: string; missed: number; wrong?: number; right?: number }
+/** One warm-up answer: the question's word, right or wrong. */
+export interface WarmupAnswer { word: string; ok: boolean }
 /** Not graded, so the answers come with the questions. */
 export interface WarmupQuestion {
   type: HomeworkType; word: string; prompt: string; hint: string; choices: string[];
@@ -590,8 +592,8 @@ export const api = {
   /** Marks the day's warm-up as done: after the practice (with its result) or when the learner skips it (no result). */
   /** The grammar of a day's example sentences (Learn step). */
   courseGrammar: (id: string, day: number) => req<{ items: { word: string; ex: string; grammar: GrammarView }[] }>('GET', '/courses/' + id + '/days/' + day + '/grammar'),
-  warmupDone: (id: string, day: number, correct?: number, total?: number) =>
-    req<{ warmedUp: number[] }>('POST', '/courses/' + id + '/days/' + day + '/warmup/done', correct !== undefined ? { correct, total } : {}),
+  warmupDone: (id: string, day: number, correct?: number, total?: number, results?: WarmupAnswer[]) =>
+    req<{ warmedUp: number[] }>('POST', '/courses/' + id + '/days/' + day + '/warmup/done', correct !== undefined ? { correct, total, ...(results?.length ? { results } : {}) } : {}),
   /** The day's approved listening dialogue, or { dialogue: null } when there's none. 403 when the day isn't open for me. */
   getListening: (id: string, day: number) => req<Listening>('GET', '/courses/' + id + '/days/' + day + '/listening'),
   /** Marks the day's listening as done: after the practice (with its result) or when the learner skips it (no result). */

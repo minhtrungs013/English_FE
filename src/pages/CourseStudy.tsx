@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { api } from '../lib/api';
+import { api, type WarmupAnswer } from '../lib/api';
 import { stopSpeaking } from '../lib/speech';
 import { useWB, type StudyStep } from '../state/WordbookContext';
 import { EmptyState, Icon } from '../components/ui';
@@ -167,8 +167,8 @@ export function CourseStudy() {
   const setEnrollment = (patch: Partial<NonNullable<typeof e>>) =>
     setC((prev) => (prev?.enrollment ? { ...prev, enrollment: { ...prev.enrollment, ...patch } } : prev));
 
-  const reviewed = (correct: number, total: number) => {
-    reviewSave.current = api.warmupDone(c.id, day, correct, total)
+  const reviewed = (correct: number, total: number, results?: WarmupAnswer[]) => {
+    reviewSave.current = api.warmupDone(c.id, day, correct, total, results)
       .then((r) => { setEnrollment({ warmedUp: r.warmedUp }); void reload(); return true; })
       .catch((err) => { a.showToast(errText(err, 'Couldn’t save your review.'), 'bad'); return false; });
   };
