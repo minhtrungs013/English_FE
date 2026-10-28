@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { cap1, low1, type Rating, type Word } from '../lib/data';
 import type { IconName } from '../lib/icons';
 import { canSpeak, speak } from '../lib/speech';
-import { useWB } from '../state/WordbookContext';
+import { useWB, type PracticeMode } from '../state/WordbookContext';
 import { Icon, LevelBadge, PosBadge } from '../components/ui';
 import { SentenceGrammar } from '../components/SentenceGrammar';
 
@@ -10,7 +10,7 @@ const RATINGS: [Rating, string, IconName, string][] = [
   ['Again', '10 min', 'refresh', '1'], ['Hard', '1 day', 'meh', '2'], ['Good', '3 days', 'smile', '3'], ['Easy', '7 days', 'zap', '4']
 ];
 const KEY_RATING: Record<string, Rating> = { '1': 'Again', '2': 'Hard', '3': 'Good', '4': 'Easy' };
-const TITLES = { mc: 'Multiple Choice', fill: 'Fill in the Blank', trans: 'Translation', listen: 'Listening', wordform: 'Word forms', tense: 'Verb tenses' };
+const TITLES = { mc: 'Multiple Choice', fill: 'Fill in the Blank', trans: 'Translation', listen: 'Listening', wordform: 'Word forms', tense: 'Verb tenses', weak: 'Words to fix' };
 
 function DoneCard({ title, sub, stats, children }: { title: string; sub: string; stats: [string | number, string, string?][]; children: React.ReactNode }) {
   return (
@@ -129,25 +129,31 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
   const n = P.qs.length;
 
   const q = P.qs[Math.min(P.i, n - 1)];
+  /** The mode this question is asked in (a weak-words session mixes them). */
+  const m: PracticeMode = q.mode ?? (P.mode as PracticeMode);
+  /** Questions in the session before the retries were added (the score counts these). */
+  const first = P.qs.filter((x) => !x.retry).length;
+  const retries = P.qs.filter((x) => x.retry).length;
   const w: Word | { word: string; meaning: string; vi: string; pos: string; ex: string; ipa: string } =
     s.words.find((x) => x.id === q.id) ?? { word: q.answer ?? '', meaning: '', vi: '', pos: '', ex: '', ipa: '' };
 
   // Listening questions speak the word as soon as they appear.
   const heard = useRef('');
   useEffect(() => {
-    if (P.mode !== 'listen' || P.done) return;
+    if (m !== 'listen' || P.done) return;
     const key = P.pid + ':' + P.i;
     if (heard.current === key) return;
-    heard.current = key;
-    const t = setTimeout(() => speak(w.word), 250);
+    // Marked only once it's spoken: an effect re-run that cancels the timer (React runs it twice on mount) must try again.
+    const t = setTimeout(() => { heard.current = key; speak(w.word); }, 250);
     return () => clearTimeout(t);
-  }, [P.mode, P.done, P.pid, P.i, w.word]);
+  }, [m, P.done, P.pid, P.i, w.word]);
 
   if (P.done) {
-    const acc = Math.round((P.score / n) * 100);
+    const acc = Math.round((P.score / first) * 100);
     return (
-      <DoneCard title={acc >= 80 ? 'Great job!' : acc >= 50 ? 'Nice work!' : 'Keep practicing!'} sub={'You answered ' + P.score + ' of ' + n + ' correctly.'}
-        stats={[[n, 'questions'], [P.score, 'correct', 'var(--success)'], [acc + '%', 'accuracy']]}>
+      <DoneCard title={acc >= 80 ? 'Great job!' : acc >= 50 ? 'Nice work!' : 'Keep practicing!'}
+        sub={'You answered ' + P.score + ' of ' + first + ' correctly.' + (retries ? ' Fixed on the retry: ' + P.fixed + ' of ' + retries + '.' : '')}
+        stats={[[first, 'questions'], [P.score, 'correct', 'var(--success)'], [acc + '%', 'accuracy'], ...(retries ? [[P.fixed + '/' + retries, 'fixed on retry', 'var(--primary)'] as [string, string, string]] : [])]}>
         <button className="btn btn-primary btn-lg btn-block" onClick={() => a.startPractice(P.mode)}>Practice again</button>
         <button className="btn btn-secondary btn-block" onClick={a.exitSession}>Back to Practice</button>
       </DoneCard>
@@ -155,7 +161,7 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
   }
 
   const explain = '“' + cap1(w.word) + '” means ' + low1((w.meaning || '').replace(/\.$/, '')) + '.';
-  const fb = P.checked && (P.mode === 'wordform' ? (
+  const fb = P.checked && (m === 'wordform' ? (
     <div className={'fb ' + (P.correct ? 'ok' : 'no')}>
       <div className="fb-t"><Icon name={P.correct ? 'checkc' : 'alert'} />{P.correct ? 'Correct!' : 'Not quite — the answer is'}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -165,26 +171,28 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
     </div>
   ) : (
     <div className={'fb ' + (P.correct ? 'ok' : 'no')}>
-      <div className="fb-t"><Icon name={P.correct ? 'checkc' : 'alert'} />{P.correct ? 'Correct!' : P.mode === 'mc' ? 'Not quite' : 'Not quite — the answer is'}</div>
-      {P.mode !== 'mc' && P.mode !== 'tense' && (
+      <div className="fb-t"><Icon name={P.correct ? 'checkc' : 'alert'} />{P.correct ? 'Correct!' : m === 'mc' ? 'Not quite' : 'Not quite — the answer is'}</div>
+      {P.note && <div className="pnote-fix sm"><Icon name="edit" size="sm" />{P.note}</div>}
+      {m !== 'mc' && m !== 'tense' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 20, fontWeight: 800 }}>{w.word}</span><span className="ipa">{w.ipa}</span><span className="muted">· {w.vi}</span>
         </div>
       )}
-      {P.mode === 'tense' && !P.correct && <div style={{ fontSize: 20, fontWeight: 800 }}>{q.answer}</div>}
+      {m === 'tense' && !P.correct && <div style={{ fontSize: 20, fontWeight: 800 }}>{q.answer}</div>}
       {w.meaning && <div>{explain}</div>}
-      {P.mode === 'mc' && w.ex && <div className="muted sm">Example: “{w.ex}”</div>}
-      {(P.mode === 'fill' || P.mode === 'tense') && <SentenceGrammar g={q.grammar} practice={false} />}
+      {m === 'mc' && w.ex && <div className="muted sm">Example: “{w.ex}”</div>}
+      {(m === 'fill' || m === 'tense') && <SentenceGrammar g={q.grammar} practice={false} />}
     </div>
   ));
   const nextBtn = <button className="btn btn-primary btn-lg" onClick={a.pNext}>Continue<Icon name="right" /></button>;
+  const kicker = <>Question {P.i + 1} / {n}{q.retry && <span className="badge t-amber" style={{ marginLeft: 8 }}><Icon name="refresh" size="sm" />Retry</span>}{P.mode === 'weak' && <span className="muted"> · {TITLES[m]}</span>}</>;
 
   if (q.opts) {
     return (
       <div className="stage">
         <div key={P.anim} className={'card qcard ' + (P.anim % 2 ? 'animB' : 'animA')}>
-          <span className="qkicker">Question {P.i + 1} / {n}</span>
-          {P.mode === 'tense' ? (
+          <span className="qkicker">{kicker}</span>
+          {m === 'tense' ? (
             <>
               <div className="muted sm" style={{ fontWeight: 700 }}>Choose the right verb form</div>
               <h2 className="qtext">{blankOf(q.prompt ?? '', P.checked ? q.answer ?? '' : '')}</h2>
@@ -206,7 +214,7 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
           </div>
           {fb}
           <div className="qfoot">
-            <span className="muted sm">Score: {P.score} / {n}</span>
+            <span className="muted sm">Score: {P.score} / {first}</span>
             {P.checked ? nextBtn : <span className="keyhint">Press <span className="kbd">1</span>–<span className="kbd">4</span> to answer</span>}
           </div>
         </div>
@@ -218,21 +226,21 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
   return (
     <div className="stage">
       <div key={P.anim} className={'card qcard ' + (P.anim % 2 ? 'animB' : 'animA')}>
-        <span className="qkicker">Question {P.i + 1} / {n}</span>
-        {P.mode === 'fill' && (
+        <span className="qkicker">{kicker}</span>
+        {m === 'fill' && (
           <>
             <h2 className="qtext">{q.before}<span className="blank">{P.checked ? answer : ' '}</span>{q.after}</h2>
             <div className="muted sm">Hint: {w.pos} · {w.vi}{answer.toLowerCase() !== w.word.toLowerCase() ? ' · a form of “' + w.word + '”' : ''}</div>
           </>
         )}
-        {P.mode === 'tense' && (
+        {m === 'tense' && (
           <>
             <div className="muted sm" style={{ fontWeight: 700 }}>Put the verb in the right tense</div>
             <h2 className="qtext">{blankOf(q.prompt ?? '', P.checked ? answer : '')}</h2>
             <div className="muted sm">Word: {w.word}{w.vi ? ' · ' + w.vi : ''}</div>
           </>
         )}
-        {P.mode === 'wordform' && (
+        {m === 'wordform' && (
           <>
             <div className="badges">
               <span className="muted sm" style={{ fontWeight: 700 }}>Use the right form of the word</span>
@@ -243,7 +251,7 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
             </h2>
           </>
         )}
-        {P.mode === 'listen' && (
+        {m === 'listen' && (
           <>
             <h2 className="qtext">Listen and type the word you hear</h2>
             <div className="listen">
@@ -257,7 +265,7 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
             {!canSpeak() && <div className="errtxt"><Icon name="alert" size="sm" />Your browser can’t play speech, so audio may not work here.</div>}
           </>
         )}
-        {P.mode === 'trans' && (
+        {m === 'trans' && (
           <>
             <div className="muted sm" style={{ fontWeight: 700 }}>Translate into English</div>
             <h2 className="qtext">{w.vi}</h2>
@@ -273,9 +281,10 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
             else if (e.key === 'Enter') { e.preventDefault(); if (P.checked) a.pNext(); else a.pCheck(false); }
           }}
         />
+        {!P.checked && P.note && <div className="pnote-fix sm" role="status"><Icon name="checkc" size="sm" />{P.note}</div>}
         {fb}
         <div className="qfoot">
-          <span className="muted sm">Score: {P.score} / {n}</span>
+          <span className="muted sm">Score: {P.score} / {first}</span>
           {P.checked ? nextBtn : (
             <div className="actions">
               <button className="btn btn-ghost" onClick={() => a.pCheck(true)}>Skip</button>

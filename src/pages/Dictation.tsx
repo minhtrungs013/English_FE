@@ -5,6 +5,7 @@ import {
   type DictationSetInfo, type DictationToken
 } from '../lib/api';
 import { shuffle, type Word } from '../lib/data';
+import { recordAnswer } from '../lib/practice';
 import { canSpeak, getVoicePrefs, speak, speakLine, stopSpeaking } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { Icon, PageHead } from '../components/ui';
@@ -422,6 +423,8 @@ export function DictationPractice() {
         const score = grades.length ? Math.round(grades.reduce((t, g) => t + g.score, 0) / grades.length) : 0;
         res = { grades, score, passed: grades.every((g) => g.passed) && d.hints < 3 };
         if (it.key) void api.practiceSeen([{ key: it.key, ok: res.passed }]).catch(() => undefined);
+        // The word's practice stats (Practice → Words to fix): items are 'w:<my word id>…'.
+        if (it.id.startsWith('w:')) recordAnswer(it.id.split(':')[1], 'dictation', res.passed);
       } else {
         const typed = d.typed.map((t) => t.slice(0, 400));
         const r: DictationGraded = await api.submitDictation([{

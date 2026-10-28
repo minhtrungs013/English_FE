@@ -4,10 +4,11 @@ import {
   type Data, type FormData, type Rating, type Settings, type Word
 } from '../lib/data';
 import type { IconName } from '../lib/icons';
-import { api, ApiError, getToken, setToken, setUnauthorizedHandler, type AuthResponse, type CourseDetail, type CourseSaveResult, type GrammarView, type LibraryWord, type Note, type Topic } from '../lib/api';
+import { api, ApiError, getToken, setToken, setUnauthorizedHandler, type PracticeWordMode, type AuthResponse, type CourseDetail, type CourseSaveResult, type GrammarView, type LibraryWord, type Note, type Topic } from '../lib/api';
 import { stopSpeaking } from '../lib/speech';
 import { buildWordform, normalizeAnswer } from '../lib/wordform';
 import { pathOf, routeOf } from '../lib/routes';
+import { normWord, oneOff, orderWords, recordAnswer, recordsFor, sameMeaning } from '../lib/practice';
 import { hasMeaning, type ChatCard } from '../lib/chat';
 import { cacheStyle, cachedStyle, isAppStyle, type AppStyle } from '../lib/appStyle';
 
@@ -28,6 +29,10 @@ export interface ReviewState {
 }
 export interface PracticeQuestion {
   id: string; opts?: string[]; ans?: number; before?: string; after?: string; answer?: string;
+  /** Weak-words sessions: the mode this question is asked in, and the one its answer counts for (dictation → asked by listening). */
+  mode?: PracticeMode; rec?: PracticeWordMode;
+  /** retry: asked again at the end because I got it wrong · shown: the word was shown to me (right meaning, other word). */
+  retry?: boolean; shown?: boolean;
   /** Word forms only: the word in brackets after the gap, the asked form's part of speech and meaning, and the family line. */
   hint?: string; pos?: string; vi?: string; family?: string;
   /** Sentence practice (fill / tense): the sentence's key (to mark it practised) and its grammar. */
@@ -36,8 +41,12 @@ export interface PracticeQuestion {
   prompt?: string; accept?: string[]; tenseLabel?: string;
 }
 export interface PracticeState {
-  pid: number; mode: PracticeMode; qs: PracticeQuestion[]; i: number; picked: number | null; input: string;
+  pid: number; mode: PracticeMode | 'weak'; qs: PracticeQuestion[]; i: number; picked: number | null; input: string;
   checked: boolean; correct: boolean; score: number; done: boolean; anim: number;
+  /** Retries answered right. */
+  fixed: number;
+  /** A message about the last answer: almost right (spelling), or right meaning but another word. */
+  note: string;
 }
 export type Modal =
   | { kind: 'delWord' | 'delCat' | 'delTag'; id: string; title: string }
@@ -294,7 +303,71 @@ function useWordbookState() {
   /* ---------- practice ---------- */
   /** Tells the server a bank sentence was practised, so the next session prefers others (best effort). */
   const markSentence = (q: PracticeQuestion, ok: boolean) => { if (q.key) void api.practiceSeen([{ key: q.key, ok }]).catch(() => undefined); };
-  const startPractice = async (mode: PracticeMode | 'flash') => {
+  const newPractice = (mode: PracticeMode | 'weak', qs: PracticeQuestion[]): PracticeState =>
+    ({ pid: Date.now(), mode, qs, i: 0, picked: null, input: '', checked: false, correct: false, score: 0, fixed: 0, done: false, anim: 0, note: '' });
+  /** A question about word w in a mode built here (not from the server), or null when w can't be asked that way. */
+  const localQuestion = (mode: PracticeMode, w: Word, ws: Word[]): PracticeQuestion | null => {
+    if (mode === 'mc') {
+      const others = shuffle(ws.filter((o) => o.id !== w.id && o.meaning && o.meaning !== w.meaning)).slice(0, 3).map((o) => o.meaning);
+      if (!w.meaning || others.length < 3) return null;
+      const opts = shuffle([w.meaning, ...others]);
+      return { id: w.id, opts, ans: opts.indexOf(w.meaning) };
+    }
+    if (mode === 'fill') {
+      const k = w.ex ? w.ex.toLowerCase().indexOf(w.word.toLowerCase()) : -1;
+      return k < 0 ? null : { id: w.id, before: w.ex.slice(0, k), after: w.ex.slice(k + w.word.length), answer: w.word };
+    }
+    if (mode === 'wordform') {
+      const q = buildWordform(w.family);
+      return q ? { id: w.id, before: q.before, after: q.after, answer: q.answer, hint: q.hint, pos: q.pos, vi: q.vi, family: q.family } : null;
+    }
+    if (mode === 'trans') return w.vi ? { id: w.id, answer: w.word } : null;
+    if (mode === 'listen') return { id: w.id, answer: w.word };
+    return null;
+  };
+  /** Bank sentences (fill / tense) as questions. */
+  const sentenceQuestions = (mode: 'fill' | 'tense', items: Awaited<ReturnType<typeof api.practiceSentences>>['items']): PracticeQuestion[] => (mode === 'fill'
+    ? items.flatMap((x) => {
+      const k = x.form ? x.sentence.toLowerCase().indexOf(x.form.toLowerCase()) : -1;
+      return k < 0 ? [] : [{ id: x.wordId, before: x.sentence.slice(0, k), after: x.sentence.slice(k + x.form!.length), answer: x.sentence.slice(k, k + x.form!.length), key: x.key, grammar: x.grammar }];
+    })
+    : items.flatMap((x, i) => {
+      const q = x.question;
+      if (!q) return [];
+      // About half multiple choice (where the verb has choices), the rest typed.
+      const choice = q.choices.length === 4 && i % 2 === 1;
+      return [{ id: x.wordId, prompt: choice ? q.prompt.replace(/\s*\([^)]*\)/, '') : q.prompt, answer: q.answer, accept: q.accept, tenseLabel: q.tenseLabel, key: x.key, grammar: x.grammar,
+        ...(choice ? { opts: q.choices, ans: q.choices.indexOf(q.answer) } : {}) }];
+    }));
+  /**
+   * The words I keep getting wrong, each asked again the way I got it wrong (dictation as listening).
+   * At most one question per word, most mistakes first.
+   */
+  const weakQuestions = async (n: number): Promise<PracticeQuestion[]> => {
+    const st = await api.practiceStats().catch(() => null);
+    if (!st) { showToast('Can’t reach the server right now.', 'bad'); return []; }
+    const ws = ref.current.words;
+    const plan = st.weak.slice(0, n).map((x) => ({ w: ws.find((y) => y.id === x.wordId), mode: x.modes[0].mode })).filter((x): x is { w: Word; mode: PracticeWordMode } => !!x.w);
+    const out: PracticeQuestion[] = [];
+    for (const m of ['fill', 'tense'] as const) {
+      const ids = plan.filter((x) => x.mode === m).map((x) => x.w.id);
+      if (!ids.length) continue;
+      const r = await api.practiceSentences(m, ids.length, ids).catch(() => null);
+      const got = sentenceQuestions(m, r?.items ?? []).map((q) => ({ ...q, mode: m }));
+      out.push(...got);
+      // No sentence for some of them: ask by listening instead (still counted for the mode they're weak in).
+      for (const id of ids.filter((x) => !got.some((q) => q.id === x))) out.push({ id, answer: ws.find((y) => y.id === id)!.word, mode: 'listen', rec: m });
+    }
+    for (const { w, mode } of plan) {
+      if (mode === 'fill' || mode === 'tense') continue;
+      const asked: PracticeMode = mode === 'dictation' ? 'listen' : mode;
+      const q = localQuestion(asked, w, ws);
+      // Can't be asked that way any more (e.g. the meaning was removed): by listening.
+      out.push(q ? { ...q, mode: asked, rec: mode } : { id: w.id, answer: w.word, mode: 'listen', rec: mode });
+    }
+    return shuffle(out);
+  };
+  const startPractice = async (mode: PracticeMode | 'flash' | 'weak') => {
     const ws = ref.current.words;
     /** Words per session: the same setting as review (Settings → Learning). */
     const n = Number(ref.current.settings.goal) || 20;
@@ -307,85 +380,81 @@ function useWordbookState() {
         ? { review: { ...prev.review, examples: Object.fromEntries(r.items.map((x) => [x.wordId, x.sentence])) } } : {}))).catch(() => { /* keep the saved examples */ });
       return;
     }
+    if (mode === 'weak') {
+      const qs = await weakQuestions(n);
+      if (!qs.length) { showToast('No weak words right now — nice work!'); return; }
+      set({ route: 'practice', menu: null, review: null, practice: newPractice('weak', qs) });
+      return;
+    }
     if (mode === 'fill' || mode === 'tense') {
-      // Sentences from the sentence bank (fresh ones first); fill falls back to the words' own examples offline.
+      // Sentences from the sentence bank (my weak words first, then the ones practised longest ago); fill falls back to my own examples.
       const r = await api.practiceSentences(mode, n).catch(() => null);
-      let qs: PracticeQuestion[] = [];
-      if (r && mode === 'fill') {
-        qs = r.items.flatMap((x) => {
-          const k = x.form ? x.sentence.toLowerCase().indexOf(x.form.toLowerCase()) : -1;
-          return k < 0 ? [] : [{ id: x.wordId, before: x.sentence.slice(0, k), after: x.sentence.slice(k + x.form!.length), answer: x.sentence.slice(k, k + x.form!.length), key: x.key, grammar: x.grammar }];
-        });
-      } else if (r) {
-        qs = r.items.flatMap((x, i) => {
-          const q = x.question;
-          if (!q) return [];
-          // About half multiple choice (where the verb has choices), the rest typed.
-          const choice = q.choices.length === 4 && i % 2 === 1;
-          return [{ id: x.wordId, prompt: choice ? q.prompt.replace(/\s*\([^)]*\)/, '') : q.prompt, answer: q.answer, accept: q.accept, tenseLabel: q.tenseLabel, key: x.key, grammar: x.grammar,
-            ...(choice ? { opts: q.choices, ans: q.choices.indexOf(q.answer) } : {}) }];
-        });
-      }
+      const qs = r ? sentenceQuestions(mode, r.items) : [];
       if (mode === 'tense' && !qs.length) { showToast(r ? 'Save some words from the library first — their sentences make the tense questions.' : 'Can’t reach the server right now.', 'bad'); return; }
-      if (qs.length) {
-        set({ route: 'practice', menu: null, review: null, practice: { pid: Date.now(), mode, qs, i: 0, picked: null, input: '', checked: false, correct: false, score: 0, done: false, anim: 0 } });
-        return;
-      }
+      if (qs.length) { set({ route: 'practice', menu: null, review: null, practice: newPractice(mode, qs) }); return; }
     }
-    let qs: PracticeQuestion[] = [];
-    if (mode === 'mc') {
-      const withMeaning = ws.filter((w) => w.meaning);
-      if (withMeaning.length < 4) { showToast('You need at least 4 words with meanings for multiple choice.', 'bad'); return; }
-      qs = shuffle(withMeaning).slice(0, n).map((w) => {
-        const others = shuffle(withMeaning.filter((o) => o.id !== w.id && o.meaning !== w.meaning)).slice(0, 3).map((o) => o.meaning);
-        const opts = shuffle([w.meaning, ...others]);
-        return { id: w.id, opts, ans: opts.indexOf(w.meaning) };
-      });
-    } else if (mode === 'fill') {
-      qs = shuffle(ws.filter((w) => w.ex && w.ex.toLowerCase().includes(w.word.toLowerCase()))).slice(0, n).map((w) => {
-        const k = w.ex.toLowerCase().indexOf(w.word.toLowerCase());
-        return { id: w.id, before: w.ex.slice(0, k), after: w.ex.slice(k + w.word.length), answer: w.word };
-      });
-    } else if (mode === 'wordform') {
-      qs = shuffle(ws).flatMap((w) => {
-        const q = buildWordform(w.family);
-        return q ? [{ id: w.id, before: q.before, after: q.after, answer: q.answer, hint: q.hint, pos: q.pos, vi: q.vi, family: q.family }] : [];
-      }).slice(0, n);
-      if (qs.length < 3) { showToast('Save words that have a word family first (look for “+N forms”).', 'bad'); return; }
-    } else if (mode === 'trans') {
-      qs = shuffle(ws.filter((w) => w.vi)).slice(0, n).map((w) => ({ id: w.id, answer: w.word }));
-    } else {
-      qs = shuffle(ws).slice(0, n).map((w) => ({ id: w.id, answer: w.word }));
-    }
+    if (mode === 'mc' && ws.filter((w) => w.meaning).length < 4) { showToast('You need at least 4 words with meanings for multiple choice.', 'bad'); return; }
+    // My weak words in this mode first (up to 40%), then the ones I haven't practised for the longest time.
+    const recs = recordsFor(await api.practiceStats().catch(() => null), mode);
+    const qs = orderWords(ws, (w) => w.id, recs, n).flatMap((w) => { const q = localQuestion(mode, w, ws); return q ? [q] : []; }).slice(0, n);
+    if (mode === 'wordform' && qs.length < 3) { showToast('Save words that have a word family first (look for “+N forms”).', 'bad'); return; }
     if (!qs.length) { showToast('Not enough words with the needed details yet.', 'bad'); return; }
-    set({ route: 'practice', menu: null, review: null, practice: { pid: Date.now(), mode, qs, i: 0, picked: null, input: '', checked: false, correct: false, score: 0, done: false, anim: 0 } });
+    set({ route: 'practice', menu: null, review: null, practice: newPractice(mode, qs) });
   };
   const pUpdate = (patch: Partial<PracticeState>) => set((prev) => (prev.practice ? { practice: { ...prev.practice, ...patch } } : {}));
+  /** The mode a question is asked in, and the one its answer counts for. */
+  const qMode = (p: PracticeState, q: PracticeQuestion): PracticeMode => q.mode ?? (p.mode as PracticeMode);
+  const recMode = (p: PracticeState, q: PracticeQuestion): PracticeWordMode => q.rec ?? qMode(p, q);
+  /** Counts an answer: score on the first try only (a retry or a revealed word doesn't add to it); stats every time. */
+  const answered = (p: PracticeState, q: PracticeQuestion, ok: boolean, spelling = false) => {
+    if (!q.shown) recordAnswer(q.id, recMode(p, q), ok, spelling);
+    markSentence(q, ok);
+    return { score: p.score + (ok && !q.retry && !q.shown ? 1 : 0), fixed: p.fixed + (ok && q.retry ? 1 : 0) };
+  };
   const pPick = (idx: number) => {
     const p = ref.current.practice;
     if (!p || p.checked) return;
-    const ok = idx === p.qs[p.i].ans;
-    pUpdate({ picked: idx, checked: true, correct: ok, score: p.score + (ok ? 1 : 0) });
-    markSentence(p.qs[p.i], ok);
+    const q = p.qs[p.i];
+    const ok = idx === q.ans;
+    pUpdate({ picked: idx, checked: true, correct: ok, ...answered(p, q, ok) });
   };
   const pCheck = (skip: boolean) => {
     const p = ref.current.practice;
     if (!p || p.checked) return;
     if (!skip && !p.input.trim()) return;
     const q = p.qs[p.i];
-    const ok = !skip && (p.mode === 'wordform'
+    const m = qMode(p, q);
+    const ok = !skip && (m === 'wordform'
       ? !!normalizeAnswer(p.input) && normalizeAnswer(p.input) === normalizeAnswer(q.answer ?? '')
-      : p.mode === 'tense' ? [q.answer ?? '', ...(q.accept ?? [])].some((x) => normalizeAnswer(x) === normalizeAnswer(p.input))
-      : p.input.trim().toLowerCase() === (q.answer ?? '').toLowerCase());
-    pUpdate({ checked: true, correct: ok, score: p.score + (ok ? 1 : 0) });
-    markSentence(q, ok);
+      : m === 'tense' ? [q.answer ?? '', ...(q.accept ?? [])].some((x) => normalizeAnswer(x) === normalizeAnswer(p.input))
+      : normWord(p.input) === normWord(q.answer ?? ''));
+    // Translation: another of my words with the same meaning isn't wrong — show the one we want and let me type it.
+    if (!ok && !skip && m === 'trans' && !q.shown) {
+      const target = ref.current.words.find((w) => w.id === q.id);
+      const other = ref.current.words.find((w) => w.id !== q.id && normWord(w.word) === normWord(p.input));
+      if (target && other && sameMeaning(other.vi, target.vi)) {
+        const qs = p.qs.map((x, k) => (k === p.i ? { ...x, shown: true } : x));
+        pUpdate({ qs, input: '', note: 'Right meaning — “' + other.word + '” means “' + other.vi + '” too. The word we want here is “' + target.word + '”: type it to go on.' });
+        return;
+      }
+    }
+    const spelling = !ok && !skip && (m === 'trans' || m === 'listen' || m === 'fill') && oneOff(p.input, q.answer ?? '');
+    pUpdate({ checked: true, correct: ok, ...answered(p, q, ok, spelling), note: spelling ? 'Almost — check the spelling.' : '' });
   };
   const pNext = () => {
     const p = ref.current.practice;
     if (!p || !p.checked) return;
+    const q = p.qs[p.i];
+    // A question I got wrong comes back once at the end of the session.
+    const qs = !p.correct && !q.retry ? [...p.qs, { ...q, retry: true, shown: false, ...(q.opts ? retryOpts(q) : {}) }] : p.qs;
     const i = p.i + 1;
-    if (i >= p.qs.length) { pUpdate({ done: true }); return; }
-    pUpdate({ i, picked: null, input: '', checked: false, correct: false, anim: p.anim + 1 });
+    if (i >= qs.length) { pUpdate({ qs, done: true, note: '' }); return; }
+    pUpdate({ qs, i, picked: null, input: '', checked: false, correct: false, anim: p.anim + 1, note: '' });
+  };
+  /** The same choices in a new order, for a retry. */
+  const retryOpts = (q: PracticeQuestion) => {
+    const opts = shuffle(q.opts ?? []);
+    return { opts, ans: opts.indexOf(q.opts![q.ans!]) };
   };
 
   /* ---------- add / edit form ---------- */

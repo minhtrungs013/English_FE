@@ -16,31 +16,73 @@ export function canSpeak(): boolean {
   try { return 'speechSynthesis' in window; } catch { return false; }
 }
 
-function findVoice(uri: string): SpeechSynthesisVoice | undefined {
-  if (!uri) return undefined;
-  try { return window.speechSynthesis.getVoices().find((v) => v.voiceURI === uri); } catch { return undefined; }
+/**
+ * The browser's voices. Chrome lists them a moment after the page loads (voiceschanged), so right after a reload the
+ * list is empty — speaking then would use another voice for the first word.
+ */
+let voiceList: SpeechSynthesisVoice[] = [];
+let waiting: (() => void)[] = [];
+function refreshVoices() {
+  try { voiceList = window.speechSynthesis.getVoices(); } catch { voiceList = []; }
+  if (voiceList.length) { const w = waiting; waiting = []; w.forEach((f) => f()); }
 }
+if (canSpeak()) {
+  refreshVoices();
+  try { window.speechSynthesis.addEventListener('voiceschanged', refreshVoices); } catch { /* old browsers: the list is there already */ }
+}
+
+/** Runs fn once the voices are listed (right away when they are), or after 1 s at most. */
+function whenVoices(fn: () => void): void {
+  if (voiceList.length) { fn(); return; }
+  let done = false;
+  const go = () => { if (!done) { done = true; fn(); } };
+  waiting.push(go);
+  window.setTimeout(go, 1000);
+}
+
+function findVoice(uri: string): SpeechSynthesisVoice | undefined {
+  return uri ? voiceList.find((v) => v.voiceURI === uri) : undefined;
+}
+
+/** The learner's voice, or else the browser's default English voice — named, so every word uses the same one. */
+function voiceFor(uri: string): SpeechSynthesisVoice | undefined {
+  return findVoice(uri)
+    ?? voiceList.find((v) => v.default && /^en/i.test(v.lang))
+    ?? voiceList.find((v) => /^en[-_]us/i.test(v.lang))
+    ?? voiceList.find((v) => /^en/i.test(v.lang));
+}
+
+/** Bumped by every speak / stop, so a word waiting for the voice list isn't spoken after something newer. */
+let turn = 0;
 
 /**
  * Speaks English text with the learner's voice settings.
  * `factor` scales their chosen speed (e.g. 0.6 for "play slowly").
  */
 export function speak(text: string, factor = 1, override?: Partial<VoicePrefs>): void {
-  try {
-    const p = { ...prefs, ...override };
-    const u = new SpeechSynthesisUtterance(text);
-    const v = findVoice(p.voice);
-    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
-    u.rate = Math.min(2, Math.max(0.3, p.rate * factor));
-    u.pitch = p.pitch;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-  } catch {
-    // Speech not available in this browser.
-  }
+  if (!canSpeak()) return;
+  const mine = ++turn;
+  // Stop what's playing now, even while waiting for the voices.
+  try { window.speechSynthesis.cancel(); } catch { return; }
+  whenVoices(() => {
+    if (mine !== turn) return;
+    try {
+      const p = { ...prefs, ...override };
+      const u = new SpeechSynthesisUtterance(text);
+      const v = voiceFor(p.voice);
+      if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
+      u.rate = Math.min(2, Math.max(0.3, p.rate * factor));
+      u.pitch = p.pitch;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    } catch {
+      // Speech not available in this browser.
+    }
+  });
 }
 
 export function stopSpeaking(): void {
+  turn++;
   try { window.speechSynthesis.cancel(); } catch { /* not available */ }
 }
 
@@ -124,9 +166,12 @@ let current: SpeechSynthesisUtterance | null = null;
 export function speakLine(text: string, v: DialogueVoice, factor: number, onEnd: () => void): boolean {
   try {
     const u = new SpeechSynthesisUtterance(text);
-    if (v.voice) { u.voice = v.voice; u.lang = v.voice.lang; } else u.lang = 'en-US';
+    // No voice picked for the speaker (the list wasn't loaded yet): the learner's own, named, like every other line.
+    const voice = v.voice ?? voiceFor(prefs.voice);
+    if (voice) { u.voice = voice; u.lang = voice.lang; } else u.lang = 'en-US';
     u.rate = Math.min(2, Math.max(0.3, prefs.rate * factor));
     u.pitch = v.pitch;
+    turn++;
     const end = () => { if (current === u) current = null; onEnd(); };
     u.onend = end;
     u.onerror = end;
