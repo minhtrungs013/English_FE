@@ -500,7 +500,7 @@ export function CourseLearn({ c, day, words, learned, onLearn, onClose, start = 
           )}
           {mw.ex && <SentenceGrammar g={grammar.get(mw.word.toLowerCase())} practice={false} />}
           {/* Only once someone has it: learning a course day never spends the learner's AI allowance. */}
-          <UsagePanel word={mw.word} canWrite={false} className="usage-card" />
+          <UsagePanel word={mw.word} canWrite={false} className="usage-card" folded />
           <WordFamily word={mw.word} family={mw.family} className="lfamily" />
           {canSaveWords && <SaveWordButton courseId={c.id} day={day} word={mw.word} />}
         </div>

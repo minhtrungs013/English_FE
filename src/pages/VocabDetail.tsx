@@ -168,7 +168,7 @@ export function WordModal({ id, onClose }: { id: string; onClose: () => void }) 
             <div>{w.meaning}</div>
           </div>
           {w.ex && <div><span className="sec-t">Example</span><p className="quote" style={{ margin: '6px 0 0' }}>“{w.ex}”</p></div>}
-          <UsagePanel word={w.word} />
+          <UsagePanel word={w.word} className="usage-card" folded />
           {(w.syn.length > 0 || w.ant.length > 0) && (
             <div className="adm-grid2">
               <div className="stack" style={{ gap: 8 }}><span className="sec-t">Synonyms</span><div className="badges">{w.syn.length ? w.syn.map((x) => <span key={x} className="pill">{x}</span>) : <span className="muted sm">—</span>}</div></div>

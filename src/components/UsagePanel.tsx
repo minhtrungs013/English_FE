@@ -1,76 +1,113 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
 import { api, ApiError, type Quota, type WordUsage } from '../lib/api';
 import { speak } from '../lib/speech';
 import { Icon } from './ui';
 
 const errText = (e: unknown, fallback: string) => (e instanceof ApiError || e instanceof Error ? e.message : fallback);
 
-/** The usage itself: structures, collocations, notes, mistakes, look-alikes. */
-export function UsageBody({ u }: { u: WordUsage }) {
+type SectionId = 'patterns' | 'collocations' | 'notes' | 'mistakes' | 'related';
+const SECTIONS: { id: SectionId; label: string }[] = [
+  { id: 'patterns', label: 'Structures' }, { id: 'collocations', label: 'Goes with' }, { id: 'mistakes', label: 'Mistakes' },
+  { id: 'notes', label: 'Notes' }, { id: 'related', label: 'Don’t mix up' }
+];
+const countOf = (u: WordUsage, id: SectionId) => u[id].length;
+
+/** One part of the usage. */
+function Section({ u, id }: { u: WordUsage; id: SectionId }) {
+  if (id === 'patterns') {
+    return (
+      <ul className="usage-pats">
+        {u.patterns.map((p, k) => (
+          <li key={k}>
+            <b className="usage-pat">{p.pattern}</b>
+            <span className="usage-ex">
+              <span>{p.ex}</span>
+              <button className="iconbtn xs" onClick={() => speak(p.ex)} aria-label={'Play: ' + p.ex} title="Play"><Icon name="volume" size="sm" /></button>
+            </span>
+            {p.vi && <span className="usage-vi" lang="vi">{p.vi}</span>}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (id === 'collocations') return <div className="usage-chips">{u.collocations.map((c) => <span key={c} className="usage-chip">{c}</span>)}</div>;
+  if (id === 'notes') return <ul className="usage-notes" lang="vi">{u.notes.map((n, k) => <li key={k}>{n}</li>)}</ul>;
+  if (id === 'mistakes') {
+    return (
+      <ul className="usage-mis">
+        {u.mistakes.map((m, k) => (
+          <li key={k}>
+            <span className="usage-wrong"><Icon name="x" size="sm" /><s>{m.wrong}</s></span>
+            <span className="usage-right"><Icon name="check" size="sm" />{m.right}</span>
+            {m.why && <span className="usage-vi" lang="vi">{m.why}</span>}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  return (
+    <ul className="usage-rel">
+      {u.related.map((r, k) => (
+        <li key={k}>
+          <span><b>{r.word}</b>{r.pos && <span className="muted"> · {r.pos}</span>}{r.vi && <span lang="vi"> · {r.vi}</span>}</span>
+          {r.note && <span className="usage-vi" lang="vi">{r.note}</span>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * The usage itself. tabs: one part at a time behind a tab row (keeps panels short); otherwise every part, one after another
+ * (the admin's review list).
+ */
+export function UsageBody({ u, tabs }: { u: WordUsage; tabs?: boolean }) {
+  const parts = SECTIONS.filter((x) => countOf(u, x.id) > 0);
+  const [on, setOn] = useState<SectionId>(parts[0]?.id ?? 'patterns');
+  if (!tabs) {
+    return (
+      <div className="usage-body">
+        {parts.map((x) => <div key={x.id} className="usage-sec"><span className="usage-h">{x.label}</span><Section u={u} id={x.id} /></div>)}
+      </div>
+    );
+  }
+  const cur = parts.some((x) => x.id === on) ? on : parts[0]?.id;
+  const key = (e: KeyboardEvent, i: number) => {
+    const j = e.key === 'ArrowRight' ? (i + 1) % parts.length : e.key === 'ArrowLeft' ? (i - 1 + parts.length) % parts.length : -1;
+    if (j < 0) return;
+    e.preventDefault();
+    setOn(parts[j].id);
+    (e.currentTarget.parentElement?.children[j] as HTMLElement | undefined)?.focus();
+  };
   return (
     <div className="usage-body">
-      {u.patterns.length > 0 && (
-        <div className="usage-sec">
-          <span className="usage-h">Structures</span>
-          <ul className="usage-pats">
-            {u.patterns.map((p, k) => (
-              <li key={k}>
-                <b>{p.pattern}</b>
-                <span className="usage-ex">
-                  <span>“{p.ex}”</span>
-                  <button className="iconbtn sm" onClick={() => speak(p.ex)} aria-label={'Play: ' + p.ex}><Icon name="volume" size="sm" /></button>
-                </span>
-                {p.vi && <span className="muted sm" lang="vi">{p.vi}</span>}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {u.collocations.length > 0 && (
-        <div className="usage-sec">
-          <span className="usage-h">Goes with</span>
-          <div className="badges">{u.collocations.map((c) => <span key={c} className="pill">{c}</span>)}</div>
-        </div>
-      )}
-      {u.notes.length > 0 && (
-        <div className="usage-sec">
-          <span className="usage-h">Notes</span>
-          <ul className="usage-notes" lang="vi">{u.notes.map((n, k) => <li key={k}>{n}</li>)}</ul>
-        </div>
-      )}
-      {u.mistakes.length > 0 && (
-        <div className="usage-sec">
-          <span className="usage-h">Common mistakes</span>
-          <ul className="usage-mis">
-            {u.mistakes.map((m, k) => (
-              <li key={k}>
-                <span className="usage-wrong"><Icon name="x" size="sm" /><s>{m.wrong}</s></span>
-                <span className="usage-right"><Icon name="check" size="sm" />{m.right}</span>
-                {m.why && <span className="muted sm" lang="vi">{m.why}</span>}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {u.related.length > 0 && (
-        <div className="usage-sec">
-          <span className="usage-h">Don’t mix up</span>
-          <ul className="usage-rel">
-            {u.related.map((r, k) => (
-              <li key={k}><b>{r.word}</b>{r.pos && <span className="muted sm"> ({r.pos})</span>}{r.vi && <span lang="vi"> · {r.vi}</span>}{r.note && <span className="muted sm" lang="vi"> — {r.note}</span>}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <div className="usage-tabs" role="tablist" aria-label="How to use">
+        {parts.map((x, i) => (
+          <button key={x.id} role="tab" aria-selected={cur === x.id} tabIndex={cur === x.id ? 0 : -1} className={'usage-tab' + (cur === x.id ? ' on' : '')}
+            onClick={() => setOn(x.id)} onKeyDown={(e) => key(e, i)}>
+            {x.label}<span className="usage-n">{countOf(u, x.id)}</span>
+          </button>
+        ))}
+      </div>
+      {cur && <div role="tabpanel" className="usage-panel"><Section u={u} id={cur} /></div>}
     </div>
   );
 }
+
+/** "3 structures · 5 word partners · 2 mistakes" for a folded panel. */
+const summaryOf = (u: WordUsage) => [
+  u.patterns.length && u.patterns.length + (u.patterns.length === 1 ? ' structure' : ' structures'),
+  u.collocations.length && u.collocations.length + ' word partners',
+  u.mistakes.length && u.mistakes.length + (u.mistakes.length === 1 ? ' common mistake' : ' common mistakes')
+].filter(Boolean).join(' · ');
 
 /**
  * "How to use" for a word: shown when someone already has it (shared, free to read). With canWrite, a missing one can be
  * written by AI on request (one of today's Usage allowance). Without it (e.g. inside a course), nothing shows until one exists.
  */
-export function UsagePanel({ word, canWrite = true, className = '' }: { word: string; canWrite?: boolean; className?: string }) {
+export function UsagePanel({ word, canWrite = true, className = '', folded = false }: { word: string; canWrite?: boolean; className?: string; folded?: boolean }) {
+  /** Folded panels (quick looks, course cards) show a one-line summary until opened. */
+  const [open, setOpen] = useState(!folded);
   const [u, setU] = useState<WordUsage | null>(null);
   const [quota, setQuota] = useState<Quota | null>(null);
   const [ai, setAi] = useState(true);
@@ -121,17 +158,22 @@ export function UsagePanel({ word, canWrite = true, className = '' }: { word: st
         {u && !stale && (u.status === 'approved'
           ? <span className="badge t-green"><Icon name="checkc" size="sm" />Checked</span>
           : <span className="badge pos" title="Written by AI, not checked by an admin yet">AI</span>)}
+        {u && !stale && folded && (
+          <button className="linkbtn sm usage-fold" onClick={() => setOpen(!open)} aria-expanded={open}>
+            {open ? 'Hide' : 'Show'}<Icon name={open ? 'up' : 'down'} size="sm" />
+          </button>
+        )}
       </div>
       {phase === 'loading' || (phase === 'writing' && !u) && !err && quota === null ? (
         <div className="sk" style={{ height: 64, borderRadius: 'var(--r-md)' }} aria-busy="true" aria-label="Loading how to use" />
       ) : u && !stale ? (
         <>
-          <UsageBody u={u} />
-          <div className="usage-foot">
+          {!open ? <p className="muted sm usage-sum">{summaryOf(u)}</p> : <UsageBody u={u} tabs />}
+          {open && <div className="usage-foot">
             {reported ? <span className="muted xs"><Icon name="checkc" size="sm" /> Thanks — an admin will check it.</span> : !reporting && (
               <button className="linkbtn xs" onClick={() => setReporting(true)}>Something wrong? Report it</button>
             )}
-          </div>
+          </div>}
           {reporting && (
             <div className="usage-report">
               <textarea className="input" rows={2} maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} placeholder="What’s wrong? (optional)" aria-label="What’s wrong" />

@@ -2173,25 +2173,41 @@ button.tmini-row:hover{border-color:var(--primary)}
 .pnote-fix{display:flex;align-items:flex-start;gap:6px;padding:8px 10px;border-radius:10px;background:var(--surface2);color:var(--text);font-weight:600}
 .pnote-fix svg{flex:none;margin-top:2px}
 
-/* How to use (shared word usage) */
-.usage{display:flex;flex-direction:column;gap:10px}
-.usage-top{display:flex;align-items:center;gap:8px}
-.usage-body{display:flex;flex-direction:column;gap:14px}
-.usage-sec{display:flex;flex-direction:column;gap:6px}
+/* How to use (shared word usage): tabs keep it short; folded panels show a one-line summary */
+.usage{display:flex;flex-direction:column;gap:10px;min-width:0}
+.usage-top{display:flex;align-items:center;gap:8px;min-height:28px}
+.usage-fold{margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-weight:700}
+.usage-sum{margin:0}
+.usage-body{display:flex;flex-direction:column;gap:12px;min-width:0}
+.usage-sec{display:flex;flex-direction:column;gap:8px}
 .usage-h{font-size:12.5px;font-weight:800;color:var(--muted)}
-.usage-pats,.usage-notes,.usage-mis,.usage-rel{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
-.usage-pats li{display:flex;flex-direction:column;gap:2px}
-.usage-pats b{color:var(--primary-ink)}
-.usage-ex{display:flex;align-items:center;gap:4px;font-style:italic}
-.usage-notes{gap:4px}
+.usage-tabs{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--border);scrollbar-width:none}
+.usage-tabs::-webkit-scrollbar{display:none}
+.usage-tab{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 10px;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;color:var(--muted);font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.usage-tab:hover{color:var(--text)}
+.usage-tab.on{color:var(--primary-ink);border-bottom-color:var(--primary)}
+.usage-tab:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;border-radius:6px 6px 0 0}
+.usage-n{min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:var(--surface2);color:var(--muted);font-size:11px;display:inline-flex;align-items:center;justify-content:center}
+.usage-tab.on .usage-n{background:var(--primary-soft);color:var(--primary-ink)}
+.usage-panel{min-width:0}
+.usage-pats,.usage-notes,.usage-mis,.usage-rel{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.usage-pats li,.usage-mis li,.usage-rel li{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:var(--r-md);background:var(--surface2);min-width:0}
+.usage-pat{font-size:14px;color:var(--primary-ink)}
+.usage-ex{display:flex;align-items:flex-start;gap:4px;font-size:14px;font-style:italic;overflow-wrap:anywhere}
+.usage-ex > span{flex:1;min-width:0}
+.usage-ex .iconbtn{width:28px;height:28px;margin:-4px -6px -4px 0;flex:none}
+.usage-vi{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.usage-chips{display:flex;flex-wrap:wrap;gap:6px}
+.usage-chip{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border-radius:99px;background:var(--surface2);font-size:13px;font-weight:600}
+.usage-notes{gap:6px;font-size:14px}
 .usage-notes li{padding-left:14px;position:relative}
-.usage-notes li::before{content:"";position:absolute;left:2px;top:.65em;width:5px;height:5px;border-radius:50%;background:var(--faint)}
-.usage-mis li{display:flex;flex-direction:column;gap:2px}
-.usage-wrong,.usage-right{display:flex;align-items:flex-start;gap:6px}
+.usage-notes li::before{content:"";position:absolute;left:2px;top:.6em;width:5px;height:5px;border-radius:50%;background:var(--faint)}
+.usage-wrong,.usage-right{display:flex;align-items:flex-start;gap:6px;font-size:14px;overflow-wrap:anywhere}
 .usage-wrong{color:var(--danger)}
 .usage-wrong s{text-decoration-thickness:1px}
 .usage-right{color:var(--success);font-weight:600}
 .usage-wrong svg,.usage-right svg{flex:none;margin-top:3px}
+.usage-rel li{font-size:14px}
 .usage-empty{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px}
 .usage-foot{display:flex;justify-content:flex-end}
 .usage-report{display:flex;flex-direction:column;gap:8px}
