@@ -3,6 +3,19 @@ import { api, ApiError, type Quota, type WordUsage } from '../lib/api';
 import { speak } from '../lib/speech';
 import { Icon } from './ui';
 
+/** True on screens wide enough for a word's details and its usage side by side. */
+export function useWide(query = '(min-width: 900px)'): boolean {
+  const [wide, setWide] = useState(() => { try { return window.matchMedia(query).matches; } catch { return false; } });
+  useEffect(() => {
+    let mq: MediaQueryList;
+    try { mq = window.matchMedia(query); } catch { return; }
+    const on = () => setWide(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, [query]);
+  return wide;
+}
+
 const errText = (e: unknown, fallback: string) => (e instanceof ApiError || e instanceof Error ? e.message : fallback);
 
 type SectionId = 'patterns' | 'collocations' | 'notes' | 'mistakes' | 'related';

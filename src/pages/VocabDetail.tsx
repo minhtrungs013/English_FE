@@ -7,7 +7,7 @@ import { Icon, LevelBadge, PosBadge, StatusBadge } from '../components/ui';
 import { WordFamily } from '../components/WordFamily';
 import { TOPIC_LABEL } from './Library';
 import { Dialog } from './Courses';
-import { UsagePanel } from '../components/UsagePanel';
+import { UsagePanel, useWide } from '../components/UsagePanel';
 
 /** Shows whether the word is in the shared library, and lets the user share it if not. */
 function ShareCard({ w }: { w: Word }) {
@@ -150,6 +150,7 @@ export function WordModal({ id, onClose }: { id: string; onClose: () => void }) 
   if (!w) return null;
   const cat = s.cats.find((c) => c.id === w.cat);
   const go = (fn: () => void) => { onClose(); fn(); };
+  const wide = useWide();
   return (
     <Dialog label={w.word} onClose={onClose} className="adm-modal vd-modal">
       <div className="adm-modal-form">
@@ -163,12 +164,14 @@ export function WordModal({ id, onClose }: { id: string; onClose: () => void }) 
           <button type="button" className="iconbtn sm adm-modal-x" onClick={onClose} aria-label="Close"><Icon name="x" size="sm" /></button>
         </div>
         <div className="adm-modal-body">
+          {/* Wide screens: the word on the left, how to use it on the right. */}
+          <div className="wd-cols">
+          <div className="wd-main">
           <div>
             <div className="tr-big" style={{ fontSize: 20 }}>{w.vi}</div>
             <div>{w.meaning}</div>
           </div>
           {w.ex && <div><span className="sec-t">Example</span><p className="quote" style={{ margin: '6px 0 0' }}>“{w.ex}”</p></div>}
-          <UsagePanel word={w.word} className="usage-card" folded />
           {(w.syn.length > 0 || w.ant.length > 0) && (
             <div className="adm-grid2">
               <div className="stack" style={{ gap: 8 }}><span className="sec-t">Synonyms</span><div className="badges">{w.syn.length ? w.syn.map((x) => <span key={x} className="pill">{x}</span>) : <span className="muted sm">—</span>}</div></div>
@@ -182,6 +185,9 @@ export function WordModal({ id, onClose }: { id: string; onClose: () => void }) 
             <span><span className="muted">Next review </span><b>{fmtNext(w.dueAt)}</b></span>
             <span><span className="muted">Added </span><b>{fmtAgo(w.addedAt)}</b></span>
             {w.tags.length > 0 && <span className="badges">{w.tags.map((t) => <button key={t} className="hashtag" onClick={() => go(() => a.showWordsWith({ tag: t }))}>#{t}</button>)}</span>}
+          </div>
+          </div>
+          <div className="wd-side"><UsagePanel word={w.word} className="usage-card" folded={!wide} /></div>
           </div>
         </div>
         <div className="mfoot vd-foot">

@@ -64,7 +64,13 @@ export interface SentenceResult {
 }
 export interface AdminCourse { id: string; title: string; ownerName: string; visibility: 'private' | 'public'; joinCode: string; totalDays: number; readyDays: number; members: number; pending: number; createdAt: number | null }
 export interface AdminSentence { id: string; wordId: string; word: string; form: string; sentence: string; context: string; level: string; topic: string; tense: Tense | ''; verb: string; base: string }
-export interface AdminLibraryWord { id: string; word: string; ipa: string; pos: string; meaning: string; vi: string; ex: string; level: Word['level']; topic: Topic; authorName: string; saves: number }
+export interface AdminLibraryWord {
+  id: string; word: string; ipa: string; pos: string; meaning: string; vi: string; ex: string; level: Word['level']; topic: Topic; authorName: string; saves: number;
+  /** After a save: the full word and how many learners' saved words were updated with it. */
+  syn?: string[]; ant?: string[]; family?: FamilyMember[]; synced?: number;
+}
+/** The parts of a library word AI writes again (Admin → regenerate). */
+export interface LibraryFields { ipa: string; pos: string; meaning: string; vi: string; ex: string; syn: string[]; ant: string[]; level: Word['level']; topic: Topic; family: FamilyMember[] }
 
 /* ---------- practice sentences ---------- */
 /** A sentence for one of my words (from the word sentence bank or the word's own example). */
@@ -538,7 +544,9 @@ export const api = {
   adminPatchSentence: (id: string, patch: Partial<Pick<AdminSentence, 'sentence' | 'tense' | 'verb' | 'base' | 'context'>>) => req<AdminSentence>('PATCH', '/admin/sentences/' + id, patch),
   adminDeleteSentence: (id: string) => req<void>('DELETE', '/admin/sentences/' + id),
   adminLibrary: (q: string, page: number) => req<Paged<AdminLibraryWord>>('GET', '/admin/library?' + query({ q, page })),
-  adminPatchLibrary: (id: string, patch: Partial<Omit<AdminLibraryWord, 'id' | 'authorName' | 'saves'>>) => req<AdminLibraryWord>('PATCH', '/admin/library/' + id, patch),
+  adminPatchLibrary: (id: string, patch: Partial<LibraryFields & { word: string }>) => req<AdminLibraryWord>('PATCH', '/admin/library/' + id, patch),
+  /** AI writes the word again; nothing is saved until adminPatchLibrary. */
+  adminRegenLibrary: (id: string) => req<{ word: string; current: LibraryFields; proposal: LibraryFields }>('POST', '/admin/library/' + id + '/regenerate'),
   adminDeleteLibrary: (id: string) => req<void>('DELETE', '/admin/library/' + id),
   adminMeanings: (q: string, page: number) => req<Paged<AdminMeaning>>('GET', '/admin/meanings?' + query({ q, page })),
   /** vi: the library word's whole Vietnamese field after approving. */

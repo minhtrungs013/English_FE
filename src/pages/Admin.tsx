@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api, type AdminInsights, type AdminMeaning, type AdminUsage, type UsageEdit, type AdminSuggestion, type AdminPlan, type AuditEntry, type AuditPage, type AdminCourse, type AdminLibraryWord, type AdminSentence, type AdminStats, type AdminUser, type Paged, type Tense, type Topic } from '../lib/api';
 import { LEVELS, POS_LIST } from '../lib/data';
 import { EmptyState, Icon, PageHead } from '../components/ui';
+import { LibraryRegen } from '../components/LibraryRegen';
 import { UsageBody } from '../components/UsagePanel';
 import { useWB } from '../state/WordbookContext';
 import { ConfirmDialog, CreateCourse, Dialog, errText } from './Courses';
@@ -736,6 +737,7 @@ function SentenceBank() {
 function LibraryRow({ w, onSaved, onDelete }: { w: AdminLibraryWord; onSaved: (x: AdminLibraryWord) => void; onDelete: () => void }) {
   const { a } = useWB();
   const [edit, setEdit] = useState(false);
+  const [regen, setRegen] = useState(false);
   const [f, setF] = useState(w);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -743,7 +745,7 @@ function LibraryRow({ w, onSaved, onDelete }: { w: AdminLibraryWord; onSaved: (x
     if (!f.word.trim()) { setErr('Please enter the word.'); return; }
     setBusy(true); setErr('');
     try {
-      const { id: _id, authorName: _a, saves: _s, ...patch } = f;
+      const { id: _id, authorName: _a, saves: _s, syn: _sy, ant: _an, family: _f, synced: _n, ...patch } = f;
       onSaved(await api.adminPatchLibrary(w.id, patch));
       setEdit(false);
       a.showToast('Saved “' + f.word + '”.');
@@ -772,6 +774,7 @@ function LibraryRow({ w, onSaved, onDelete }: { w: AdminLibraryWord; onSaved: (x
         <span role="cell" className="muted sm">{w.topic}</span>
         <span role="cell" className="muted sm">{w.saves}</span>
         <span role="cell" className="adm-act">
+          <button className="iconbtn sm" onClick={() => setRegen(true)} aria-label={'Regenerate ' + w.word + ' with AI'} title="Regenerate with AI"><Icon name="sparkle" size="sm" /></button>
           <button className="iconbtn sm" onClick={() => { setF(w); setErr(''); setEdit(true); }} aria-label={'Edit ' + w.word} title="Edit"><Icon name="edit" size="sm" /></button>
           <button className="iconbtn sm danger" onClick={onDelete} aria-label={'Delete ' + w.word} title="Delete"><Icon name="trash" size="sm" /></button>
         </span>
@@ -786,6 +789,7 @@ function LibraryRow({ w, onSaved, onDelete }: { w: AdminLibraryWord; onSaved: (x
           {field('ex', 'Example', true)}
         </FormModal>
       )}
+      {regen && <LibraryRegen id={w.id} word={w.word} onClose={() => setRegen(false)} onSaved={(x) => { onSaved(x); setRegen(false); }} />}
     </>
   );
 }

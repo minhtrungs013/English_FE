@@ -6,7 +6,8 @@ import { useWB } from '../state/WordbookContext';
 import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/ui';
 import { askAi } from '../lib/askAi';
 import { FamilyTag, WordFamily } from '../components/WordFamily';
-import { UsagePanel } from '../components/UsagePanel';
+import { LibraryRegen } from '../components/LibraryRegen';
+import { UsagePanel, useWide } from '../components/UsagePanel';
 
 export const TOPIC_LABEL: Record<Topic, string> = {
   it: 'IT', interview: 'Interview', customer: 'Customer meetings', leader: 'Leader meetings', toeic: 'TOEIC', other: 'Other'
@@ -42,15 +43,17 @@ export function SaveButton({ w, small }: { w: LibraryWord; small?: boolean }) {
   );
 }
 
-function LibraryDetail({ w, onClose, onRemoved }: { w: LibraryWord; onClose: () => void; onRemoved: () => void }) {
+function LibraryDetail({ w, onClose, onRemoved, onUpdated }: { w: LibraryWord; onClose: () => void; onRemoved: () => void; onUpdated: (w: LibraryWord) => void }) {
   const { s, a } = useWB();
   const author = useAuthor();
   const [busy, setBusy] = useState(false);
+  const [regen, setRegen] = useState(false);
+  const wide = useWide();
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !regen) onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, regen]);
   const remove = async () => {
     setBusy(true);
     try {
@@ -78,30 +81,40 @@ function LibraryDetail({ w, onClose, onRemoved }: { w: LibraryWord; onClose: () 
             <button className="iconbtn sm" onClick={() => speak(w.word)} aria-label="Play pronunciation"><Icon name="volume" /></button>
           </div>
         </div>
-        <div>
-          <div className="tr-big">{w.vi}</div>
-          <div style={{ fontSize: 16, marginTop: 4 }}>{w.meaning}</div>
-        </div>
-        {w.ex && <p className="quote">“{w.ex}”</p>}
-        <UsagePanel word={w.word} className="usage-card" folded />
-        {(w.syn.length > 0 || w.ant.length > 0) && (
-          <div className="form2" style={{ gap: 14 }}>
-            <div className="stack" style={{ gap: 8 }}><span className="sec-t">Synonyms</span><div className="badges">{w.syn.length ? w.syn.map((x) => <span key={x} className="pill">{x}</span>) : <span className="muted sm">—</span>}</div></div>
-            <div className="stack" style={{ gap: 8 }}><span className="sec-t">Antonyms</span><div className="badges">{w.ant.length ? w.ant.map((x) => <span key={x} className="pill">{x}</span>) : <span className="muted sm">—</span>}</div></div>
+        {/* Wide screens: the word on the left, how to use it on the right. */}
+        <div className="wd-cols">
+          <div className="wd-main">
+            <div>
+              <div className="tr-big">{w.vi}</div>
+              <div style={{ fontSize: 16, marginTop: 4 }}>{w.meaning}</div>
+            </div>
+            {w.ex && <p className="quote" style={{ margin: 0 }}>“{w.ex}”</p>}
+            {(w.syn.length > 0 || w.ant.length > 0) && (
+              <div className="form2" style={{ gap: 14 }}>
+                <div className="stack" style={{ gap: 8 }}><span className="sec-t">Synonyms</span><div className="badges">{w.syn.length ? w.syn.map((x) => <span key={x} className="pill">{x}</span>) : <span className="muted sm">—</span>}</div></div>
+                <div className="stack" style={{ gap: 8 }}><span className="sec-t">Antonyms</span><div className="badges">{w.ant.length ? w.ant.map((x) => <span key={x} className="pill">{x}</span>) : <span className="muted sm">—</span>}</div></div>
+              </div>
+            )}
+            <WordFamily word={w.word} family={w.family} />
+            <div className="libmeta">
+              <span className="avatar" style={{ width: 28, height: 28, fontSize: 12 }}>{author(w).charAt(0)}</span>
+              <span>Added by <b>{author(w)}</b>{w.authorId ? ' · ' + fmtDate(w.sharedAt) : ''} · saved {w.saves} {w.saves === 1 ? 'time' : 'times'}</span>
+            </div>
           </div>
-        )}
-        <WordFamily word={w.word} family={w.family} />
-        <div className="libmeta">
-          <span className="avatar" style={{ width: 28, height: 28, fontSize: 12 }}>{author(w).charAt(0)}</span>
-          <span>Added by <b>{author(w)}</b>{w.authorId ? ' · ' + fmtDate(w.sharedAt) : ''} · saved {w.saves} {w.saves === 1 ? 'time' : 'times'}</span>
+          <div className="wd-side"><UsagePanel word={w.word} className="usage-card" folded={!wide} /></div>
         </div>
         <div className="mfoot" style={{ justifyContent: 'space-between' }}>
-          {w.authorId && w.authorId === s.userId
-            ? <button className="btn btn-danger-soft" onClick={remove} disabled={busy}><Icon name="trash" size="sm" />Remove from library</button>
-            : <span />}
+          <div className="row" style={{ gap: 8 }}>
+            {w.authorId && w.authorId === s.userId && <button className="btn btn-danger-soft" onClick={remove} disabled={busy}><Icon name="trash" size="sm" />Remove from library</button>}
+            {s.role === 'admin' && <button className="btn btn-secondary" onClick={() => setRegen(true)} title="Admin only"><Icon name="sparkle" size="sm" />Regenerate with AI</button>}
+          </div>
           <SaveButton w={w} />
         </div>
       </div>
+      {regen && (
+        <LibraryRegen id={w.id} word={w.word} onClose={() => setRegen(false)}
+          onSaved={(x) => { setRegen(false); onUpdated({ ...w, ipa: x.ipa, pos: x.pos, meaning: x.meaning, vi: x.vi, ex: x.ex, level: x.level, topic: x.topic, syn: x.syn ?? w.syn, ant: x.ant ?? w.ant, family: x.family ?? w.family }); }} />
+      )}
     </div>
   );
 }
@@ -256,6 +269,7 @@ export function Library() {
           w={open}
           onClose={() => setOpen(null)}
           onRemoved={() => { setOpen(null); setLoading(true); void fetchPage(1); }}
+          onUpdated={(x) => { setOpen(x); setData((d) => d && { ...d, items: d.items.map((y) => (y.id === x.id ? x : y)) }); }}
         />
       )}
     </>
