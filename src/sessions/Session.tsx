@@ -5,6 +5,7 @@ import { canSpeak, speak } from '../lib/speech';
 import { useWB, type PracticeMode } from '../state/WordbookContext';
 import { Icon, LevelBadge, PosBadge } from '../components/ui';
 import { SentenceGrammar } from '../components/SentenceGrammar';
+import { UsageButton } from '../components/UsagePanel';
 
 const RATINGS: [Rating, string, IconName, string][] = [
   ['Again', '10 min', 'refresh', '1'], ['Hard', '1 day', 'meh', '2'], ['Good', '3 days', 'smile', '3'], ['Easy', '7 days', 'zap', '4']
@@ -101,6 +102,7 @@ function ReviewView() {
             <div className="tr-big">{word.vi}</div>
             <p className="muted" style={{ margin: 0, fontSize: 16, maxWidth: 480 }}>{word.meaning}</p>
             {s.settings.showEx && (R.examples?.[word.id] || word.ex) && <p className="quote">“{R.examples?.[word.id] || word.ex}”</p>}
+            <UsageButton word={word.word} />
           </>
         )}
       </div>

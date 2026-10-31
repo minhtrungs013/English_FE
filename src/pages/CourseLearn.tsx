@@ -7,7 +7,7 @@ import { Icon, LevelBadge, PosBadge } from '../components/ui';
 import { WordFamily } from '../components/WordFamily';
 import { SentenceGrammar } from '../components/SentenceGrammar';
 import { normalizeAnswer } from './CourseWarmup';
-import { UsagePanel } from '../components/UsagePanel';
+import { UsageButton, UsagePanel } from '../components/UsagePanel';
 
 /**
  * listen: hear the word, pick it · dictation: hear it, type it · meaning: pick the Vietnamese meaning ·
@@ -650,6 +650,8 @@ export function CourseLearn({ c, day, words, learned, onLearn, onClose, start = 
                     {w.ipa && <span className="ipa">{w.ipa}</span>}
                     {w.vi && <span className="muted" lang="vi">· {w.vi}</span>}
                     <button className="iconbtn sm" onClick={() => speak(w.word)} aria-label={'Play pronunciation of ' + w.word} title="Play"><Icon name="volume" size="sm" /></button>
+                    {/* Only once someone has it: learning a course day never spends the learner's AI allowance. */}
+                    <UsageButton word={w.word} canWrite={false} />
                   </span>
                   {item.kind === 'fill' && w.blank && !ok && w.blank.found.toLowerCase() !== w.word.toLowerCase() && (
                     <span className="sm">In this sentence: <b>{w.blank.found}</b></span>

@@ -225,3 +225,30 @@ export function UsageToggle({ word }: { word: string }) {
     </div>
   );
 }
+
+/**
+ * A small "How to use" button that opens the word's usage in a popup, for places where a panel would get in the
+ * way (a review card, a course question). Keys pressed in the popup stay there, so they don't rate or answer.
+ */
+export function UsageButton({ word, canWrite = true, className }: { word: string; canWrite?: boolean; className?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className={'btn btn-ghost btn-sm usage-btn' + (className ? ' ' + className : '')} onClick={() => setOpen(true)} aria-haspopup="dialog">
+        <Icon name="book" size="sm" />How to use
+      </button>
+      {open && (
+        <div className="overlay" onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); setOpen(false); } }}>
+          <button className="backdrop" onClick={() => setOpen(false)} aria-label="Close" tabIndex={-1} />
+          <div className="modal adm-modal usage-modal" role="dialog" aria-modal="true" aria-label={'How to use ' + word}>
+            <div className="adm-modal-head">
+              <h2>How to use “{word}”</h2>
+              <button type="button" className="iconbtn sm adm-modal-x" onClick={() => setOpen(false)} aria-label="Close" autoFocus><Icon name="x" size="sm" /></button>
+            </div>
+            <div className="adm-modal-body"><UsagePanel word={word} canWrite={canWrite} /></div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

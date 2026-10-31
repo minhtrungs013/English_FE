@@ -2246,3 +2246,8 @@ button.tmini-row:hover{border-color:var(--primary)}
 .regen-usage{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:14px}
 .regen-usage input{margin-top:3px}
 .regen-usage>span{display:flex;flex-direction:column;gap:2px}
+/* "How to use" in a popup (review cards, course questions) */
+.usage-btn{gap:6px}
+.modal.usage-modal{text-align:left;max-width:720px;max-height:calc(100vh - 32px);padding:0;gap:0;overflow:hidden}
+.usage-modal .adm-modal-body{padding-top:14px}
+.usage-modal .adm-modal-body > .usage{border:0;padding:0;background:none}
