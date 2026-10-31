@@ -21,8 +21,24 @@ export interface AuditPage extends Paged<AuditEntry> {
   summary: { calls: number; failed: number; inTokens: number; outTokens: number; avgMs: number; users: number; byAction: { action: string; calls: number; failed: number; tokens: number }[] };
 }
 export interface AdminUser { id: string; name: string; email: string; role: 'user' | 'admin'; createdAt: number | null; words: number; courses: number; plan: string; tokensToday: number }
-export interface AdminPlan { id: string; name: string; isDefault: boolean; chat: number; autofill: number; courseAi: number; sentence: number; tokens: number; users: number }
-type PlanBody = { name: string; chat: number; autofill: number; courseAi: number; sentence: number; tokens: number };
+export interface AdminPlan { id: string; name: string; isDefault: boolean; chat: number; autofill: number; courseAi: number; sentence: number; usage: number; tokens: number; users: number }
+type PlanBody = { name: string; chat: number; autofill: number; courseAi: number; sentence: number; usage: number; tokens: number };
+/**
+ * How to use a word (shared by everyone, one per word): structures, collocations, notes (Vietnamese), common mistakes and
+ * look-alikes. status: unreviewed (as AI wrote it) · approved (checked by an admin) · stale (the meaning changed).
+ */
+export interface WordUsage {
+  key: string; word: string; basedOn: { pos: string; vi: string };
+  patterns: { pattern: string; ex: string; vi: string }[]; collocations: string[]; notes: string[];
+  mistakes: { wrong: string; right: string; why: string }[]; related: { word: string; pos: string; vi: string; note: string }[];
+  source: 'ai' | 'admin'; status: 'unreviewed' | 'approved' | 'stale'; reports: number; updatedAt: number;
+}
+/** usage: null when the word has none yet (stale: there is one, written for an older meaning) · ai: AI is set up. */
+export interface UsageResult { usage: WordUsage | null; stale?: boolean; ai?: boolean; quota: Quota;
+  /** AI is writing it right now (e.g. the word was just added): ask again in a moment. */
+  writing?: boolean }
+export interface AdminUsage extends WordUsage { openReports: { id: string; by: string; note: string; at: number }[] }
+export type UsageEdit = Pick<WordUsage, 'patterns' | 'collocations' | 'notes' | 'mistakes' | 'related'>;
 export interface MistakeItem { type: string; wrong: string; fix: string; explainVi: string }
 export interface MistakeNotebook {
   attempts: number; avg: number | null; withMistakes: number; drillable: number;
@@ -495,6 +511,15 @@ export const api = {
   /** Marks practised sentences (ok = answered right), so the next session prefers others. */
   practiceSeen: (items: { key: string; ok?: boolean }[]) => req<void>('POST', '/practice/sentences/seen', { items }),
   practiceStats: () => req<PracticeStats>('GET', '/practice/words/stats'),
+  /** How to use a word; generate writes it with AI when missing (one of today's Usage allowance). */
+  usage: (word: string, generate = false) => req<UsageResult>('GET', '/usage/' + encodeURIComponent(word.trim().toLowerCase()) + (generate ? '?generate=1' : '')),
+  reportUsage: (word: string, note: string) => req<{ ok: boolean }>('POST', '/usage/' + encodeURIComponent(word.trim().toLowerCase()) + '/report', { note }),
+  adminUsages: (q: string, status: string, page: number) => req<Paged<AdminUsage> & { counts: Record<string, number> }>('GET', '/admin/usage?' + query({ q, status, page })),
+  adminPatchUsage: (key: string, body: UsageEdit) => req<WordUsage>('PATCH', '/admin/usage/' + encodeURIComponent(key), body),
+  adminApproveUsage: (key: string) => req<WordUsage>('POST', '/admin/usage/' + encodeURIComponent(key) + '/approve'),
+  adminRegenerateUsage: (key: string) => req<WordUsage>('POST', '/admin/usage/' + encodeURIComponent(key) + '/regenerate'),
+  adminDeleteUsage: (key: string) => req<void>('DELETE', '/admin/usage/' + encodeURIComponent(key)),
+  adminUsageLibrary: (limit = 50) => req<{ started: number; remaining: number }>('POST', '/admin/usage/generate-library', { limit }),
   /** Records practice answers (spelling: wrong but one letter off). */
   practiceResults: (items: { wordId: string; mode: PracticeWordMode; ok: boolean; spelling?: boolean }[]) => req<void>('POST', '/practice/words/results', { items }),
   /* admin (403 for everyone else) */

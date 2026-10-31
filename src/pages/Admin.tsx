@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { api, type AdminInsights, type AdminMeaning, type AdminSuggestion, type AdminPlan, type AuditEntry, type AuditPage, type AdminCourse, type AdminLibraryWord, type AdminSentence, type AdminStats, type AdminUser, type Paged, type Tense, type Topic } from '../lib/api';
+import { api, type AdminInsights, type AdminMeaning, type AdminUsage, type UsageEdit, type AdminSuggestion, type AdminPlan, type AuditEntry, type AuditPage, type AdminCourse, type AdminLibraryWord, type AdminSentence, type AdminStats, type AdminUser, type Paged, type Tense, type Topic } from '../lib/api';
 import { LEVELS, POS_LIST } from '../lib/data';
 import { EmptyState, Icon, PageHead } from '../components/ui';
+import { UsageBody } from '../components/UsagePanel';
 import { useWB } from '../state/WordbookContext';
 import { ConfirmDialog, CreateCourse, Dialog, errText } from './Courses';
 import { TENSE_LABEL, TENSES } from './CourseQuestions';
@@ -156,15 +157,16 @@ function FormModal({ title, sub, save, busy, onSave, onClose, children }: {
 
 /* ---------- plans (daily limits) ---------- */
 
-const PLAN_FIELDS: { key: 'chat' | 'autofill' | 'courseAi' | 'sentence' | 'tokens'; label: string; unit: string; hint: string; off: string }[] = [
+const PLAN_FIELDS: { key: 'chat' | 'autofill' | 'courseAi' | 'sentence' | 'usage' | 'tokens'; label: string; unit: string; hint: string; off: string }[] = [
   { key: 'chat', label: 'Chatbot', unit: 'messages', hint: 'Questions to the AI assistant', off: 'Off' },
   { key: 'autofill', label: 'Auto-fill', unit: 'words', hint: 'New words filled in by AI or dictionaries', off: 'Off' },
   { key: 'courseAi', label: 'Course AI', unit: 'times', hint: 'AI-generated course content', off: 'Off' },
   { key: 'sentence', label: 'Sentence checks', unit: 'checks', hint: 'Practice → Write a sentence', off: 'Off' },
+  { key: 'usage', label: 'Usage', unit: 'words', hint: '“How to use” written by AI (reading one that exists is free)', off: 'Off' },
   { key: 'tokens', label: 'AI tokens', unit: 'tokens', hint: 'All AI features together', off: 'No cap' }
 ];
-type PlanForm = { name: string; chat: string; autofill: string; courseAi: string; sentence: string; tokens: string };
-const toForm = (p?: AdminPlan): PlanForm => ({ name: p?.name ?? '', chat: String(p?.chat ?? 30), autofill: String(p?.autofill ?? 3), courseAi: String(p?.courseAi ?? 30), sentence: String(p?.sentence ?? 10), tokens: String(p?.tokens ?? 50000) });
+type PlanForm = { name: string; chat: string; autofill: string; courseAi: string; sentence: string; usage: string; tokens: string };
+const toForm = (p?: AdminPlan): PlanForm => ({ name: p?.name ?? '', chat: String(p?.chat ?? 30), autofill: String(p?.autofill ?? 3), courseAi: String(p?.courseAi ?? 30), sentence: String(p?.sentence ?? 10), usage: String(p?.usage ?? 5), tokens: String(p?.tokens ?? 50000) });
 /** "1 word", "30 words", or what 0 means. */
 const limitText = (n: number, unit: string, off: string) => (n === 0 ? off : n.toLocaleString() + ' ' + (n === 1 ? unit.replace(/s$/, '') : unit));
 
@@ -177,7 +179,7 @@ function PlanModal({ plan, onSaved, onClose }: { plan?: AdminPlan; onSaved: (lis
     const nums = PLAN_FIELDS.map((x) => Number(f[x.key]));
     if (!f.name.trim()) { setErr('Please enter a plan name.'); return; }
     if (PLAN_FIELDS.some((x, k) => !f[x.key].trim() || !Number.isInteger(nums[k]) || nums[k] < 0)) { setErr('Limits must be whole numbers, 0 or more.'); return; }
-    const body = { name: f.name.trim(), chat: nums[0], autofill: nums[1], courseAi: nums[2], sentence: nums[3], tokens: nums[4] };
+    const body = { name: f.name.trim(), chat: nums[0], autofill: nums[1], courseAi: nums[2], sentence: nums[3], usage: nums[4], tokens: nums[5] };
     setBusy(true); setErr('');
     try {
       onSaved(plan ? await api.adminPatchPlan(plan.id, body) : await api.adminCreatePlan(body));
@@ -365,7 +367,7 @@ function UserModal({ u, me, plans, onSaved, onClose }: { u: AdminUser; me: boole
               <input type="radio" name="um-plan" checked={plan === id} onChange={() => setPlan(id)} />
               <span className="usr-opt-t">
                 <b>{p?.name ?? 'Default'}{id === '' && <span className="muted xs"> · default</span>}</b>
-                {p && <span className="hint">{p.chat} chat · {p.autofill} auto-fill · {p.sentence} sentence checks · {p.tokens ? p.tokens.toLocaleString() + ' tokens' : 'no token cap'} a day</span>}
+                {p && <span className="hint">{p.chat} chat · {p.autofill} auto-fill · {p.sentence} sentence checks · {p.usage} usage · {p.tokens ? p.tokens.toLocaleString() + ' tokens' : 'no token cap'} a day</span>}
               </span>
             </label>
           ))}
@@ -393,6 +395,7 @@ const AUDIT_ACTIONS: { id: string; label: string }[] = [
   { id: 'dialogue', label: 'Listening dialogue' },
   { id: 'sentence-check', label: 'Sentence check' },
   { id: 'homework-sentence', label: 'Homework sentence' },
+  { id: 'usage', label: 'How to use' },
   { id: 'recap', label: 'Course recap' }
 ];
 const actionLabel = (a: string) => AUDIT_ACTIONS.find((x) => x.id === a)?.label ?? a;
@@ -852,8 +855,140 @@ function MeaningSuggestions() {
 }
 
 /** The library, and the meanings learners suggested for its words. */
+/* ---------- "How to use" (shared word usage written by AI) ---------- */
+
+const USAGE_FILTERS: [string, string][] = [['', 'All'], ['unreviewed', 'Not checked'], ['reported', 'Reported'], ['stale', 'Out of date'], ['approved', 'Checked']];
+const lines = (v: string) => v.split('\n').map((x) => x.trim()).filter(Boolean);
+const cells = (line: string, n: number) => { const c = line.split('|').map((x) => x.trim()); while (c.length < n) c.push(''); return c; };
+/** The edit form shows each list as lines, with " | " between the parts of an item. */
+const toText = (u: UsageEdit) => ({
+  patterns: u.patterns.map((p) => [p.pattern, p.ex, p.vi].join(' | ')).join('\n'),
+  collocations: u.collocations.join(', '),
+  notes: u.notes.join('\n'),
+  mistakes: u.mistakes.map((m) => [m.wrong, m.right, m.why].join(' | ')).join('\n'),
+  related: u.related.map((r) => [r.word, r.pos, r.vi, r.note].join(' | ')).join('\n')
+});
+const fromText = (t: ReturnType<typeof toText>): UsageEdit => ({
+  patterns: lines(t.patterns).map((l) => { const [pattern, ex, vi] = cells(l, 3); return { pattern, ex, vi }; }),
+  collocations: t.collocations.split(',').map((x) => x.trim()).filter(Boolean),
+  notes: lines(t.notes),
+  mistakes: lines(t.mistakes).map((l) => { const [wrong, right, why] = cells(l, 3); return { wrong, right, why }; }),
+  related: lines(t.related).map((l) => { const [word, pos, vi, note] = cells(l, 4); return { word, pos, vi, note }; })
+});
+
+function UsageRow({ x, onChange, onGone }: { x: AdminUsage; onChange: (u: AdminUsage) => void; onGone: () => void }) {
+  const { a } = useWB();
+  const [open, setOpen] = useState(false);
+  const [edit, setEdit] = useState<ReturnType<typeof toText> | null>(null);
+  const [del, setDel] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const run = async (fn: () => Promise<void>, ok: string) => {
+    setBusy(true); setErr('');
+    try { await fn(); a.showToast(ok); } catch (e) { const m = errText(e); if (edit) setErr(m); else a.showToast(m, 'bad'); } finally { setBusy(false); }
+  };
+  const save = () => run(async () => {
+    const u = await api.adminPatchUsage(x.key, fromText(edit!));
+    onChange({ ...x, ...u, openReports: [] });
+    setEdit(null);
+  }, 'Saved and marked as checked.');
+  const status = x.status === 'approved' ? <span className="badge t-green">Checked</span>
+    : x.status === 'stale' ? <span className="badge t-amber">Out of date</span> : <span className="badge pos">Not checked</span>;
+  return (
+    <li className="adm-sent">
+      <div className="adm-sent-body">
+        <button className="linkbtn" onClick={() => setOpen(!open)} aria-expanded={open}><Icon name={open ? 'up' : 'down'} size="sm" /><b>{x.word}</b></button>
+        <span className="badges" style={{ flex: 1 }}>
+          {status}
+          {x.reports > 0 && <span className="badge t-red">{x.reports} {x.reports === 1 ? 'report' : 'reports'}</span>}
+          {x.source === 'admin' && <span className="muted xs">edited by an admin</span>}
+          <span className="muted xs">for “{x.basedOn.vi || '—'}”</span>
+        </span>
+      </div>
+      {open && (
+        <div className="stack" style={{ gap: 12, padding: '4px 0 8px' }}>
+          {x.openReports.length > 0 && (
+            <ul className="adm-reports">
+              {x.openReports.map((r) => <li key={r.id} className="sm"><Icon name="alert" size="sm" /><b>{r.by || 'A learner'}</b>: {r.note || <span className="muted">(no note)</span>} <span className="muted xs">· {fmtDay(r.at)}</span></li>)}
+            </ul>
+          )}
+          <UsageBody u={x} />
+        </div>
+      )}
+      <div className="adm-act" style={{ justifyContent: 'flex-end' }}>
+        <span className="muted xs" style={{ marginRight: 'auto' }}>{fmtDay(x.updatedAt)}</span>
+        <button className="iconbtn sm danger" disabled={busy} onClick={() => setDel(true)} aria-label={'Delete the usage of ' + x.word} title="Delete"><Icon name="trash" size="sm" /></button>
+        <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => run(async () => { const u = await api.adminRegenerateUsage(x.key); onChange({ ...x, ...u, openReports: [] }); }, 'Written again by AI.')}><Icon name="refresh" size="sm" />Write again</button>
+        <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => { setErr(''); setEdit(toText(x)); }}><Icon name="edit" size="sm" />Edit</button>
+        {x.status !== 'approved' && (
+          <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => run(async () => { const u = await api.adminApproveUsage(x.key); onChange({ ...x, ...u, openReports: [] }); }, 'Marked as checked.')}><Icon name="check" size="sm" />Looks right</button>
+        )}
+      </div>
+      {edit && (
+        <FormModal title={'How to use · ' + x.word} sub="One item per line; separate its parts with “ | ”. Saving marks it as checked and closes its reports." save="Save" busy={busy}
+          onSave={save} onClose={() => setEdit(null)}>
+          {err && <div className="formerr" role="alert"><Icon name="alert" size="sm" />{err}</div>}
+          {([['patterns', 'Structures', 'pattern | example | Vietnamese', 4], ['collocations', 'Goes with', 'comma-separated', 2], ['notes', 'Notes (Vietnamese)', 'one per line', 3], ['mistakes', 'Common mistakes', 'wrong | right | why (Vietnamese)', 3], ['related', 'Don’t mix up', 'word | part of speech | Vietnamese | note', 3]] as const).map(([k, label, hint, rows]) => (
+            <div key={k} className="field">
+              <label className="label" htmlFor={'us-' + k}>{label} <span className="muted xs">({hint})</span></label>
+              <textarea id={'us-' + k} className="input" rows={rows} value={edit[k]} onChange={(e) => setEdit({ ...edit, [k]: e.target.value })} />
+            </div>
+          ))}
+        </FormModal>
+      )}
+      {del && (
+        <ConfirmDialog title={'Delete the usage of “' + x.word + '”?'} text="It will be written again by AI the next time a learner asks for it." confirm="Delete" danger busy={busy}
+          onConfirm={() => run(async () => { await api.adminDeleteUsage(x.key); setDel(false); onGone(); }, 'Deleted.')} onClose={() => setDel(false)} />
+      )}
+    </li>
+  );
+}
+
+function Usages() {
+  const { a } = useWB();
+  const [status, setStatus] = useState('');
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const p = usePaged<AdminUsage>(async (q, page) => { const r = await api.adminUsages(q, status, page); setCounts(r.counts); return r; }, [status]);
+  const [busy, setBusy] = useState(false);
+  const total = Object.entries(counts).filter(([k]) => k !== 'reported').reduce((n, [, v]) => n + v, 0);
+  const fill = async () => {
+    setBusy(true);
+    try {
+      const r = await api.adminUsageLibrary(50);
+      a.showToast(r.started ? 'Writing the usage of ' + r.started + ' library words in the background' + (r.remaining ? ' · ' + r.remaining + ' more without one' : '') + '. Reload in a few minutes.' : 'Every library word already has its usage.');
+    } catch (e) { a.showToast(errText(e), 'bad'); } finally { setBusy(false); }
+  };
+  return (
+    <>
+      <Search value={p.q} onChange={p.setQ} placeholder="Search a word">
+        <button className="btn btn-secondary btn-sm" onClick={fill} disabled={busy}><Icon name="sparkle" size="sm" />Write for library words (50)</button>
+      </Search>
+      <div className="chips" role="group" aria-label="Show" style={{ marginBottom: 12 }}>
+        {USAGE_FILTERS.map(([id, label]) => {
+          const n = id === '' ? total : counts[id] ?? 0;
+          return <button key={id} className={'chip soft' + (status === id ? ' on' : '')} aria-pressed={status === id} onClick={() => { setStatus(id); p.setPage(1); }}>{label}{n ? ' · ' + n : ''}</button>;
+        })}
+      </div>
+      {p.err ? <EmptyState icon="alert" tint="t-red" title="Can’t load usages" text={p.err} /> : !p.data ? <div className="sk" style={{ height: 200 }} /> : !p.data.items.length ? (
+        <EmptyState icon="check" tint="t-green" title="Nothing here" text="“How to use” sections appear here once learners open them or you write them for the library." />
+      ) : (
+        <>
+          <ul className="adm-sents">
+            {p.data.items.map((x) => (
+              <UsageRow key={x.key} x={x}
+                onChange={(u) => p.setData((d) => d && { ...d, items: d.items.map((y) => (y.key === u.key ? u : y)) })}
+                onGone={() => p.setData((d) => d && { ...d, total: d.total - 1, items: d.items.filter((y) => y.key !== x.key) })} />
+            ))}
+          </ul>
+          <Pager page={p.page} pages={p.data.pages} total={p.data.total} onPage={p.setPage} />
+        </>
+      )}
+    </>
+  );
+}
+
 function Library() {
-  const [view, setView] = useState<'words' | 'meanings'>('words');
+  const [view, setView] = useState<'words' | 'meanings' | 'usage'>('words');
   const [pending, setPending] = useState<number | null>(null);
   useEffect(() => { api.adminMeanings('', 1).then((r) => setPending(r.total)).catch(() => setPending(null)); }, [view]);
   return (
@@ -861,8 +996,9 @@ function Library() {
       <div className="seg" role="group" aria-label="Library view" style={{ marginBottom: 12 }}>
         <button className={view === 'words' ? 'on' : ''} aria-pressed={view === 'words'} onClick={() => setView('words')}>Library words</button>
         <button className={view === 'meanings' ? 'on' : ''} aria-pressed={view === 'meanings'} onClick={() => setView('meanings')}>Meaning suggestions{pending ? ' (' + pending + ')' : ''}</button>
+        <button className={view === 'usage' ? 'on' : ''} aria-pressed={view === 'usage'} onClick={() => setView('usage')}>How to use</button>
       </div>
-      {view === 'words' ? <LibraryWords /> : <MeaningSuggestions />}
+      {view === 'words' ? <LibraryWords /> : view === 'meanings' ? <MeaningSuggestions /> : <Usages />}
     </>
   );
 }

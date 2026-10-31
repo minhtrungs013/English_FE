@@ -2172,3 +2172,32 @@ button.tmini-row:hover{border-color:var(--primary)}
 .pweak-foot{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:8px}
 .pnote-fix{display:flex;align-items:flex-start;gap:6px;padding:8px 10px;border-radius:10px;background:var(--surface2);color:var(--text);font-weight:600}
 .pnote-fix svg{flex:none;margin-top:2px}
+
+/* How to use (shared word usage) */
+.usage{display:flex;flex-direction:column;gap:10px}
+.usage-top{display:flex;align-items:center;gap:8px}
+.usage-body{display:flex;flex-direction:column;gap:14px}
+.usage-sec{display:flex;flex-direction:column;gap:6px}
+.usage-h{font-size:12.5px;font-weight:800;color:var(--muted)}
+.usage-pats,.usage-notes,.usage-mis,.usage-rel{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.usage-pats li{display:flex;flex-direction:column;gap:2px}
+.usage-pats b{color:var(--primary-ink)}
+.usage-ex{display:flex;align-items:center;gap:4px;font-style:italic}
+.usage-notes{gap:4px}
+.usage-notes li{padding-left:14px;position:relative}
+.usage-notes li::before{content:"";position:absolute;left:2px;top:.65em;width:5px;height:5px;border-radius:50%;background:var(--faint)}
+.usage-mis li{display:flex;flex-direction:column;gap:2px}
+.usage-wrong,.usage-right{display:flex;align-items:flex-start;gap:6px}
+.usage-wrong{color:var(--danger)}
+.usage-wrong s{text-decoration-thickness:1px}
+.usage-right{color:var(--success);font-weight:600}
+.usage-wrong svg,.usage-right svg{flex:none;margin-top:3px}
+.usage-empty{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px}
+.usage-foot{display:flex;justify-content:flex-end}
+.usage-report{display:flex;flex-direction:column;gap:8px}
+.usage-card{padding:12px 14px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface)}
+.usage-toggle{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.usage-toggle > .usage{align-self:stretch}
+.adm-reports{list-style:none;margin:0;padding:10px 12px;border-radius:var(--r-md);background:var(--danger-soft);display:flex;flex-direction:column;gap:6px}
+.adm-reports li{display:flex;align-items:flex-start;gap:6px}
+.adm-reports svg{flex:none;margin-top:3px;color:var(--danger)}

@@ -5,6 +5,7 @@ import { applyEvent, chatAsk, chatStatus, hasMeaning, loadChat, saveChat, type C
 import { speak } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { Icon } from './ui';
+import { UsageToggle } from './UsagePanel';
 
 const SUGGESTIONS = ['Giải thích từ “device”', 'So sánh present perfect và past simple', 'Đặt câu với “follow up”'];
 /** Lessons without drills (nothing to practise). */
@@ -97,6 +98,7 @@ function WordCard({ card, onLeave }: { card: ChatCard; onLeave: () => void }) {
           <button className="iconbtn sm" onClick={() => speak(card.ex)} aria-label="Nghe câu ví dụ"><Icon name="volume" /></button>
         </div>
       ) : null}
+      <UsageToggle word={card.word} />
       <div className="cb-cardfoot">
         {status === 'mine' ? (
           <>

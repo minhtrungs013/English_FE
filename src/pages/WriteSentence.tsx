@@ -4,6 +4,7 @@ import type { Word } from '../lib/data';
 import { speak } from '../lib/speech';
 import { EmptyState, Icon, PageHead } from '../components/ui';
 import { useWB } from '../state/WordbookContext';
+import { UsageToggle } from '../components/UsagePanel';
 
 /** Words per round: due words first, then the newest. */
 const ROUND = 10;
@@ -138,6 +139,7 @@ export function WriteSentence() {
                 ))}
               </ul>
             )}
+            {res.mistakes.length > 0 && <UsageToggle word={w.word} />}
             {res.corrected && res.corrected !== text.trim() && (
               <div className="ws-line">
                 <span className="label">Corrected</span>

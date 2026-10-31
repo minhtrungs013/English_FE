@@ -6,6 +6,7 @@ import { useWB } from '../state/WordbookContext';
 import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/ui';
 import { askAi } from '../lib/askAi';
 import { FamilyTag, WordFamily } from '../components/WordFamily';
+import { UsagePanel } from '../components/UsagePanel';
 
 export const TOPIC_LABEL: Record<Topic, string> = {
   it: 'IT', interview: 'Interview', customer: 'Customer meetings', leader: 'Leader meetings', toeic: 'TOEIC', other: 'Other'
@@ -82,6 +83,7 @@ function LibraryDetail({ w, onClose, onRemoved }: { w: LibraryWord; onClose: () 
           <div style={{ fontSize: 16, marginTop: 4 }}>{w.meaning}</div>
         </div>
         {w.ex && <p className="quote">“{w.ex}”</p>}
+        <UsagePanel word={w.word} className="usage-card" />
         {(w.syn.length > 0 || w.ant.length > 0) && (
           <div className="form2" style={{ gap: 14 }}>
             <div className="stack" style={{ gap: 8 }}><span className="sec-t">Synonyms</span><div className="badges">{w.syn.length ? w.syn.map((x) => <span key={x} className="pill">{x}</span>) : <span className="muted sm">—</span>}</div></div>

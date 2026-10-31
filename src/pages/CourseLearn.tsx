@@ -7,6 +7,7 @@ import { Icon, LevelBadge, PosBadge } from '../components/ui';
 import { WordFamily } from '../components/WordFamily';
 import { SentenceGrammar } from '../components/SentenceGrammar';
 import { normalizeAnswer } from './CourseWarmup';
+import { UsagePanel } from '../components/UsagePanel';
 
 /**
  * listen: hear the word, pick it · dictation: hear it, type it · meaning: pick the Vietnamese meaning ·
@@ -498,6 +499,8 @@ export function CourseLearn({ c, day, words, learned, onLearn, onClose, start = 
             </div>
           )}
           {mw.ex && <SentenceGrammar g={grammar.get(mw.word.toLowerCase())} practice={false} />}
+          {/* Only once someone has it: learning a course day never spends the learner's AI allowance. */}
+          <UsagePanel word={mw.word} canWrite={false} className="usage-card" />
           <WordFamily word={mw.word} family={mw.family} className="lfamily" />
           {canSaveWords && <SaveWordButton courseId={c.id} day={day} word={mw.word} />}
         </div>

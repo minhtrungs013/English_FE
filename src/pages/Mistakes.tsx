@@ -3,6 +3,7 @@ import { api, type MistakeDrill, type MistakeNotebook } from '../lib/api';
 import { speak } from '../lib/speech';
 import { EmptyState, Icon, PageHead } from '../components/ui';
 import { useWB } from '../state/WordbookContext';
+import { UsageToggle } from '../components/UsagePanel';
 
 export const MISTAKE_LABEL: Record<string, string> = {
   tense: 'Tense', agreement: 'Subject–verb', article: 'Article (a/an/the)', preposition: 'Preposition', 'word-form': 'Word form',
@@ -156,6 +157,7 @@ export function Mistakes() {
                 <li key={k}><span className="badge t-red">{MISTAKE_LABEL[m.type] ?? m.type}</span><span><s>{m.wrong}</s> → <b>{m.fix}</b>{m.explainVi ? <span className="muted"> · {m.explainVi}</span> : null}</span></li>
               ))}
             </ul>
+            <UsageToggle word={r.word} />
           </div>
         ))}
       </div>

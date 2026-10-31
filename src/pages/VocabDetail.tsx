@@ -7,6 +7,7 @@ import { Icon, LevelBadge, PosBadge, StatusBadge } from '../components/ui';
 import { WordFamily } from '../components/WordFamily';
 import { TOPIC_LABEL } from './Library';
 import { Dialog } from './Courses';
+import { UsagePanel } from '../components/UsagePanel';
 
 /** Shows whether the word is in the shared library, and lets the user share it if not. */
 function ShareCard({ w }: { w: Word }) {
@@ -75,6 +76,7 @@ export function VocabDetail() {
             <div style={{ fontSize: 16 }}>{w.meaning}</div>
           </div>
           {w.ex && <div className="sec"><span className="sec-t">Example</span><p className="quote">“{w.ex}”</p></div>}
+          <div className="sec"><UsagePanel word={w.word} /></div>
           {(w.syn.length > 0 || w.ant.length > 0) && (
             <div className="sec">
               <div className="form2" style={{ gap: 16 }}>
@@ -166,6 +168,7 @@ export function WordModal({ id, onClose }: { id: string; onClose: () => void }) 
             <div>{w.meaning}</div>
           </div>
           {w.ex && <div><span className="sec-t">Example</span><p className="quote" style={{ margin: '6px 0 0' }}>“{w.ex}”</p></div>}
+          <UsagePanel word={w.word} />
           {(w.syn.length > 0 || w.ant.length > 0) && (
             <div className="adm-grid2">
               <div className="stack" style={{ gap: 8 }}><span className="sec-t">Synonyms</span><div className="badges">{w.syn.length ? w.syn.map((x) => <span key={x} className="pill">{x}</span>) : <span className="muted sm">—</span>}</div></div>
