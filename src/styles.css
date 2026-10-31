@@ -2243,3 +2243,6 @@ button.tmini-row:hover{border-color:var(--primary)}
 .regen-row>:nth-child(3),.regen-row>:nth-child(4){grid-column:2}
 .regen-row.head>:nth-child(n+3){display:none}
 }
+.regen-usage{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:14px}
+.regen-usage input{margin-top:3px}
+.regen-usage>span{display:flex;flex-direction:column;gap:2px}

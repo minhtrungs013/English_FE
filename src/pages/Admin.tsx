@@ -745,7 +745,7 @@ function LibraryRow({ w, onSaved, onDelete }: { w: AdminLibraryWord; onSaved: (x
     if (!f.word.trim()) { setErr('Please enter the word.'); return; }
     setBusy(true); setErr('');
     try {
-      const { id: _id, authorName: _a, saves: _s, syn: _sy, ant: _an, family: _f, synced: _n, ...patch } = f;
+      const { id: _id, authorName: _a, saves: _s, syn: _sy, ant: _an, family: _f, synced: _n, usageWriting: _u, ...patch } = f;
       onSaved(await api.adminPatchLibrary(w.id, patch));
       setEdit(false);
       a.showToast('Saved “' + f.word + '”.');

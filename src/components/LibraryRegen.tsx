@@ -38,6 +38,8 @@ export function LibraryRegen({ id, word, onClose, onSaved }: { id: string; word:
   const [data, setData] = useState<{ current: LibraryFields; proposal: LibraryFields } | null>(null);
   const [err, setErr] = useState('');
   const [keep, setKeep] = useState<Set<Key>>(new Set());
+  // "How to use" is written again in the same go, so nobody has to pay for it a second time.
+  const [usage, setUsage] = useState(true);
   const [busy, setBusy] = useState(false);
   const [run, setRun] = useState(0);
 
@@ -59,7 +61,7 @@ export function LibraryRegen({ id, word, onClose, onSaved }: { id: string; word:
     if (!data || !keep.size) return;
     setBusy(true);
     try {
-      const patch: Partial<LibraryFields> = {};
+      const patch: Partial<LibraryFields> & { usage?: boolean } = usage ? { usage: true } : {};
       for (const k of keep) (patch as Record<string, unknown>)[k] = data.proposal[k];
       const res = await api.adminPatchLibrary(id, patch);
       // My own saved copy: the same rule as on the server (only fields I left as the library had them).
@@ -73,7 +75,7 @@ export function LibraryRegen({ id, word, onClose, onSaved }: { id: string; word:
         })
       }));
       const n = res.synced ?? 0;
-      a.showToast('Updated “' + word + '”' + (n ? ' and ' + n + (n === 1 ? ' learner’s saved word.' : ' learners’ saved words.') : '.'));
+      a.showToast('Updated “' + word + '”' + (n ? ' and ' + n + (n === 1 ? ' learner’s saved word' : ' learners’ saved words') : '') + (res.usageWriting ? '. AI is writing How to use.' : '.'));
       onSaved(res);
     } catch (e) { setErr(errText(e)); setBusy(false); }
   };
@@ -109,6 +111,10 @@ export function LibraryRegen({ id, word, onClose, onSaved }: { id: string; word:
               ))}
             </div>
             {changed.length < FIELDS.length && <p className="muted xs">{FIELDS.length - changed.length} other fields are the same.</p>}
+            <label className="regen-usage">
+              <input type="checkbox" checked={usage} onChange={(e) => setUsage(e.target.checked)} />
+              <span><b>Write “How to use” again too</b><span className="muted xs">For the saved meaning, right after saving. It replaces the current one, also if it was approved.</span></span>
+            </label>
             {err && <p className="bad sm" role="alert">{err}</p>}
           </>
         )}

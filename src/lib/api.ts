@@ -68,6 +68,8 @@ export interface AdminLibraryWord {
   id: string; word: string; ipa: string; pos: string; meaning: string; vi: string; ex: string; level: Word['level']; topic: Topic; authorName: string; saves: number;
   /** After a save: the full word and how many learners' saved words were updated with it. */
   syn?: string[]; ant?: string[]; family?: FamilyMember[]; synced?: number;
+  /** True when "How to use" is being written again in the background. */
+  usageWriting?: boolean;
 }
 /** The parts of a library word AI writes again (Admin → regenerate). */
 export interface LibraryFields { ipa: string; pos: string; meaning: string; vi: string; ex: string; syn: string[]; ant: string[]; level: Word['level']; topic: Topic; family: FamilyMember[] }
@@ -544,7 +546,7 @@ export const api = {
   adminPatchSentence: (id: string, patch: Partial<Pick<AdminSentence, 'sentence' | 'tense' | 'verb' | 'base' | 'context'>>) => req<AdminSentence>('PATCH', '/admin/sentences/' + id, patch),
   adminDeleteSentence: (id: string) => req<void>('DELETE', '/admin/sentences/' + id),
   adminLibrary: (q: string, page: number) => req<Paged<AdminLibraryWord>>('GET', '/admin/library?' + query({ q, page })),
-  adminPatchLibrary: (id: string, patch: Partial<LibraryFields & { word: string }>) => req<AdminLibraryWord>('PATCH', '/admin/library/' + id, patch),
+  adminPatchLibrary: (id: string, patch: Partial<LibraryFields & { word: string; usage: boolean }>) => req<AdminLibraryWord>('PATCH', '/admin/library/' + id, patch),
   /** AI writes the word again; nothing is saved until adminPatchLibrary. */
   adminRegenLibrary: (id: string) => req<{ word: string; current: LibraryFields; proposal: LibraryFields }>('POST', '/admin/library/' + id + '/regenerate'),
   adminDeleteLibrary: (id: string) => req<void>('DELETE', '/admin/library/' + id),

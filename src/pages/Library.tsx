@@ -48,6 +48,8 @@ function LibraryDetail({ w, onClose, onRemoved, onUpdated }: { w: LibraryWord; o
   const author = useAuthor();
   const [busy, setBusy] = useState(false);
   const [regen, setRegen] = useState(false);
+  // Bumped after a regenerate: the How to use panel loads again and shows it being written.
+  const [rev, setRev] = useState(0);
   const wide = useWide();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !regen) onClose(); };
@@ -101,7 +103,7 @@ function LibraryDetail({ w, onClose, onRemoved, onUpdated }: { w: LibraryWord; o
               <span>Added by <b>{author(w)}</b>{w.authorId ? ' · ' + fmtDate(w.sharedAt) : ''} · saved {w.saves} {w.saves === 1 ? 'time' : 'times'}</span>
             </div>
           </div>
-          <div className="wd-side"><UsagePanel word={w.word} className="usage-card" folded={!wide} /></div>
+          <div className="wd-side"><UsagePanel key={rev} word={w.word} className="usage-card" folded={!wide} /></div>
         </div>
         <div className="mfoot" style={{ justifyContent: 'space-between' }}>
           <div className="row" style={{ gap: 8 }}>
@@ -113,7 +115,7 @@ function LibraryDetail({ w, onClose, onRemoved, onUpdated }: { w: LibraryWord; o
       </div>
       {regen && (
         <LibraryRegen id={w.id} word={w.word} onClose={() => setRegen(false)}
-          onSaved={(x) => { setRegen(false); onUpdated({ ...w, ipa: x.ipa, pos: x.pos, meaning: x.meaning, vi: x.vi, ex: x.ex, level: x.level, topic: x.topic, syn: x.syn ?? w.syn, ant: x.ant ?? w.ant, family: x.family ?? w.family }); }} />
+          onSaved={(x) => { setRegen(false); setRev((r) => r + 1); onUpdated({ ...w, ipa: x.ipa, pos: x.pos, meaning: x.meaning, vi: x.vi, ex: x.ex, level: x.level, topic: x.topic, syn: x.syn ?? w.syn, ant: x.ant ?? w.ant, family: x.family ?? w.family }); }} />
       )}
     </div>
   );
