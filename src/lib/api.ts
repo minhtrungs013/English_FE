@@ -71,6 +71,16 @@ export interface AdminLibraryWord {
   /** True when "How to use" is being written again in the background. */
   usageWriting?: boolean;
 }
+/** One word of an import file, as the server checked it. */
+export interface LibraryImportItem {
+  index: number; word: string; status: 'new' | 'fill' | 'exists' | 'same' | 'repeat' | 'invalid';
+  errors: string[]; warnings: string[];
+  /** Fill: the fields filled in (and 'usage'). */
+  filled: string[];
+  /** New: its How to use is added too. */
+  usage?: boolean;
+}
+export interface LibraryImportSummary { new: number; fill: number; exists: number; same: number; repeat: number; invalid: number }
 /** The parts of a library word AI writes again (Admin → regenerate). */
 export interface LibraryFields { ipa: string; pos: string; meaning: string; vi: string; ex: string; syn: string[]; ant: string[]; level: Word['level']; topic: Topic; family: FamilyMember[] }
 
@@ -547,6 +557,8 @@ export const api = {
   adminDeleteSentence: (id: string) => req<void>('DELETE', '/admin/sentences/' + id),
   adminLibrary: (q: string, page: number) => req<Paged<AdminLibraryWord>>('GET', '/admin/library?' + query({ q, page })),
   adminPatchLibrary: (id: string, patch: Partial<LibraryFields & { word: string; usage: boolean }>) => req<AdminLibraryWord>('PATCH', '/admin/library/' + id, patch),
+  adminImportLibrary: (items: unknown[], dryRun: boolean, duplicates: 'skip' | 'fill') =>
+    req<{ items: LibraryImportItem[]; summary: LibraryImportSummary }>('POST', '/admin/library/import', { items, dryRun, duplicates }),
   /** AI writes the word again; nothing is saved until adminPatchLibrary. */
   adminRegenLibrary: (id: string) => req<{ word: string; current: LibraryFields; proposal: LibraryFields }>('POST', '/admin/library/' + id + '/regenerate'),
   adminDeleteLibrary: (id: string) => req<void>('DELETE', '/admin/library/' + id),

@@ -3,6 +3,7 @@ import { api, type AdminInsights, type AdminMeaning, type AdminUsage, type Usage
 import { LEVELS, POS_LIST } from '../lib/data';
 import { EmptyState, Icon, PageHead } from '../components/ui';
 import { LibraryRegen } from '../components/LibraryRegen';
+import { LibraryImport } from './AdminImport';
 import { UsageBody } from '../components/UsagePanel';
 import { useWB } from '../state/WordbookContext';
 import { ConfirmDialog, CreateCourse, Dialog, errText } from './Courses';
@@ -1012,6 +1013,7 @@ function LibraryWords() {
   const p = usePaged<AdminLibraryWord>((q, page) => api.adminLibrary(q, page));
   const [del, setDel] = useState<AdminLibraryWord | null>(null);
   const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
   const remove = async (w: AdminLibraryWord) => {
     setBusy(true);
     try {
@@ -1023,7 +1025,11 @@ function LibraryWords() {
   };
   return (
     <>
-      <Search value={p.q} onChange={p.setQ} placeholder="Search a word or a Vietnamese meaning" />
+      <div className="adm-tools">
+        <Search value={p.q} onChange={p.setQ} placeholder="Search a word or a Vietnamese meaning" />
+        <button className="btn btn-secondary" onClick={() => setImporting(true)}><Icon name="upload" size="sm" />Import JSON</button>
+      </div>
+      {importing && <LibraryImport onClose={() => setImporting(false)} onDone={p.reload} />}
       {p.err ? <EmptyState icon="alert" tint="t-red" title="Can’t load the library" text={p.err} /> : !p.data ? <div className="sk" style={{ height: 200 }} /> : (
         <>
           <div className="adm-table" role="table" aria-label="Library words">

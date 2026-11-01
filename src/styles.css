@@ -2251,3 +2251,17 @@ button.tmini-row:hover{border-color:var(--primary)}
 .modal.usage-modal{text-align:left;max-width:720px;max-height:calc(100vh - 32px);padding:0;gap:0;overflow:hidden}
 .usage-modal .adm-modal-body{padding-top:14px}
 .usage-modal .adm-modal-body > .usage{border:0;padding:0;background:none}
+/* Admin → Library: import words from a JSON file */
+.adm-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.adm-tools > :first-child{flex:1;min-width:220px}
+.modal.imp-lib{max-width:760px;max-height:calc(100vh - 32px);padding:0;gap:0;overflow:hidden}
+.imp-pick{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.imp-dup{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.imp-dup label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.imp-dup input{margin-top:4px}
+.imp-sum{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.imp-all{display:flex;gap:8px;align-items:center;cursor:pointer}
+.imp-rows{list-style:none;margin:0;padding:0;border:1px solid var(--border);border-radius:12px;max-height:340px;overflow-y:auto}
+.imp-rows li{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:8px 12px;border-top:1px solid var(--border);font-size:14px}
+.imp-rows li:first-child{border-top:0}
+.imp-why{flex-basis:100%;font-size:13px;color:var(--muted)}

@@ -20,7 +20,8 @@ export const TopicBadge = ({ topic }: { topic: Topic }) => <span className={'bad
 
 function useAuthor() {
   const { s } = useWB();
-  return (w: LibraryWord) => (w.authorId === '' ? 'Wordbook' : w.authorId === s.userId ? 'You' : w.authorName);
+  // Imported by an admin ('import') counts as the app's own word.
+  return (w: LibraryWord) => (w.authorId === '' || w.authorId === 'import' ? 'Wordbook' : w.authorId === s.userId ? 'You' : w.authorName);
 }
 
 /** The Save button / "In my words" state for one library word. */
