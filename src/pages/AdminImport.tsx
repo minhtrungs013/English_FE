@@ -48,6 +48,8 @@ export function LibraryImport({ onClose, onDone }: { onClose: () => void; onDone
   const [name, setName] = useState('');
   const [items, setItems] = useState<unknown[] | null>(null);
   const [dup, setDup] = useState<'skip' | 'fill'>('skip');
+  // How to use is optional in the file: AI writes the missing ones after the import.
+  const [aiUsage, setAiUsage] = useState(true);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState('');
@@ -70,6 +72,7 @@ export function LibraryImport({ onClose, onDone }: { onClose: () => void; onDone
     if (!items) return;
     setErr(''); setBusy(dryRun ? 'Checking' : 'Importing');
     const out: Row[] = [];
+    let aiStarted = false, aiNoKey = false;
     const seen = new Set<string>();
     const send: { n: number; item: unknown }[] = [];
     items.forEach((item, n) => {
@@ -81,15 +84,17 @@ export function LibraryImport({ onClose, onDone }: { onClose: () => void; onDone
       for (let i = 0; i < send.length; i += PART) {
         const part = send.slice(i, i + PART);
         setBusy((dryRun ? 'Checking ' : 'Importing ') + Math.min(i + PART, send.length) + ' / ' + send.length);
-        const r = await api.adminImportLibrary(part.map((p) => p.item), dryRun, dup);
+        const r = await api.adminImportLibrary(part.map((p) => p.item), dryRun, dup, aiUsage);
         r.items.forEach((x) => out.push({ ...x, n: part[x.index].n }));
+        if (r.aiUsage.started) aiStarted = true; else if (r.aiUsage.words && !dryRun && aiUsage) aiNoKey = true;
       }
       out.sort((x, y) => x.n - y.n);
       setRows(out);
       if (!dryRun) {
         setDone(true);
         const c = count(out);
-        a.showToast('Imported ' + c.new + (c.new === 1 ? ' word' : ' words') + (c.fill ? ', filled ' + c.fill : '') + '.');
+        a.showToast('Imported ' + c.new + (c.new === 1 ? ' word' : ' words') + (c.fill ? ', filled ' + c.fill : '') + '.'
+          + (aiStarted ? ' AI is writing How to use for ' + c.ai + ' in the background.' : aiNoKey ? ' AI isn’t set up, so How to use wasn’t written.' : ''), aiNoKey ? 'bad' : undefined);
         onDone();
       }
     } catch (e) { setErr(errText(e)); } finally { setBusy(''); }
@@ -118,6 +123,12 @@ export function LibraryImport({ onClose, onDone }: { onClose: () => void; onDone
             <label><input type="radio" name="imp-dup" checked={dup === 'fill'} onChange={() => { setDup('fill'); setRows(null); }} /> Fill their empty fields (IPA, example, synonyms, antonyms, word family, How to use) — meaning and Vietnamese stay</label>
           </fieldset>
         )}
+        {items && !done && (
+          <label className="imp-ai">
+            <input type="checkbox" checked={aiUsage} onChange={(e) => setAiUsage(e.target.checked)} />
+            <span><b>Write How to use with AI</b> for words that have none (not in the file, not saved yet), in the background after the import.</span>
+          </label>
+        )}
         {c && (
           <div className="imp-sum" role="status">
             <span className="badge t-green">{c.new} new</span>
@@ -126,6 +137,7 @@ export function LibraryImport({ onClose, onDone }: { onClose: () => void; onDone
             {c.repeat > 0 && <span className="badge t-orange">{c.repeat} repeated in file</span>}
             {c.invalid > 0 && <span className="badge t-red">{c.invalid} invalid</span>}
             {c.usage > 0 && <span className="badge">{c.usage} with How to use</span>}
+            {aiUsage && c.ai > 0 && <span className="badge t-indigo">{c.ai} How to use by AI</span>}
             {done && <b className="sm hw-ok">Imported.</b>}
           </div>
         )}
@@ -161,7 +173,7 @@ export function LibraryImport({ onClose, onDone }: { onClose: () => void; onDone
   );
 }
 
-function count(rows: Row[]): LibraryImportSummary & { usage: number } {
+function count(rows: Row[]): LibraryImportSummary & { usage: number; ai: number } {
   const n = (st: Row['status']) => rows.filter((r) => r.status === st).length;
-  return { new: n('new'), fill: n('fill'), exists: n('exists'), same: n('same'), repeat: n('repeat'), invalid: n('invalid'), usage: rows.filter((r) => r.usage || r.filled.includes('usage')).length };
+  return { new: n('new'), fill: n('fill'), exists: n('exists'), same: n('same'), repeat: n('repeat'), invalid: n('invalid'), usage: rows.filter((r) => r.usage || r.filled.includes('usage')).length, ai: rows.filter((r) => r.aiUsage).length };
 }

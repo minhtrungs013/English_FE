@@ -2265,3 +2265,5 @@ button.tmini-row:hover{border-color:var(--primary)}
 .imp-rows li{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:8px 12px;border-top:1px solid var(--border);font-size:14px}
 .imp-rows li:first-child{border-top:0}
 .imp-why{flex-basis:100%;font-size:13px;color:var(--muted)}
+.imp-ai{display:flex;gap:8px;align-items:flex-start;font-size:14px;cursor:pointer}
+.imp-ai input{margin-top:4px}
