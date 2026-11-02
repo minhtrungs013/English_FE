@@ -44,17 +44,19 @@ function Formula({ text }: { text: string }) {
  * time clues highlighted), the formula, the explanation and the lesson. Only given sentences the learner may see the
  * answer of. `practice`: show "Practise" (not inside a study session, which it would leave).
  */
-export function SentenceGrammar({ g, practice = true }: { g: GrammarView | null | undefined; practice?: boolean }) {
+export function SentenceGrammar({ g, practice = true, bare = false }: { g: GrammarView | null | undefined; practice?: boolean; /** Only the card, always open (the page has its own toggle). */ bare?: boolean }) {
   const { a } = useWB();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(bare);
   const id = useId();
   if (!g) return null;
   const notes = [...(g.explain ? [g.explain] : []), ...g.notes.map((n) => n.text)];
   return (
     <div className="sg">
-      <button className={'sg-toggle' + (open ? ' on' : '')} aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)}>
-        <Icon name="type" size="sm" />Grammar<Icon name="down" size="sm" className="sg-chev" />
-      </button>
+      {!bare && (
+        <button className={'sg-toggle' + (open ? ' on' : '')} aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)}>
+          <Icon name="type" size="sm" />Grammar<Icon name="down" size="sm" className="sg-chev" />
+        </button>
+      )}
       {open && (
         <section id={id} className="sg-card" aria-label="Grammar of this sentence">
           {g.lesson ? (

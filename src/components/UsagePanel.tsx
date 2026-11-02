@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { api, ApiError, type Quota, type WordUsage } from '../lib/api';
 import { speak } from '../lib/speech';
 import { Icon } from './ui';
@@ -118,7 +118,11 @@ const summaryOf = (u: WordUsage) => [
  * "How to use" for a word: shown when someone already has it (shared, free to read). With canWrite, a missing one can be
  * written by AI on request (one of today's Usage allowance). Without it (e.g. inside a course), nothing shows until one exists.
  */
-export function UsagePanel({ word, canWrite = true, className = '', folded = false }: { word: string; canWrite?: boolean; className?: string; folded?: boolean }) {
+export function UsagePanel({ word, canWrite = true, className = '', folded = false, onReady }: {
+  word: string; canWrite?: boolean; className?: string; folded?: boolean;
+  /** Told once loaded whether the word has a usage to show (e.g. to show or hide a button for it). */
+  onReady?: (has: boolean) => void;
+}) {
   /** Folded panels (quick looks, course cards) show a one-line summary until opened. */
   const [open, setOpen] = useState(!folded);
   const [u, setU] = useState<WordUsage | null>(null);
@@ -130,6 +134,8 @@ export function UsagePanel({ word, canWrite = true, className = '', folded = fal
   const [reporting, setReporting] = useState(false);
   const [note, setNote] = useState('');
   const [reported, setReported] = useState(false);
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
 
   useEffect(() => {
     let alive = true;
@@ -140,7 +146,8 @@ export function UsagePanel({ word, canWrite = true, className = '', folded = fal
       if (!alive) return;
       if (r.writing && !r.usage && tries > 0) { setPhase('writing'); timer = window.setTimeout(() => void load(tries - 1), 3000); return; }
       setU(r.usage); setQuota(r.quota); setAi(r.ai !== false); setStale(!!r.stale); setPhase('ready');
-    }).catch((e) => { if (alive) { setErr(errText(e, 'Couldn’t load how to use this word.')); setPhase('failed'); } });
+      onReadyRef.current?.(!!r.usage && !r.stale);
+    }).catch((e) => { if (alive) { setErr(errText(e, 'Couldn’t load how to use this word.')); setPhase('failed'); onReadyRef.current?.(false); } });
     void load(8);
     return () => { alive = false; window.clearTimeout(timer); };
   }, [word]);

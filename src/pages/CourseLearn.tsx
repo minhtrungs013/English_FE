@@ -268,6 +268,10 @@ export function CourseLearn({ c, day, words, learned, onLearn, onClose, start = 
 
   const [phase, setPhase] = useState<Phase>(start === 'practice' && canPractise ? 'practice' : 'meet');
   const [card, setCard] = useState(0);
+  // Meet the words: the open extra (grammar or how to use) stays open from word to word.
+  const [extra, setExtra] = useState<'grammar' | 'usage' | null>(null);
+  /** The word whose How to use loaded and exists (the button shows only then). */
+  const [usageOf, setUsageOf] = useState('');
   const [seen, setSeen] = useState(0);
   const [run, setRun] = useState<Run>(() => newRun(ctx));
   const [answer, setAnswer] = useState('');
@@ -498,11 +502,35 @@ export function CourseLearn({ c, day, words, learned, onLearn, onClose, start = 
               <button className="iconbtn sm" onClick={() => speak(mw.ex, 0.95)} aria-label="Play the example sentence" title="Play example"><Icon name="volume" size="sm" /></button>
             </div>
           )}
-          {mw.ex && <SentenceGrammar g={grammar.get(mw.word.toLowerCase())} practice={false} />}
-          {/* Only once someone has it: learning a course day never spends the learner's AI allowance. */}
-          <UsagePanel word={mw.word} canWrite={false} className="usage-card" folded />
           <WordFamily word={mw.word} family={mw.family} className="lfamily" />
-          {canSaveWords && <SaveWordButton courseId={c.id} day={day} word={mw.word} />}
+          {(() => {
+            const g = mw.ex ? grammar.get(mw.word.toLowerCase()) : undefined;
+            const hasUsage = usageOf === mw.word;
+            const tool = (id: 'grammar' | 'usage', icon: 'type' | 'book', label: string) => (
+              <button className={'sg-toggle' + (extra === id ? ' on' : '')} aria-expanded={extra === id} aria-controls={hid + '-' + id}
+                onClick={() => setExtra(extra === id ? null : id)}>
+                <Icon name={icon} size="sm" />{label}<Icon name="down" size="sm" className="sg-chev" />
+              </button>
+            );
+            return (
+              <div className={'lmeet-more' + (g || hasUsage || canSaveWords ? '' : ' bare')}>
+                {(g || hasUsage || canSaveWords) && (
+                  <div className="lmeet-tools">
+                    <div className="lmeet-tabs">
+                      {g && tool('grammar', 'type', 'Grammar')}
+                      {hasUsage && tool('usage', 'book', 'How to use')}
+                    </div>
+                    {canSaveWords && <SaveWordButton courseId={c.id} day={day} word={mw.word} />}
+                  </div>
+                )}
+                {extra === 'grammar' && g && <div id={hid + '-grammar'} className="lmeet-panel"><SentenceGrammar g={g} practice={false} bare /></div>}
+                {/* Only once someone has it: learning a course day never spends the learner's AI allowance. Loaded (hidden) to know if there is one. */}
+                <div id={hid + '-usage'} className="lmeet-panel" hidden={extra !== 'usage' || !hasUsage}>
+                  <UsagePanel key={mw.word} word={mw.word} canWrite={false} className="usage-card" onReady={(has) => setUsageOf(has ? mw.word : '')} />
+                </div>
+              </div>
+            );
+          })()}
         </div>
         <div className="hwnav">
           <button className="btn btn-secondary" onClick={() => goCard(card - 1)} disabled={card === 0}><Icon name="left" size="sm" />Back</button>
