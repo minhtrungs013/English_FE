@@ -586,6 +586,8 @@ export const api = {
   /** Practice → Write a sentence: AI grades a sentence with one of my words. */
   checkSentence: (wordId: string, sentence: string) => req<SentenceResult>('POST', '/practice/sentence-check', { wordId, sentence }),
   sentenceQuota: () => req<{ used: number; limit: number }>('GET', '/practice/sentence-check'),
+  /** Word ids for a round of Write a sentence, picked from what I wrote before; `exclude`: the last round's. */
+  sentenceRound: (n: number, exclude: string[]) => req<{ ids: string[] }>('GET', '/practice/sentence-round?' + query({ n, exclude: exclude.join(',') })),
   mistakes: (type = '') => req<MistakeNotebook>('GET', '/practice/mistakes?' + query({ type })),
   mistakeDrill: (type = '') => req<{ items: MistakeDrill[] }>('GET', '/practice/mistakes/drill?' + query({ type, n: 10 })),
   adminSuggestions: (q: string, page: number) => req<Paged<AdminSuggestion>>('GET', '/admin/suggestions?' + query({ q, page })),

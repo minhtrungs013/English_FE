@@ -6,14 +6,19 @@ import { EmptyState, Icon, PageHead } from '../components/ui';
 import { useWB } from '../state/WordbookContext';
 import { UsageToggle } from '../components/UsagePanel';
 
-/** Words per round: due words first, then the newest. */
+/** Words per round. */
 const ROUND = 10;
+/** The last round's word ids, so leaving and coming back doesn't start with the same words. */
+const LAST_KEY = 'wb.ws.last';
+const readLast = (): string[] => { try { return JSON.parse(localStorage.getItem(LAST_KEY) ?? '[]') as string[]; } catch { return []; } };
+const writeLast = (ids: string[]) => { try { localStorage.setItem(LAST_KEY, JSON.stringify(ids)); } catch { /* storage blocked */ } };
 
 const MISTAKE_LABEL: Record<string, string> = {
   tense: 'Tense', agreement: 'Subject–verb', article: 'Article', preposition: 'Preposition', 'word-form': 'Word form',
   'word-meaning': 'Meaning', collocation: 'Collocation', 'word-order': 'Word order', spelling: 'Spelling', punctuation: 'Punctuation', other: 'Other'
 };
 
+/** Offline fallback: due words first, then the newest. */
 function pickRound(words: Word[]): Word[] {
   const now = Date.now();
   const due = words.filter((w) => w.dueAt <= now).sort((a, b) => a.dueAt - b.dueAt);
@@ -26,7 +31,7 @@ const tone = (score: number) => (score >= 9 ? 'good' : score >= 6 ? 'ok' : 'bad'
 /** Practice → Write a sentence: the learner writes a sentence with each word and AI grades it. */
 export function WriteSentence() {
   const { s, a } = useWB();
-  const [round, setRound] = useState<Word[]>(() => pickRound(s.words));
+  const [round, setRound] = useState<Word[] | null>(null);
   const [i, setI] = useState(0);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -36,8 +41,20 @@ export function WriteSentence() {
   const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
   const [saved, setSaved] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
-  const w = round[i];
-  const done = i >= round.length;
+  const w = round?.[i];
+  const done = !!round && i >= round.length;
+
+  /** A new round from the server (it knows what I wrote before); the words I have now, in its order. */
+  const newRound = () => {
+    setRound(null); setI(0); setScores([]); setText(''); setRes(null); setErr('');
+    api.sentenceRound(ROUND, readLast()).then((r) => {
+      const byId = new Map(s.words.map((x) => [x.id, x]));
+      const list = r.ids.map((id) => byId.get(id)).filter((x): x is Word => !!x);
+      return list.length ? list : pickRound(s.words);
+    }).catch(() => pickRound(s.words)).then((list) => { writeLast(list.map((x) => x.id)); setRound(list); });
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (s.words.length) newRound(); }, []);
 
   useEffect(() => { api.sentenceQuota().then(setQuota).catch(() => setQuota(null)); }, []);
   useEffect(() => { area.current?.focus(); }, [i]);
@@ -60,6 +77,7 @@ export function WriteSentence() {
   const next = () => { setI(i + 1); setText(''); setRes(null); setErr(''); };
   const retry = () => { setRes(null); setErr(''); setTimeout(() => area.current?.focus(), 0); };
   const saveExample = async (sentence: string) => {
+    if (!w) return;
     try { await a.setWordExample(w.id, sentence); setSaved(true); } catch (ex) { a.showToast(ex instanceof Error ? ex.message : 'Couldn’t save.', 'bad'); }
   };
   const avg = useMemo(() => (scores.length ? Math.round((scores.reduce((x, y) => x + y, 0) / scores.length) * 10) / 10 : 0), [scores]);
@@ -84,12 +102,14 @@ export function WriteSentence() {
           <div className="ws-actions">
             <button className="btn btn-secondary" onClick={() => a.go('practice')}>Back to Practice</button>
             <button className="btn btn-secondary" onClick={() => a.go('mistakes')}>My mistakes</button>
-            <button className="btn btn-primary" onClick={() => { setRound(pickRound(s.words)); setI(0); setScores([]); }}>New round</button>
+            <button className="btn btn-primary" onClick={newRound}>New round</button>
           </div>
         </div>
       </>
     );
   }
+
+  if (!round || !w) return <>{head}<div className="card ws-card" aria-busy="true"><div className="sk" style={{ height: 200 }} /></div></>;
 
   return (
     <>
