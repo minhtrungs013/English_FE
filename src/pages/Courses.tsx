@@ -196,6 +196,7 @@ export function CreateCourse({ onClose }: { onClose: () => void }) {
   const [fill, setFill] = useState(false);
   const [levels, setLevels] = useState<Level[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [skipMine, setSkipMine] = useState(true);
   const create = async () => {
     if (busy) return;
     if (!title.trim()) { setErr('Please give the course a title.'); return; }
@@ -206,7 +207,7 @@ export function CreateCourse({ onClose }: { onClose: () => void }) {
       const c = await api.createCourse({ title: title.trim(), description: description.trim(), wordsPerDay: wpd, dictationPerDay: dpd, visibility, startDate: sd.startDate });
       let msg = 'Course “' + c.title + '” created. Now add words to each day.';
       if (fill) {
-        try { msg = 'Course “' + c.title + '” created. ' + autoFillToast(await autoFill(c.id, levels, topics)); }
+        try { msg = 'Course “' + c.title + '” created. ' + autoFillToast(await autoFill(c.id, levels, topics, 'empty', skipMine)); }
         catch (e) { a.showToast('Course created, but auto-fill failed: ' + errText(e), 'bad'); a.openCourse(c.id, true); return; }
       }
       a.showToast(msg);
@@ -257,7 +258,7 @@ export function CreateCourse({ onClose }: { onClose: () => void }) {
           <StartDatePicker idBase="nc-start" value={start} onChange={(p) => { setStart(p); setErr(''); }} />
           <div className="field nc-fill">
             <label className="checkrow"><input type="checkbox" checked={fill} onChange={(e) => setFill(e.target.checked)} />Fill the 30 days with library words now</label>
-            {fill && <AutoFillOptions levels={levels} setLevels={setLevels} topics={topics} setTopics={setTopics} />}
+            {fill && <AutoFillOptions levels={levels} setLevels={setLevels} topics={topics} setTopics={setTopics} skipMine={skipMine} setSkipMine={setSkipMine} />}
             {fill && <span className="hint">Up to {wpd * 30} words ({wpd} words × 30 days). You can change any day afterwards.</span>}
           </div>
         </div>

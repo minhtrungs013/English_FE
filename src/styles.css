@@ -2280,3 +2280,5 @@ button.tmini-row:hover{border-color:var(--primary)}
 .lmeet-tabs{justify-content:center}
 .lmeet-tools .btn,.lmeet-tools .cwsaved{align-self:center}
 }
+.againbox{margin-top:10px}
+.againbox .actions{justify-content:flex-end;flex-wrap:wrap}

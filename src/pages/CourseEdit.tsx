@@ -126,6 +126,10 @@ function AddWord({ words, full, saving, quota, setQuota, onAdd }: {
   const term = q.trim().toLowerCase();
   const lib = res && res.term === term ? res.items : null;
   const inDay = new Set(words.map((w) => w.word.toLowerCase()));
+  const { s } = useWB();
+  const mine = new Set(s.words.map((w) => w.word.toLowerCase()));
+  // A word I already have in My Vocabulary: asked first whether to learn it again in this course.
+  const [again, setAgain] = useState<CourseWord | null>(null);
   const exact = lib?.some((w) => w.word.toLowerCase() === term);
   const left = quota ? Math.max(0, quota.limit - quota.used) : null;
 
@@ -140,8 +144,10 @@ function AddWord({ words, full, saving, quota, setQuota, onAdd }: {
     return () => { alive = false; clearTimeout(t); };
   }, [term]);
 
-  const add = async (w: CourseWord) => {
+  const add = async (w: CourseWord, sure = false) => {
     if (inDay.has(w.word.toLowerCase())) { a.showToast('“' + w.word + '” is already in this day.', 'bad'); return; }
+    if (!sure && mine.has(w.word.toLowerCase())) { setAgain(w); return; }
+    setAgain(null);
     if (await onAdd(w)) { setQ(''); setGen(null); }
   };
   const generate = async () => {
@@ -176,7 +182,7 @@ function AddWord({ words, full, saving, quota, setQuota, onAdd }: {
       <div className="search-wrap" style={{ marginBottom: 0 }}>
         <span className="inicon"><Icon name="search" /></span>
         <input id="cw-add" className="input withicon" type="search" placeholder="Type a word to find it in the library…" value={q} autoComplete="off"
-          onChange={(e) => { setQ(e.target.value); setGen(null); }}
+          onChange={(e) => { setQ(e.target.value); setGen(null); setAgain(null); }}
           onKeyDown={(e) => {
             if (e.key !== 'Enter') return;
             e.preventDefault();
@@ -186,7 +192,18 @@ function AddWord({ words, full, saving, quota, setQuota, onAdd }: {
           }} />
       </div>
 
-      {term && !gen && (
+      {again && (
+        <div className="matchbox againbox" role="alertdialog" aria-label={again.word + ' is already in My Vocabulary'}>
+          <div className="matchhead"><Icon name="book" size="sm" />“{again.word}” is already in your My Vocabulary</div>
+          <p className="sm" style={{ margin: 0 }}>Do you want to learn it again in this course?</p>
+          <div className="actions">
+            <button className="btn btn-secondary btn-sm" onClick={() => setAgain(null)}>No, pick another word</button>
+            <button className="btn btn-primary btn-sm" onClick={() => void add(again, true)} disabled={saving} autoFocus><Icon name="plus" size="sm" />Yes, add it</button>
+          </div>
+        </div>
+      )}
+
+      {term && !gen && !again && (
         <div className="sugg" aria-live="polite">
           {!lib ? <div className="sd-empty"><span className="spin" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 8 }} />Searching the library…</div> : (
             <>
@@ -196,6 +213,7 @@ function AddWord({ words, full, saving, quota, setQuota, onAdd }: {
                   <button key={w.id} className="sd-row sd-btn" onClick={() => add(fromLibrary(w))} disabled={have || saving}
                     aria-label={have ? w.word + ' is already in this day' : 'Add ' + w.word + ' to this day'}>
                     <span className="sd-main"><span className="sd-word">{w.word}</span><span className="sd-vi">{w.vi || w.meaning}</span></span>
+                    {!have && mine.has(w.word.toLowerCase()) && <span className="badge t-blue xs" title="Already in My Vocabulary">In my words</span>}
                     <LevelBadge level={w.level} />
                     {have ? <span className="muted xs">In this day</span> : <Icon name="plus" size="sm" />}
                   </button>

@@ -13,8 +13,8 @@ export const AUTOFILL_TOPICS: { id: Topic; label: string }[] = [
   { id: 'leader', label: 'Leadership' }, { id: 'toeic', label: 'TOEIC/office' }, { id: 'other', label: 'Everyday' },
 ];
 
-export function autoFill(id: string, levels: Level[], topics: Topic[], mode: AutoFillMode = 'empty') {
-  return api.autoFillCourse(id, { levels: levels.length ? levels : undefined, topics: topics.length ? topics : undefined, mode });
+export function autoFill(id: string, levels: Level[], topics: Topic[], mode: AutoFillMode = 'empty', skipMine = false) {
+  return api.autoFillCourse(id, { levels: levels.length ? levels : undefined, topics: topics.length ? topics : undefined, mode, skipMine });
 }
 
 export function autoFillToast(r: AutoFillResult): string {
@@ -24,11 +24,13 @@ export function autoFillToast(r: AutoFillResult): string {
 
 const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
-/** Level + topic chips (none picked = any). */
-export function AutoFillOptions({ levels, setLevels, topics, setTopics }: {
+/** Level + topic chips (none picked = any), and whether to leave out the words already in My Vocabulary. */
+export function AutoFillOptions({ levels, setLevels, topics, setTopics, skipMine, setSkipMine }: {
   levels: Level[]; setLevels: (l: Level[]) => void; topics: Topic[]; setTopics: (t: Topic[]) => void;
+  skipMine: boolean; setSkipMine: (v: boolean) => void;
 }) {
   const id = useId();
+  const { s } = useWB();
   return (
     <>
       <div className="field">
@@ -47,6 +49,10 @@ export function AutoFillOptions({ levels, setLevels, topics, setTopics }: {
           ))}
         </div>
       </div>
+      <label className="checkrow">
+        <input type="checkbox" checked={skipMine} onChange={(e) => setSkipMine(e.target.checked)} />
+        <span>Skip words already in My Vocabulary <span className="muted xs">({s.words.length} {s.words.length === 1 ? 'word' : 'words'})</span></span>
+      </label>
     </>
   );
 }
@@ -57,6 +63,7 @@ export function AutoFillDialog({ c, onDone, onClose }: { c: CourseDetail; onDone
   const [levels, setLevels] = useState<Level[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [mode, setMode] = useState<AutoFillMode>('empty');
+  const [skipMine, setSkipMine] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const hasMembers = c.members > 0;
@@ -68,7 +75,7 @@ export function AutoFillDialog({ c, onDone, onClose }: { c: CourseDetail; onDone
   const fill = async () => {
     setBusy(true); setErr('');
     try {
-      const r = await autoFill(c.id, levels, topics, mode);
+      const r = await autoFill(c.id, levels, topics, mode, skipMine);
       onDone(r.course);
       a.showToast(autoFillToast(r));
       onClose();
@@ -82,7 +89,7 @@ export function AutoFillDialog({ c, onDone, onClose }: { c: CourseDetail; onDone
     <Dialog label="Auto-fill days" onClose={onClose} wide>
       <h2>Auto-fill days</h2>
       <p className="muted sm" style={{ marginTop: 0 }}>Picks random words from the built-in library — easier levels on earlier days, never the same word twice.</p>
-      <AutoFillOptions levels={levels} setLevels={setLevels} topics={topics} setTopics={setTopics} />
+      <AutoFillOptions levels={levels} setLevels={setLevels} topics={topics} setTopics={setTopics} skipMine={skipMine} setSkipMine={setSkipMine} />
       <div className="field">
         <span className="label" id={id + 'md'}>What to fill</span>
         <div className="radios afmodes" role="radiogroup" aria-labelledby={id + 'md'}>
