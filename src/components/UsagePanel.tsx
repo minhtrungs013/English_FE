@@ -144,11 +144,12 @@ export function UsagePanel({ word, canWrite = true, className = '', folded = fal
     // A word that was just added gets its usage written in the background: look again a few times.
     const load = (tries: number) => api.usage(word).then((r) => {
       if (!alive) return;
-      if (r.writing && !r.usage && tries > 0) { setPhase('writing'); timer = window.setTimeout(() => void load(tries - 1), 3000); return; }
+      // Still being written (also when an older one exists): show it being written and look again.
+      if (r.writing && tries > 0) { setPhase('writing'); timer = window.setTimeout(() => void load(tries - 1), 3000); return; }
       setU(r.usage); setQuota(r.quota); setAi(r.ai !== false); setStale(!!r.stale); setPhase('ready');
       onReadyRef.current?.(!!r.usage && !r.stale);
     }).catch((e) => { if (alive) { setErr(errText(e, 'Couldn’t load how to use this word.')); setPhase('failed'); onReadyRef.current?.(false); } });
-    void load(8);
+    void load(12);
     return () => { alive = false; window.clearTimeout(timer); };
   }, [word]);
 
