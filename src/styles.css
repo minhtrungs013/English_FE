@@ -2282,3 +2282,6 @@ button.tmini-row:hover{border-color:var(--primary)}
 }
 .againbox{margin-top:10px}
 .againbox .actions{justify-content:flex-end;flex-wrap:wrap}
+.regen-pos{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.regen-pos .label{margin:0}
+.regen-pos select{width:auto;min-width:150px}

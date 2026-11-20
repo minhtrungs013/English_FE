@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type AdminLibraryWord, type LibraryFields } from '../lib/api';
-import type { Word } from '../lib/data';
+import { POS_LIST, type Word } from '../lib/data';
 import { Dialog, errText } from '../pages/Courses';
 import { useWB } from '../state/WordbookContext';
 import { Icon } from './ui';
@@ -42,16 +42,20 @@ export function LibraryRegen({ id, word, onClose, onSaved }: { id: string; word:
   const [usage, setUsage] = useState(true);
   const [busy, setBusy] = useState(false);
   const [run, setRun] = useState(0);
+  /** The part of speech AI writes for: the word's own until the admin picks another. */
+  const [pos, setPos] = useState('');
 
   useEffect(() => {
     let live = true;
     setData(null); setErr('');
-    api.adminRegenLibrary(id).then((r) => {
+    api.adminRegenLibrary(id, pos || undefined).then((r) => {
       if (!live) return;
       setData(r);
+      if (!pos) setPos(r.current.pos);
       setKeep(new Set(FIELDS.filter((f) => !blank(r.proposal[f.key]) && norm(r.current[f.key]) !== norm(r.proposal[f.key])).map((f) => f.key)));
     }).catch((e) => { if (live) setErr(errText(e)); });
     return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, run]);
 
   const changed = data ? FIELDS.filter((f) => norm(data.current[f.key]) !== norm(data.proposal[f.key])) : [];
@@ -88,6 +92,15 @@ export function LibraryRegen({ id, word, onClose, onSaved }: { id: string; word:
         <button type="button" className="iconbtn sm adm-modal-x" onClick={onClose} disabled={busy} aria-label="Close"><Icon name="x" size="sm" /></button>
       </div>
       <div className="adm-modal-body">
+        {pos && (
+          <div className="regen-pos">
+            <label className="label" htmlFor="regen-pos">Write it as</label>
+            <select id="regen-pos" className="input" value={pos} disabled={!data && !err} onChange={(e) => { setPos(e.target.value); setRun((x) => x + 1); }}>
+              {POS_LIST.map((p) => <option key={p} value={p}>{p}{data && p === data.current.pos ? ' (now)' : ''}</option>)}
+            </select>
+            <span className="muted xs">{data && pos !== data.current.pos ? 'AI writes it as a new ' + pos.toLowerCase() + ' meaning.' : 'Same part of speech as now — AI writes the meanings again from scratch.'}</span>
+          </div>
+        )}
         {err && !data ? (
           <div className="stack" style={{ gap: 10, alignItems: 'flex-start' }}>
             <p className="bad sm" role="alert">{err}</p>

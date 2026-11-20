@@ -562,7 +562,8 @@ export const api = {
   adminImportLibrary: (items: unknown[], dryRun: boolean, duplicates: 'skip' | 'fill', aiUsage: boolean) =>
     req<{ items: LibraryImportItem[]; summary: LibraryImportSummary; aiUsage: { words: number; started: boolean } }>('POST', '/admin/library/import', { items, dryRun, duplicates, aiUsage }),
   /** AI writes the word again; nothing is saved until adminPatchLibrary. */
-  adminRegenLibrary: (id: string) => req<{ word: string; current: LibraryFields; proposal: LibraryFields }>('POST', '/admin/library/' + id + '/regenerate'),
+  /** pos: write it as this part of speech (default: the one it has now). */
+  adminRegenLibrary: (id: string, pos?: string) => req<{ word: string; current: LibraryFields; proposal: LibraryFields }>('POST', '/admin/library/' + id + '/regenerate', pos ? { pos } : {}),
   adminDeleteLibrary: (id: string) => req<void>('DELETE', '/admin/library/' + id),
   adminMeanings: (q: string, page: number) => req<Paged<AdminMeaning>>('GET', '/admin/meanings?' + query({ q, page })),
   /** vi: the library word's whole Vietnamese field after approving. */
