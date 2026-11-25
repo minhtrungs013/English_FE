@@ -7,7 +7,7 @@ import { useWB, type PracticeMode } from '../state/WordbookContext';
 import { Icon, PageHead } from '../components/ui';
 import { WordModal } from './VocabDetail';
 
-type Tile = [PracticeMode | 'flash' | 'dictation' | 'write' | 'mistakes', string, string, IconName, string];
+type Tile = [PracticeMode | 'flash' | 'dictation' | 'write' | 'mistakes' | 'phrases', string, string, IconName, string];
 /** The practice tiles in two groups: a practice mode, or a page of its own (dictation, write, mistakes). */
 const GROUPS: { title: string; tiles: Tile[] }[] = [
   {
@@ -26,6 +26,7 @@ const GROUPS: { title: string; tiles: Tile[] }[] = [
       ['fill', 'Fill in the blank', 'Complete sentences with your words.', 'type', 't-orange'],
       ['tense', 'Verb tenses', 'Put the verb in the right tense.', 'clock', 't-amber'],
       ['dictation', 'Dictation', 'Listen and type — nghe – chép.', 'headphones', 't-amber'],
+      ['phrases', 'Phrases', 'Use phrases with your words and new ones.', 'chat', 't-blue'],
       ['write', 'Write a sentence', 'Your own sentence, scored by AI.', 'sparkle', 't-green'],
       ['mistakes', 'My mistakes', 'What you get wrong in your sentences.', 'alert', 't-red']
     ]
@@ -116,7 +117,7 @@ export function Practice() {
               const weak = st?.byMode[mode as PracticeWordMode] ?? 0;
               return (
                 <button key={mode} className="ptile" disabled={locked}
-                  onClick={() => (mode === 'dictation' ? a.go('dictation') : mode === 'write' ? a.go('writeSentence') : mode === 'mistakes' ? a.go('mistakes') : a.startPractice(mode))}>
+                  onClick={() => (mode === 'dictation' ? a.go('dictation') : mode === 'write' ? a.go('writeSentence') : mode === 'mistakes' ? a.go('mistakes') : mode === 'phrases' ? a.go('phrasePractice', { sel: null }) : a.startPractice(mode))}>
                   <span className={'stat-ic ' + tint}><Icon name={locked ? 'lock' : icon} /></span>
                   <span className="ptile-body">
                     <span className="ptile-title">{title}{weak > 0 && <span className="badge t-amber">{weak} to fix</span>}</span>

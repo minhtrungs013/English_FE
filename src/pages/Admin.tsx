@@ -4,12 +4,13 @@ import { LEVELS, POS_LIST } from '../lib/data';
 import { EmptyState, Icon, PageHead } from '../components/ui';
 import { LibraryRegen } from '../components/LibraryRegen';
 import { LibraryImport } from './AdminImport';
+import { AdminPhrases } from './AdminPhrases';
 import { UsageBody } from '../components/UsagePanel';
 import { useWB } from '../state/WordbookContext';
 import { ConfirmDialog, CreateCourse, Dialog, errText } from './Courses';
 import { TENSE_LABEL, TENSES } from './CourseQuestions';
 
-type Tab = 'overview' | 'courses' | 'users' | 'plans' | 'sentences' | 'library' | 'insights' | 'audit';
+type Tab = 'overview' | 'courses' | 'users' | 'plans' | 'sentences' | 'library' | 'phrases' | 'insights' | 'audit';
 const TABS: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name'] }[] = [
   { id: 'overview', label: 'Overview', icon: 'grid' },
   { id: 'courses', label: 'Courses', icon: 'cap' },
@@ -17,6 +18,7 @@ const TABS: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name'] }
   { id: 'plans', label: 'Plans', icon: 'layers' },
   { id: 'sentences', label: 'Sentence bank', icon: 'layers' },
   { id: 'library', label: 'Library', icon: 'globe' },
+  { id: 'phrases', label: 'Phrases', icon: 'chat' },
   { id: 'insights', label: 'Insights', icon: 'alert' },
   { id: 'audit', label: 'Audit log', icon: 'sparkle' }
 ];
@@ -1076,6 +1078,7 @@ export function AdminPage() {
         {tab === 'plans' && <Plans />}
         {tab === 'sentences' && <Sentences />}
         {tab === 'library' && <Library />}
+        {tab === 'phrases' && <AdminPhrases />}
         {tab === 'insights' && <Insights onTab={setTab} />}
         {tab === 'audit' && <AuditLog />}
       </div>

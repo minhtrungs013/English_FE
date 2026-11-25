@@ -7,6 +7,7 @@ import { EmptyState, Icon, LevelBadge, PageHead, PosBadge } from '../components/
 import { askAi } from '../lib/askAi';
 import { FamilyTag, WordFamily } from '../components/WordFamily';
 import { LibraryRegen } from '../components/LibraryRegen';
+import { PhrasesWithWord } from './Phrases';
 import { UsagePanel, useWide } from '../components/UsagePanel';
 
 export const TOPIC_LABEL: Record<Topic, string> = {
@@ -99,6 +100,7 @@ function LibraryDetail({ w, onClose, onRemoved, onUpdated }: { w: LibraryWord; o
               </div>
             )}
             <WordFamily word={w.word} family={w.family} />
+            <PhrasesWithWord word={w.word} onOpen={onClose} />
             <div className="libmeta">
               <span className="avatar" style={{ width: 28, height: 28, fontSize: 12 }}>{author(w).charAt(0)}</span>
               <span>Added by <b>{author(w)}</b>{w.authorId ? ' · ' + fmtDate(w.sharedAt) : ''} · saved {w.saves} {w.saves === 1 ? 'time' : 'times'}</span>

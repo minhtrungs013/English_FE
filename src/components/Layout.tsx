@@ -30,6 +30,7 @@ export function Sidebar() {
     { id: 'library', label: 'Library', icon: 'globe', go: () => a.go('library', { libraryQ: '' }) },
     { id: 'courses', label: 'Courses', icon: 'cap', go: () => a.go('courses') },
     { id: 'vocab', label: 'My Vocabulary', icon: 'book', go: () => a.go('vocab') },
+    { id: 'phrases', label: 'Phrases', icon: 'chat', go: () => a.go('phrases', { sel: null }) },
     { id: 'review', label: 'Review', icon: 'refresh', go: a.startDue, sub: due > 0 },
     { id: 'practice', label: 'Practice', icon: 'pen', go: () => a.go('practice') },
     { id: 'grammar', label: 'Grammar', icon: 'type', go: () => a.openGrammar() },
@@ -46,7 +47,7 @@ export function Sidebar() {
       <nav className="nav" aria-label="Main">
         {nav.map((n) => (
           <div key={n.id} style={{ display: 'contents' }}>
-            <button className={'navitem' + (n.id === s.route || (n.id === 'vocab' && isVocabish(s.route)) || (n.id === 'courses' && isCoursish(s.route)) || (n.id === 'grammar' && isGrammarish(s.route)) || (n.id === 'practice' && isDictationish(s.route)) ? ' on' : '')} onClick={n.go} aria-label={n.label} title={n.label}>
+            <button className={'navitem' + (n.id === s.route || (n.id === 'vocab' && isVocabish(s.route)) || (n.id === 'courses' && isCoursish(s.route)) || (n.id === 'grammar' && isGrammarish(s.route)) || (n.id === 'phrases' && s.route === 'phrasePractice') || (n.id === 'practice' && isDictationish(s.route)) ? ' on' : '')} onClick={n.go} aria-label={n.label} title={n.label}>
               <NavIcon name={n.icon} duo={duo} />
               <span className="navlabel">{n.label}</span>
             </button>
@@ -190,6 +191,7 @@ export function Topbar() {
             <div className="msep" />
             <button className="mitem mob-only" onClick={() => a.go('library', { libraryQ: '' })}><Icon name="globe" size="sm" />Library</button>
             <button className="mitem mob-only" onClick={() => a.go('courses')}><Icon name="cap" size="sm" />Courses</button>
+            <button className={'mitem mob-only' + (s.route === 'phrases' || s.route === 'phrasePractice' ? ' on' : '')} onClick={() => a.go('phrases', { sel: null })}><Icon name="chat" size="sm" />Phrases</button>
             <button className={'mitem mob-only' + (isGrammarish(s.route) ? ' on' : '')} onClick={() => a.openGrammar()}><Icon name="type" size="sm" />Grammar</button>
             <button className="mitem mob-only" onClick={() => a.go('categories')}><Icon name="folder" size="sm" />Categories</button>
             <button className="mitem mob-only" onClick={() => a.go('tags')}><Icon name="tag" size="sm" />Tags</button>
