@@ -71,6 +71,34 @@ export interface AdminLibraryWord {
   /** True when "How to use" is being written again in the background. */
   usageWriting?: boolean;
 }
+/* ---------- phrases ---------- */
+export type PhraseKind = 'slot' | 'fixed';
+export interface PhraseBrief {
+  key: string; phrase: string; kind: PhraseKind; vi: string; level: Word['level']; topic: Topic; register: string; function: string; pattern: string;
+  /** In my vocabulary; errors: mistakes still to fix in Practice. */
+  saved?: boolean; errors?: number; practised?: boolean;
+  /** Phrases with a word: the phrase with that word in it. */
+  example?: string;
+}
+export interface PhraseFiller { en: string; word: string; vi: string; mine: boolean; wordId: string; libraryId: string }
+export interface Phrase extends PhraseBrief {
+  pos: string; meaning: string; slot: { type: string; hint: string } | null;
+  forms: { use: string; en: string }[]; templates: { type: string; vi: string; en: string; alt: string[] }[]; fillers: PhraseFiller[];
+  examples: { en: string; vi: string }[]; notes: string[]; mistakes: { wrong: string; right: string; why: string }[];
+  situations: string[]; dialogue: { s: string; en: string; vi: string }[]; replies: { good: string[]; bad: string[] }; variants: string[];
+  /** My word id when it's in my vocabulary ('' otherwise). */
+  savedId: string;
+}
+export interface PhraseDrill {
+  id: string; key: string; phrase: string; kind: PhraseKind; pattern: string;
+  type: 'translate' | 'fill' | 'transform' | 'situation' | 'reply' | 'meaning';
+  prompt: string; sub: string; choices: string[]; answers: string[];
+  check: { phrase: string; need: string[]; question: boolean } | null;
+  filler: PhraseFiller | null; explain: string;
+}
+export interface AdminPhrase extends PhraseBrief { templates: number; fillers: number; source: string }
+export interface PhraseImportItem { index: number; phrase: string; status: 'new' | 'replace' | 'exists' | 'repeat' | 'invalid'; errors: string[]; warnings: string[] }
+
 /** One word of an import file, as the server checked it. */
 export interface LibraryImportItem {
   index: number; word: string; status: 'new' | 'fill' | 'exists' | 'same' | 'repeat' | 'invalid';
@@ -586,6 +614,17 @@ export const api = {
   updateWord: (id: string, w: Partial<WordInput>) => req<Word>('PATCH', '/words/' + id, w),
   /** Practice → Write a sentence: AI grades a sentence with one of my words. */
   checkSentence: (wordId: string, sentence: string) => req<SentenceResult>('POST', '/practice/sentence-check', { wordId, sentence }),
+  phrases: (p: { q?: string; kind?: PhraseKind; topic?: Topic } = {}) => req<{ items: PhraseBrief[] }>('GET', '/phrases?' + query(p)),
+  phrase: (key: string) => req<Phrase>('GET', '/phrases/' + encodeURIComponent(key)),
+  phrasesForWord: (word: string) => req<{ items: PhraseBrief[] }>('GET', '/phrases/for-word?' + query({ word })),
+  /** Saves a phrase to My Vocabulary (tag "phrase"). */
+  savePhrase: (key: string) => req<{ word: Word; tag: string }>('POST', '/phrases/' + encodeURIComponent(key) + '/save'),
+  phraseSession: (n: number, key?: string) => req<{ items: PhraseDrill[] }>('GET', '/practice/phrases?' + query({ n, key })),
+  phraseResults: (items: { key: string; ok: boolean }[]) => req<void>('POST', '/practice/phrases/results', { items }),
+  adminPhrases: (q: string) => req<{ total: number; items: AdminPhrase[] }>('GET', '/admin/phrases?' + query({ q })),
+  adminImportPhrases: (items: unknown[], dryRun: boolean, duplicates: 'skip' | 'replace') =>
+    req<{ items: PhraseImportItem[]; summary: Record<PhraseImportItem['status'], number> }>('POST', '/admin/phrases/import', { items, dryRun, duplicates }),
+  adminDeletePhrase: (key: string) => req<void>('DELETE', '/admin/phrases/' + encodeURIComponent(key)),
   sentenceQuota: () => req<{ used: number; limit: number }>('GET', '/practice/sentence-check'),
   /** Word ids for a round of Write a sentence, picked from what I wrote before; `exclude`: the last round's. */
   sentenceRound: (n: number, exclude: string[]) => req<{ ids: string[] }>('GET', '/practice/sentence-round?' + query({ n, exclude: exclude.join(',') })),

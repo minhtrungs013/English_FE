@@ -8,6 +8,7 @@ import { WordFamily } from '../components/WordFamily';
 import { TOPIC_LABEL } from './Library';
 import { Dialog } from './Courses';
 import { UsagePanel, useWide } from '../components/UsagePanel';
+import { PhrasesWithWord } from './Phrases';
 
 /** Shows whether the word is in the shared library, and lets the user share it if not. */
 function ShareCard({ w }: { w: Word }) {
@@ -92,6 +93,7 @@ export function VocabDetail() {
             </div>
           )}
           <WordFamily word={w.word} family={w.family} className="sec" />
+          <div className="sec"><PhrasesWithWord word={w.word} /></div>
           {w.notes && <div className="sec"><span className="sec-t">My notes</span><p className="note">{w.notes}</p></div>}
           <div className="sec">
             <span className="sec-t">Tags</span>
@@ -179,6 +181,7 @@ export function WordModal({ id, onClose }: { id: string; onClose: () => void }) 
             </div>
           )}
           <WordFamily word={w.word} family={w.family} />
+          <PhrasesWithWord word={w.word} onOpen={onClose} />
           {w.notes && <div><span className="sec-t">My notes</span><p className="note" style={{ margin: '6px 0 0' }}>{w.notes}</p></div>}
           <div className="vd-meta sm">
             <span><span className="muted">Category </span><b>{cat ? cat.name : 'Uncategorized'}</b></span>

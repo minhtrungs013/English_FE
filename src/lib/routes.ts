@@ -29,6 +29,8 @@ export function pathOf(s: RouteState): string {
     case 'settings': return '/settings';
     case 'notifications': return '/notifications';
     case 'admin': return '/admin';
+    case 'phrases': return '/phrases' + (s.sel ? '/' + enc(s.sel) : '');
+    case 'phrasePractice': return '/phrases/practice' + (s.sel ? '?key=' + enc(s.sel) : '');
     case 'courses': return '/courses';
     case 'course': case 'courseStudy': return s.courseId ? '/courses/' + enc(s.courseId) + (s.route === 'course' && s.courseTab ? '?tab=' + s.courseTab : '') : '/courses';
     case 'courseEdit': return s.courseId ? '/courses/' + enc(s.courseId) + '/edit' : '/courses';
@@ -54,6 +56,7 @@ export function routeOf(pathname: string, search: string): Partial<RouteState> {
       return { route: c === 'edit' ? 'edit' : 'detail', sel: b, prevRoute: 'vocab' };
     case 'practice': return { route: b === 'write' ? 'writeSentence' : b === 'mistakes' ? 'mistakes' : 'practice' };
     case 'dictation': return { route: 'dictation' };
+    case 'phrases': return b === 'practice' ? { route: 'phrasePractice', sel: q.get('key') } : { route: 'phrases', sel: b ?? null };
     case 'categories': return { route: 'categories' };
     case 'tags': return { route: 'tags' };
     case 'settings': return { route: 'settings' };

@@ -7,6 +7,8 @@ import { Vocabulary } from './pages/Vocabulary';
 import { VocabForm } from './pages/VocabForm';
 import { VocabDetail } from './pages/VocabDetail';
 import { Practice } from './pages/Practice';
+import { PhrasesPage } from './pages/Phrases';
+import { PhrasePractice } from './pages/PhrasePractice';
 import { WriteSentence } from './pages/WriteSentence';
 import { Mistakes } from './pages/Mistakes';
 import { Categories } from './pages/Categories';
@@ -86,6 +88,8 @@ function Page() {
     case 'edit': return <VocabForm />;
     case 'detail': return <VocabDetail />;
     case 'practice': return <Practice />;
+    case 'phrases': return <PhrasesPage />;
+    case 'phrasePractice': return <PhrasePractice key={(s.sel ?? '') + ':p'} />;
     case 'writeSentence': return <WriteSentence />;
     case 'mistakes': return <Mistakes />;
     case 'dictation':
