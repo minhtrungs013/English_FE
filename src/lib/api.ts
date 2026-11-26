@@ -21,8 +21,8 @@ export interface AuditPage extends Paged<AuditEntry> {
   summary: { calls: number; failed: number; inTokens: number; outTokens: number; avgMs: number; users: number; byAction: { action: string; calls: number; failed: number; tokens: number }[] };
 }
 export interface AdminUser { id: string; name: string; email: string; role: 'user' | 'admin'; createdAt: number | null; words: number; courses: number; plan: string; tokensToday: number }
-export interface AdminPlan { id: string; name: string; isDefault: boolean; chat: number; autofill: number; courseAi: number; sentence: number; usage: number; tokens: number; users: number }
-type PlanBody = { name: string; chat: number; autofill: number; courseAi: number; sentence: number; usage: number; tokens: number };
+export interface AdminPlan { id: string; name: string; isDefault: boolean; chat: number; autofill: number; courseAi: number; sentence: number; usage: number; phraseAi: number; roleplay: number; tokens: number; users: number }
+type PlanBody = { name: string; chat: number; autofill: number; courseAi: number; sentence: number; usage: number; phraseAi: number; roleplay: number; tokens: number };
 /**
  * How to use a word (shared by everyone, one per word): structures, collocations, notes (Vietnamese), common mistakes and
  * look-alikes. status: unreviewed (as AI wrote it) · approved (checked by an admin) · stale (the meaning changed).
@@ -81,7 +81,7 @@ export interface PhraseBrief {
   /** Phrases with a word: the phrase with that word in it. */
   example?: string;
 }
-export interface PhraseFiller { en: string; word: string; vi: string; mine: boolean; wordId: string; libraryId: string }
+export interface PhraseFiller { en: string; word: string; vi: string; mine: boolean; wordId: string; libraryId: string; /** Found among my words by AI. */ ai?: boolean }
 export interface Phrase extends PhraseBrief {
   pos: string; meaning: string; slot: { type: string; hint: string } | null;
   forms: { use: string; en: string }[]; templates: { type: string; vi: string; en: string; alt: string[] }[]; fillers: PhraseFiller[];
@@ -89,15 +89,29 @@ export interface Phrase extends PhraseBrief {
   situations: string[]; dialogue: { s: string; en: string; vi: string }[]; replies: { good: string[]; bad: string[] }; variants: string[];
   /** My word id when it's in my vocabulary ('' otherwise). */
   savedId: string;
+  /** My words AI hasn't looked at yet for this phrase. */
+  unchecked: number;
 }
 export interface PhraseDrill {
   id: string; key: string; phrase: string; kind: PhraseKind; pattern: string;
-  type: 'translate' | 'fill' | 'transform' | 'situation' | 'reply' | 'meaning';
+  type: 'translate' | 'fill' | 'transform' | 'situation' | 'reply' | 'meaning' | 'own';
   prompt: string; sub: string; choices: string[]; answers: string[];
   check: { phrase: string; need: string[]; question: boolean; tense: PhraseTense | ''; base: string; past: string[] } | null;
   filler: PhraseFiller | null; explain: string;
   /** The tense the answer is in (a hint; another tense is wrong). */
   tense: PhraseTense | '';
+}
+export interface PhraseOwnResult {
+  score: number; usesPhrase: boolean; tenseOk: boolean; mistakes: { type: string; wrong: string; fix: string; explainVi: string }[];
+  corrected: string; better: string; betterVi: string; feedbackVi: string; quota: Quota;
+}
+export interface RolePlayLine { from: 'ai' | 'me'; text: string; used: string[]; noteVi: string }
+export interface RolePlaySession {
+  id: string; scenario: { title: string; titleVi: string; aiRole: string; learnerRole: string; learnerRoleVi: string; settingVi: string };
+  lines: RolePlayLine[]; used: string[]; done: boolean; turnsLeft: number;
+  feedback: { summaryVi: string; items: { text: string; ok: boolean; corrected: string; noteVi: string }[] } | null;
+  phrases: { key: string; phrase: string; vi: string; pattern: string }[];
+  quota?: Quota;
 }
 export interface AdminPhrase extends PhraseBrief { templates: number; fillers: number; source: string }
 export interface PhraseImportItem { index: number; phrase: string; status: 'new' | 'replace' | 'exists' | 'repeat' | 'invalid'; errors: string[]; warnings: string[] }
@@ -623,6 +637,13 @@ export const api = {
   /** Saves a phrase to My Vocabulary (tag "phrase"). */
   savePhrase: (key: string) => req<{ word: Word; tag: string }>('POST', '/phrases/' + encodeURIComponent(key) + '/save'),
   phraseSession: (n: number, key?: string) => req<{ items: PhraseDrill[] }>('GET', '/practice/phrases?' + query({ n, key })),
+  /** My own sentence with a phrase, graded by AI (one of today's Phrase AI uses). */
+  phraseOwn: (key: string, sentence: string, tense: string) => req<PhraseOwnResult>('POST', '/practice/phrases/own', { key, sentence, tense }),
+  /** AI finds my words that fit a slot phrase (one Phrase AI use; only words it hasn't looked at). */
+  phraseMyWords: (key: string) => req<{ fillers: { en: string; word: string; vi: string }[]; added: number; checked: number; quota: Quota }>('POST', '/practice/phrases/' + encodeURIComponent(key) + '/my-words'),
+  roleplayStart: (keys: string[]) => req<RolePlaySession>('POST', '/practice/roleplay', keys.length ? { keys } : {}),
+  roleplaySay: (id: string, text: string) => req<RolePlaySession>('POST', '/practice/roleplay/' + id + '/say', { text }),
+  roleplayFinish: (id: string) => req<RolePlaySession>('POST', '/practice/roleplay/' + id + '/finish'),
   phraseResults: (items: { key: string; ok: boolean }[]) => req<void>('POST', '/practice/phrases/results', { items }),
   adminPhrases: (q: string) => req<{ total: number; items: AdminPhrase[] }>('GET', '/admin/phrases?' + query({ q })),
   adminImportPhrases: (items: unknown[], dryRun: boolean, duplicates: 'skip' | 'replace') =>

@@ -2332,3 +2332,20 @@ button.tmini-row:hover{border-color:var(--primary)}
 @media (max-width:760px){.adm-row.ph-adm{grid-template-columns:minmax(0,1fr) auto}.adm-row.ph-adm>:nth-child(n+2):not(:last-child){display:none}}
 .ph-hint1{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;font-weight:700;letter-spacing:.06em;color:var(--primary-ink)}
 .ph-tense{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;padding:4px 10px;border-radius:999px;background:var(--info-soft);color:var(--info);font-size:13px}
+/* Role-play with AI */
+.rp-start{display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px}
+.rp-card{display:flex;flex-direction:column;gap:12px}
+.rp-scene{padding:12px 14px;border-radius:12px;background:var(--surface2)}
+.rp-goals{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.rp-goal{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);font-size:13.5px;font-weight:600}
+.rp-goal.on{border-color:color-mix(in srgb,var(--success) 45%,transparent);background:var(--success-soft);color:var(--success)}
+.rp-chat{display:flex;flex-direction:column;gap:10px;max-height:min(52vh,520px);overflow-y:auto;padding:4px 2px}
+.rp-line{display:flex;flex-direction:column;gap:4px;max-width:82%}
+.rp-line.ai{align-self:flex-start}
+.rp-line.me{align-self:flex-end;align-items:flex-end}
+.rp-bubble{display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:16px;background:var(--surface2);font-size:15px;line-height:1.45}
+.rp-line.me .rp-bubble{background:var(--primary);color:var(--on-primary)}
+.rp-used{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;color:var(--success)}
+.rp-note{font-size:13px;color:var(--warning)}
+.rp-form{display:flex;flex-direction:column;gap:8px}
+.rp-review{display:flex;flex-direction:column;gap:10px;padding-top:6px;border-top:1px solid var(--border)}

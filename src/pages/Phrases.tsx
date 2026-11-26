@@ -52,6 +52,17 @@ export function PhraseModal({ phraseKey, onClose }: { phraseKey: string; onClose
       a.showToast('Saved “' + p.phrase + '” to My Vocabulary.');
     } catch (e) { a.showToast(errText(e), 'bad'); } finally { setBusy(false); }
   };
+  const [finding, setFinding] = useState(false);
+  /** AI looks for my words that fit this phrase (only the ones it hasn't looked at). */
+  const findMine = async () => {
+    if (!p) return;
+    setFinding(true);
+    try {
+      const r = await api.phraseMyWords(p.key);
+      setP(await api.phrase(p.key));
+      a.showToast(r.added ? 'Found ' + r.added + (r.added === 1 ? ' word' : ' words') + ' of yours for “' + p.phrase + '”.' : 'None of your ' + r.checked + ' new words fit “' + p.phrase + '”.');
+    } catch (e) { a.showToast(errText(e), 'bad'); } finally { setFinding(false); }
+  };
   const saveWord = async (libraryId: string, word: string) => {
     const w = await a.saveFromLibrary({ id: libraryId, word });
     if (w && p) setP({ ...p, fillers: p.fillers.map((f) => (f.word === word ? { ...f, mine: true, wordId: w.id } : f)) });
@@ -121,11 +132,16 @@ export function PhraseModal({ phraseKey, onClose }: { phraseKey: string; onClose
                   <span className="sec-t">Words it takes <span className="muted xs">({p.fillers.filter((f) => f.mine).length} in my words)</span></span>
                   <div className="badges">
                     {p.fillers.map((f) => (
-                      <span key={f.en} className={'ph-filler' + (f.mine ? ' mine' : '')} title={f.vi}>
-                        {f.en}{f.mine ? <Icon name="check" size="sm" /> : f.libraryId ? <button className="linkbtn xs" onClick={() => void saveWord(f.libraryId, f.word)} aria-label={'Save ' + f.word}>+ Save</button> : null}
+                      <span key={f.en} className={'ph-filler' + (f.mine ? ' mine' : '')} title={f.ai ? f.vi + ' · found among your words by AI' : f.vi}>
+                        {f.ai && <Icon name="sparkle" size="sm" />}{f.en}{f.mine ? <Icon name="check" size="sm" /> : f.libraryId ? <button className="linkbtn xs" onClick={() => void saveWord(f.libraryId, f.word)} aria-label={'Save ' + f.word}>+ Save</button> : null}
                       </span>
                     ))}
                   </div>
+                  {p.unchecked > 0 && (
+                    <button className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={findMine} disabled={finding}>
+                      {finding ? <span className="spin" /> : <Icon name="sparkle" size="sm" />}{finding ? 'Looking at your words…' : 'Find my words that fit (' + p.unchecked + ')'}
+                    </button>
+                  )}
                 </section>
               )}
               {p.examples.length > 0 && (
@@ -152,6 +168,7 @@ export function PhraseModal({ phraseKey, onClose }: { phraseKey: string; onClose
             {savedId
               ? <span className="badge t-green" style={{ alignSelf: 'center' }}><Icon name="check" size="sm" />In My Vocabulary</span>
               : <button className="btn btn-secondary" onClick={save} disabled={busy}><Icon name="plus" size="sm" />Save to My Vocabulary</button>}
+            <button className="btn btn-secondary" onClick={() => { onClose(); a.go('roleplay', { sel: p.key }); }}><Icon name="users" size="sm" />Role-play</button>
             <button className="btn btn-primary" onClick={() => { onClose(); a.go('phrasePractice', { sel: p.key }); }}><Icon name="zap" size="sm" />Practise this phrase</button>
           </div>
         </>
@@ -183,6 +200,7 @@ export function PhrasesPage() {
   return (
     <>
       <PageHead title="Phrases" sub="Phrases like “run out of …” and “How’s it going?” — learn them, then use them with your own words.">
+        <button className="btn btn-secondary" onClick={() => a.go('roleplay', { sel: null })}><Icon name="users" size="sm" />Role-play with AI</button>
         <button className="btn btn-primary" onClick={() => a.go('phrasePractice', { sel: null })}><Icon name="zap" size="sm" />Practise</button>
       </PageHead>
       <div className="ph-tools">

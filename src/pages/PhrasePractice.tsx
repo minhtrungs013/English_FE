@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { api, type PhraseDrill } from '../lib/api';
+import { api, type PhraseDrill, type PhraseOwnResult } from '../lib/api';
 import { DRILL_TITLE, TENSE_HINT, firstLetters, gradeDrill, hidesPhrase, type PhraseTense } from '../lib/phrases';
 import { recordAnswer } from '../lib/practice';
 import { speak } from '../lib/speech';
@@ -63,7 +63,23 @@ export function PhrasePractice() {
     if (!ok && !retry) setItems((list) => list && [...list, { ...d, id: d.id + ':again' }]);
     if (ok) speak(d.choices.length ? (d.type === 'meaning' ? d.phrase : answer) : d.answers[0]);
   };
-  const next = () => { setI(i + 1); setInput(''); setVerdict(null); setGiven(''); setHint(0); setBadTense(null); };
+  const next = () => { setI(i + 1); setInput(''); setVerdict(null); setGiven(''); setHint(0); setBadTense(null); setOwn(null); setOwnErr(''); };
+  /** "Your own sentence": AI grades it (one of today's Phrase AI uses); 7 or more counts as right. */
+  const [own, setOwn] = useState<PhraseOwnResult | null>(null);
+  const [ownBusy, setOwnBusy] = useState(false);
+  const [ownErr, setOwnErr] = useState('');
+  const checkOwn = async () => {
+    if (!d || verdict || ownBusy || !input.trim()) return;
+    setOwnBusy(true); setOwnErr('');
+    try {
+      const r = await api.phraseOwn(d.key, input.trim(), d.tense);
+      setOwn(r);
+      const v: Verdict = r.score >= 9 ? 'right' : r.score >= 7 ? 'close' : 'wrong';
+      setVerdict(v); setGiven(input);
+      setDone((x) => [...x, { d, verdict: v, given: input }]);
+      void api.phraseResults([{ key: d.key, ok: v !== 'wrong' }]).catch(() => undefined);
+    } catch (e) { setOwnErr(errText(e)); } finally { setOwnBusy(false); }
+  };
   const onSubmit = (e: FormEvent) => { e.preventDefault(); if (verdict) next(); else if (input.trim()) check(input); };
   const saveNew = async (libraryId: string, word: string) => {
     const w = await a.saveFromLibrary({ id: libraryId, word });
@@ -169,11 +185,18 @@ export function PhrasePractice() {
             })}
           </div>
         ) : (
-          <form className="ph-form" onSubmit={onSubmit}>
+          <form className="ph-form" onSubmit={(e) => { if (d!.type === 'own') { e.preventDefault(); if (verdict) next(); else void checkOwn(); } else onSubmit(e); }}>
             <textarea ref={field} className={'input' + (verdict ? (ok ? ' ok' : ' err') : '')} rows={2} value={input} readOnly={!!verdict}
-              placeholder={d!.type === 'fill' ? 'Type the missing words…' : 'Type the English sentence…'} autoComplete="off" spellCheck={false}
-              onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSubmit(e); } }} aria-label="Your answer" />
-            {!verdict && (
+              placeholder={d!.type === 'fill' ? 'Type the missing words…' : d!.type === 'own' ? 'A sentence about your work or your day…' : 'Type the English sentence…'} autoComplete="off" spellCheck={false} maxLength={300}
+              onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (d!.type === 'own') { if (verdict) next(); else void checkOwn(); } else onSubmit(e); } }} aria-label="Your answer" />
+            {!verdict && d!.type === 'own' && (
+              <div className="actions" style={{ justifyContent: 'flex-end' }}>
+                {ownErr && <span className="bad sm" role="alert" style={{ marginRight: 'auto' }}>{ownErr}</span>}
+                <button type="button" className="btn btn-ghost" onClick={next} disabled={ownBusy}>Skip</button>
+                <button type="submit" className="btn btn-primary" disabled={!input.trim() || ownBusy}>{ownBusy ? <span className="spin" /> : <Icon name="sparkle" size="sm" />}{ownBusy ? 'Checking…' : 'Check with AI'}</button>
+              </div>
+            )}
+            {!verdict && d!.type !== 'own' && (
               <div className="actions" style={{ justifyContent: 'flex-end' }}>
                 {hidesPhrase(d!.type) && hint < 2 && <button type="button" className="btn btn-ghost" onClick={() => setHint(hint + 1)}><Icon name="sparkle" size="sm" />{hint ? 'More help' : 'Hint'}</button>}
                 <button type="button" className="btn btn-ghost" onClick={() => check('')}>Show answer</button>
@@ -184,7 +207,18 @@ export function PhrasePractice() {
         )}
 
         <div aria-live="polite">
-          {verdict && (
+          {verdict && own && (
+            <div className={'wufb ' + (ok ? 'ok' : 'no')}>
+              <b className="wufb-t"><Icon name={ok ? 'checkc' : 'alert'} size="sm" />{own.score}/10 · {own.score >= 9 ? 'Great!' : ok ? 'Good' : 'Try again next time'}</b>
+              {own.feedbackVi && <span className="sm" lang="vi">{own.feedbackVi}</span>}
+              {own.mistakes.map((m, k) => <span key={k} className="sm"><s className="ph-wrong">{m.wrong}</s> → <b>{m.fix}</b>{m.explainVi && <span className="muted" lang="vi"> · {m.explainVi}</span>}</span>)}
+              {own.corrected && own.corrected !== given.trim() && <span className="sm">Corrected: <b>{own.corrected}</b></span>}
+              {own.better && <span className="ph-answer">{own.better} <button className="iconbtn sm" onClick={() => speak(own.better)} aria-label="Play"><Icon name="volume" size="sm" /></button></span>}
+              {own.betterVi && <span className="muted sm" lang="vi">{own.betterVi}</span>}
+              <span className="muted xs">{Math.max(0, own.quota.limit - own.quota.used)} AI checks left today</span>
+            </div>
+          )}
+          {verdict && !own && (
             <div className={'wufb ' + (ok ? 'ok' : 'no')}>
               <b className="wufb-t"><Icon name={ok ? 'checkc' : 'alert'} size="sm" />{verdict === 'right' ? 'Correct!' : verdict === 'close' ? 'Correct — another way to say it:' : given ? 'Not quite. The answer:' : 'The answer:'}</b>
               {!d!.choices.length && <span className="ph-answer">{d!.type === 'fill' ? d!.prompt.replace(/(___\s?)+/, d!.answers[0] + ' ') : d!.answers[0]} <button className="iconbtn sm" onClick={() => speak(d!.type === 'fill' ? d!.prompt.replace(/(___\s?)+/, d!.answers[0] + ' ') : d!.answers[0])} aria-label="Play the answer"><Icon name="volume" size="sm" /></button></span>}

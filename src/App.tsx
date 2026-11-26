@@ -9,6 +9,7 @@ import { VocabDetail } from './pages/VocabDetail';
 import { Practice } from './pages/Practice';
 import { PhrasesPage } from './pages/Phrases';
 import { PhrasePractice } from './pages/PhrasePractice';
+import { RolePlayPage } from './pages/RolePlay';
 import { WriteSentence } from './pages/WriteSentence';
 import { Mistakes } from './pages/Mistakes';
 import { Categories } from './pages/Categories';
@@ -90,6 +91,7 @@ function Page() {
     case 'practice': return <Practice />;
     case 'phrases': return <PhrasesPage />;
     case 'phrasePractice': return <PhrasePractice key={(s.sel ?? '') + ':p'} />;
+    case 'roleplay': return <RolePlayPage key={(s.sel ?? '') + ':r'} />;
     case 'writeSentence': return <WriteSentence />;
     case 'mistakes': return <Mistakes />;
     case 'dictation':

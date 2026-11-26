@@ -81,7 +81,7 @@ export function patternParts(pattern: string): { text: string; slot: boolean }[]
 
 export const DRILL_TITLE: Record<PhraseDrill['type'], string> = {
   translate: 'Say it in English', fill: 'Fill in the phrase', transform: 'Make it a question',
-  situation: 'What would you say?', reply: 'Pick the natural reply', meaning: 'What does it mean?'
+  situation: 'What would you say?', reply: 'Pick the natural reply', meaning: 'What does it mean?', own: 'Your own sentence'
 };
 export const FUNCTION_LABEL: Record<string, string> = {
   greeting: 'Greeting', farewell: 'Goodbye', thanks: 'Thanks', apology: 'Apology', opinion: 'Opinion', agree: 'Agreeing',

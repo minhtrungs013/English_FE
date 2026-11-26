@@ -117,7 +117,7 @@ export function Mistakes() {
     <>
       {head}
       <div className="adm-tiles">
-        <div className="adm-tile"><span className="adm-tval">{data.attempts}</span><span className="adm-tlabel">Sentences checked</span><span className="muted xs">Practice and homework</span></div>
+        <div className="adm-tile"><span className="adm-tval">{data.attempts}</span><span className="adm-tlabel">Sentences checked</span><span className="muted xs">Practice, homework, phrases and role-plays</span></div>
         <div className="adm-tile"><span className="adm-tval">{data.avg ?? '—'}<small className="muted">/10</small></span><span className="adm-tlabel">Average score</span><span className="muted xs">last 8 weeks</span></div>
         <div className="adm-tile"><span className="adm-tval">{data.attempts - data.withMistakes}</span><span className="adm-tlabel">Without mistakes</span><span className="muted xs">of {data.attempts} sentences</span></div>
       </div>
@@ -147,7 +147,7 @@ export function Mistakes() {
           <div key={r.id} className="card mk-item">
             <div className="mk-item-top">
               <b>{r.word}</b>
-              <span className="muted xs">{fmtDay(r.at)}{r.source === 'homework' ? ' · homework' : ''}</span>
+              <span className="muted xs">{fmtDay(r.at)}{r.source === 'homework' ? ' · homework' : r.source === 'phrase' ? ' · phrases' : r.source === 'roleplay' ? ' · role-play' : ''}</span>
               <span className={'mk-score ' + (r.score >= 9 ? 'good' : r.score >= 6 ? 'ok' : 'bad')}>{r.score}/10</span>
             </div>
             <p className="mk-wrong">{r.sentence}</p>

@@ -161,16 +161,18 @@ function FormModal({ title, sub, save, busy, onSave, onClose, children }: {
 
 /* ---------- plans (daily limits) ---------- */
 
-const PLAN_FIELDS: { key: 'chat' | 'autofill' | 'courseAi' | 'sentence' | 'usage' | 'tokens'; label: string; unit: string; hint: string; off: string }[] = [
+const PLAN_FIELDS: { key: 'chat' | 'autofill' | 'courseAi' | 'sentence' | 'usage' | 'phraseAi' | 'roleplay' | 'tokens'; label: string; unit: string; hint: string; off: string }[] = [
   { key: 'chat', label: 'Chatbot', unit: 'messages', hint: 'Questions to the AI assistant', off: 'Off' },
   { key: 'autofill', label: 'Auto-fill', unit: 'words', hint: 'New words filled in by AI or dictionaries', off: 'Off' },
   { key: 'courseAi', label: 'Course AI', unit: 'times', hint: 'AI-generated course content', off: 'Off' },
   { key: 'sentence', label: 'Sentence checks', unit: 'checks', hint: 'Practice → Write a sentence', off: 'Off' },
   { key: 'usage', label: 'Usage', unit: 'words', hint: '“How to use” written by AI (reading one that exists is free)', off: 'Off' },
+  { key: 'phraseAi', label: 'Phrase AI', unit: 'times', hint: 'Phrases: my own sentence graded, my words found for a phrase', off: 'Off' },
+  { key: 'roleplay', label: 'Role-play', unit: 'conversations', hint: 'Phrases: conversations with AI', off: 'Off' },
   { key: 'tokens', label: 'AI tokens', unit: 'tokens', hint: 'All AI features together', off: 'No cap' }
 ];
-type PlanForm = { name: string; chat: string; autofill: string; courseAi: string; sentence: string; usage: string; tokens: string };
-const toForm = (p?: AdminPlan): PlanForm => ({ name: p?.name ?? '', chat: String(p?.chat ?? 30), autofill: String(p?.autofill ?? 3), courseAi: String(p?.courseAi ?? 30), sentence: String(p?.sentence ?? 10), usage: String(p?.usage ?? 5), tokens: String(p?.tokens ?? 50000) });
+type PlanForm = { name: string; chat: string; autofill: string; courseAi: string; sentence: string; usage: string; phraseAi: string; roleplay: string; tokens: string };
+const toForm = (p?: AdminPlan): PlanForm => ({ name: p?.name ?? '', chat: String(p?.chat ?? 30), autofill: String(p?.autofill ?? 3), courseAi: String(p?.courseAi ?? 30), sentence: String(p?.sentence ?? 10), usage: String(p?.usage ?? 5), phraseAi: String(p?.phraseAi ?? 10), roleplay: String(p?.roleplay ?? 2), tokens: String(p?.tokens ?? 50000) });
 /** "1 word", "30 words", or what 0 means. */
 const limitText = (n: number, unit: string, off: string) => (n === 0 ? off : n.toLocaleString() + ' ' + (n === 1 ? unit.replace(/s$/, '') : unit));
 
@@ -183,7 +185,7 @@ function PlanModal({ plan, onSaved, onClose }: { plan?: AdminPlan; onSaved: (lis
     const nums = PLAN_FIELDS.map((x) => Number(f[x.key]));
     if (!f.name.trim()) { setErr('Please enter a plan name.'); return; }
     if (PLAN_FIELDS.some((x, k) => !f[x.key].trim() || !Number.isInteger(nums[k]) || nums[k] < 0)) { setErr('Limits must be whole numbers, 0 or more.'); return; }
-    const body = { name: f.name.trim(), chat: nums[0], autofill: nums[1], courseAi: nums[2], sentence: nums[3], usage: nums[4], tokens: nums[5] };
+    const body = { name: f.name.trim(), chat: nums[0], autofill: nums[1], courseAi: nums[2], sentence: nums[3], usage: nums[4], phraseAi: nums[5], roleplay: nums[6], tokens: nums[7] };
     setBusy(true); setErr('');
     try {
       onSaved(plan ? await api.adminPatchPlan(plan.id, body) : await api.adminCreatePlan(body));
@@ -371,7 +373,7 @@ function UserModal({ u, me, plans, onSaved, onClose }: { u: AdminUser; me: boole
               <input type="radio" name="um-plan" checked={plan === id} onChange={() => setPlan(id)} />
               <span className="usr-opt-t">
                 <b>{p?.name ?? 'Default'}{id === '' && <span className="muted xs"> · default</span>}</b>
-                {p && <span className="hint">{p.chat} chat · {p.autofill} auto-fill · {p.sentence} sentence checks · {p.usage} usage · {p.tokens ? p.tokens.toLocaleString() + ' tokens' : 'no token cap'} a day</span>}
+                {p && <span className="hint">{p.chat} chat · {p.autofill} auto-fill · {p.sentence} sentence checks · {p.usage} usage · {p.phraseAi} phrase AI · {p.roleplay} role-plays · {p.tokens ? p.tokens.toLocaleString() + ' tokens' : 'no token cap'} a day</span>}
               </span>
             </label>
           ))}
