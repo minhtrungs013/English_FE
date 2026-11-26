@@ -73,6 +73,7 @@ export interface AdminLibraryWord {
 }
 /* ---------- phrases ---------- */
 export type PhraseKind = 'slot' | 'fixed';
+export type PhraseTense = 'perfect' | 'past' | 'continuous' | 'modal' | 'present';
 export interface PhraseBrief {
   key: string; phrase: string; kind: PhraseKind; vi: string; level: Word['level']; topic: Topic; register: string; function: string; pattern: string;
   /** In my vocabulary; errors: mistakes still to fix in Practice. */
@@ -93,8 +94,10 @@ export interface PhraseDrill {
   id: string; key: string; phrase: string; kind: PhraseKind; pattern: string;
   type: 'translate' | 'fill' | 'transform' | 'situation' | 'reply' | 'meaning';
   prompt: string; sub: string; choices: string[]; answers: string[];
-  check: { phrase: string; need: string[]; question: boolean } | null;
+  check: { phrase: string; need: string[]; question: boolean; tense: PhraseTense | ''; base: string; past: string[] } | null;
   filler: PhraseFiller | null; explain: string;
+  /** The tense the answer is in (a hint; another tense is wrong). */
+  tense: PhraseTense | '';
 }
 export interface AdminPhrase extends PhraseBrief { templates: number; fillers: number; source: string }
 export interface PhraseImportItem { index: number; phrase: string; status: 'new' | 'replace' | 'exists' | 'repeat' | 'invalid'; errors: string[]; warnings: string[] }

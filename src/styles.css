@@ -2330,3 +2330,5 @@ button.tmini-row:hover{border-color:var(--primary)}
 .ph-sum-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);font:inherit;color:inherit;cursor:pointer}
 .adm-row.ph-adm{grid-template-columns:minmax(0,1.4fr) minmax(0,1.4fr) 110px 170px 70px 80px}
 @media (max-width:760px){.adm-row.ph-adm{grid-template-columns:minmax(0,1fr) auto}.adm-row.ph-adm>:nth-child(n+2):not(:last-child){display:none}}
+.ph-hint1{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;font-weight:700;letter-spacing:.06em;color:var(--primary-ink)}
+.ph-tense{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;padding:4px 10px;border-radius:999px;background:var(--info-soft);color:var(--info);font-size:13px}

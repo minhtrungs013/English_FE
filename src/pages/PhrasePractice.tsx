@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, type PhraseDrill } from '../lib/api';
-import { DRILL_TITLE, gradeDrill } from '../lib/phrases';
+import { DRILL_TITLE, TENSE_HINT, firstLetters, gradeDrill, hidesPhrase, type PhraseTense } from '../lib/phrases';
 import { recordAnswer } from '../lib/practice';
 import { speak } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
@@ -26,6 +26,10 @@ export function PhrasePractice() {
   const [input, setInput] = useState('');
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [given, setGiven] = useState('');
+  /** Hints asked for on this question: 1 = first letters, 2 = the phrase and its pattern. */
+  const [hint, setHint] = useState(0);
+  /** Set when the answer was right except for its tense. */
+  const [badTense, setBadTense] = useState<PhraseTense | null>(null);
   const [done, setDone] = useState<Done[]>([]);
   const [run, setRun] = useState(0);
   const field = useRef<HTMLTextAreaElement>(null);
@@ -44,7 +48,9 @@ export function PhrasePractice() {
 
   const check = (answer: string) => {
     if (!d || verdict) return;
-    const v = gradeDrill(d, answer);
+    const g = gradeDrill(d, answer);
+    const v = g.verdict;
+    setBadTense(g.tense ?? null);
     setVerdict(v); setGiven(answer);
     const ok = v !== 'wrong';
     const retry = d.id.endsWith(':again');
@@ -57,7 +63,7 @@ export function PhrasePractice() {
     if (!ok && !retry) setItems((list) => list && [...list, { ...d, id: d.id + ':again' }]);
     if (ok) speak(d.choices.length ? (d.type === 'meaning' ? d.phrase : answer) : d.answers[0]);
   };
-  const next = () => { setI(i + 1); setInput(''); setVerdict(null); setGiven(''); };
+  const next = () => { setI(i + 1); setInput(''); setVerdict(null); setGiven(''); setHint(0); setBadTense(null); };
   const onSubmit = (e: FormEvent) => { e.preventDefault(); if (verdict) next(); else if (input.trim()) check(input); };
   const saveNew = async (libraryId: string, word: string) => {
     const w = await a.saveFromLibrary({ id: libraryId, word });
@@ -131,8 +137,9 @@ export function PhrasePractice() {
         </div>
         <div className="ph-q-head">
           <span className="qkicker">{DRILL_TITLE[d!.type]}{d!.id.endsWith(':again') ? ' · again' : ''}</span>
-          {/* Not when the phrase is the answer (which phrase fits this situation?). */}
-          {d!.type !== 'situation' && <span className="ph-q-phrase">{d!.pattern ? <PatternChips pattern={d!.pattern} /> : <b>{d!.phrase}</b>}</span>}
+          {/* Hidden while it would give the answer away; hints show it bit by bit (or the answer, once checked). */}
+          {(!hidesPhrase(d!.type) || hint >= 2 || (verdict && d!.type !== 'situation')) && <span className="ph-q-phrase">{d!.pattern ? <PatternChips pattern={d!.pattern} /> : <b>{d!.phrase}</b>}</span>}
+          {hidesPhrase(d!.type) && d!.type !== 'situation' && hint === 1 && !verdict && <span className="ph-hint1">{firstLetters(d!.type === 'fill' ? d!.answers[0] : d!.phrase)}</span>}
         </div>
         {f && (
           <div className={'ph-q-word' + (f.mine ? ' mine' : '')}>
@@ -146,6 +153,7 @@ export function PhrasePractice() {
           {(d!.type === 'reply' || d!.type === 'fill' || d!.type === 'transform') && <button className="iconbtn sm" onClick={() => speak(d!.type === 'fill' ? d!.answers[0] : d!.prompt)} aria-label="Play" style={{ marginLeft: 6 }}><Icon name="volume" size="sm" /></button>}
         </h3>
         {d!.sub && <p className="muted sm" lang="vi" style={{ margin: 0 }}>{d!.sub}</p>}
+        {d!.tense && <span className="ph-tense" lang="vi"><Icon name="clock" size="sm" />Thì: <b>{TENSE_HINT[d!.tense].vi}</b> · {TENSE_HINT[d!.tense].form}</span>}
 
         {d!.choices.length ? (
           <div className="opts" role="group" aria-label="Choices">
@@ -167,6 +175,7 @@ export function PhrasePractice() {
               onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSubmit(e); } }} aria-label="Your answer" />
             {!verdict && (
               <div className="actions" style={{ justifyContent: 'flex-end' }}>
+                {hidesPhrase(d!.type) && hint < 2 && <button type="button" className="btn btn-ghost" onClick={() => setHint(hint + 1)}><Icon name="sparkle" size="sm" />{hint ? 'More help' : 'Hint'}</button>}
                 <button type="button" className="btn btn-ghost" onClick={() => check('')}>Show answer</button>
                 <button type="submit" className="btn btn-primary" disabled={!input.trim()}><Icon name="check" size="sm" />Check</button>
               </div>
@@ -179,7 +188,8 @@ export function PhrasePractice() {
             <div className={'wufb ' + (ok ? 'ok' : 'no')}>
               <b className="wufb-t"><Icon name={ok ? 'checkc' : 'alert'} size="sm" />{verdict === 'right' ? 'Correct!' : verdict === 'close' ? 'Correct — another way to say it:' : given ? 'Not quite. The answer:' : 'The answer:'}</b>
               {!d!.choices.length && <span className="ph-answer">{d!.type === 'fill' ? d!.prompt.replace(/(___\s?)+/, d!.answers[0] + ' ') : d!.answers[0]} <button className="iconbtn sm" onClick={() => speak(d!.type === 'fill' ? d!.prompt.replace(/(___\s?)+/, d!.answers[0] + ' ') : d!.answers[0])} aria-label="Play the answer"><Icon name="volume" size="sm" /></button></span>}
-              {!ok && d!.explain && <span className="muted sm" lang="vi">{d!.explain}</span>}
+              {badTense && <span className="sm" lang="vi"><b>Sai thì:</b> câu này dùng {TENSE_HINT[badTense].vi} ({TENSE_HINT[badTense].form}).</span>}
+              {!ok && !badTense && d!.explain && <span className="muted sm" lang="vi">{d!.explain}</span>}
               {!ok && !d!.id.endsWith(':again') && <span className="muted sm">You’ll get this one again at the end.</span>}
             </div>
           )}
