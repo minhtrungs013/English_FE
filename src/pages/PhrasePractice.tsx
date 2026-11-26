@@ -7,6 +7,7 @@ import { useWB } from '../state/WordbookContext';
 import { EmptyState, Icon, PageHead } from '../components/ui';
 import { errText } from './Courses';
 import { PatternChips } from './Phrases';
+import { MicButton } from '../components/MicButton';
 
 const SIZE = 10;
 type Verdict = 'right' | 'close' | 'wrong';
@@ -186,9 +187,12 @@ export function PhrasePractice() {
           </div>
         ) : (
           <form className="ph-form" onSubmit={(e) => { if (d!.type === 'own') { e.preventDefault(); if (verdict) next(); else void checkOwn(); } else onSubmit(e); }}>
-            <textarea ref={field} className={'input' + (verdict ? (ok ? ' ok' : ' err') : '')} rows={2} value={input} readOnly={!!verdict}
-              placeholder={d!.type === 'fill' ? 'Type the missing words…' : d!.type === 'own' ? 'A sentence about your work or your day…' : 'Type the English sentence…'} autoComplete="off" spellCheck={false} maxLength={300}
-              onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (d!.type === 'own') { if (verdict) next(); else void checkOwn(); } else onSubmit(e); } }} aria-label="Your answer" />
+            <div className="mic-wrap">
+              <textarea ref={field} className={'input' + (verdict ? (ok ? ' ok' : ' err') : '')} rows={2} value={input} readOnly={!!verdict}
+                placeholder={d!.type === 'fill' ? 'Type the missing words…' : d!.type === 'own' ? 'A sentence about your work or your day…' : 'Type the English sentence…'} autoComplete="off" spellCheck={false} maxLength={300}
+                onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (d!.type === 'own') { if (verdict) next(); else void checkOwn(); } else onSubmit(e); } }} aria-label="Your answer" />
+              {d!.type !== 'fill' && <MicButton value={input} onChange={setInput} disabled={!!verdict || ownBusy} onError={(m) => a.showToast(m, 'bad')} />}
+            </div>
             {!verdict && d!.type === 'own' && (
               <div className="actions" style={{ justifyContent: 'flex-end' }}>
                 {ownErr && <span className="bad sm" role="alert" style={{ marginRight: 'auto' }}>{ownErr}</span>}

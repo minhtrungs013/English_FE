@@ -4,6 +4,7 @@ import { speak } from '../lib/speech';
 import { useWB } from '../state/WordbookContext';
 import { Icon, PageHead } from '../components/ui';
 import { errText } from './Courses';
+import { MicButton } from '../components/MicButton';
 
 /**
  * Role-play with AI: a short chat at work where I use up to 3 phrases (the ones given in the URL, or some of mine).
@@ -133,8 +134,11 @@ export function RolePlayPage() {
           </div>
         ) : (
           <form className="rp-form" onSubmit={send}>
-            <textarea ref={field} className="input" rows={2} value={text} maxLength={300} placeholder="Your answer in English…" aria-label="Your answer"
-              onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); } }} disabled={!!busy && busy !== '…'} />
+            <div className="mic-wrap">
+              <textarea ref={field} className="input" rows={2} value={text} maxLength={300} placeholder="Your answer in English…" aria-label="Your answer"
+                onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); } }} disabled={!!busy && busy !== '…'} />
+              <MicButton value={text} onChange={setText} disabled={!!busy} onError={setErr} />
+            </div>
             <div className="actions" style={{ justifyContent: 'flex-end' }}>
               {err && <span className="bad sm" role="alert" style={{ marginRight: 'auto' }}>{err}</span>}
               <button type="button" className="btn btn-ghost" onClick={finish} disabled={!!busy}>{busy && busy !== '…' ? <><span className="spin" />{busy}</> : 'Finish'}</button>

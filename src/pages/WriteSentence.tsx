@@ -5,6 +5,7 @@ import { speak } from '../lib/speech';
 import { EmptyState, Icon, PageHead } from '../components/ui';
 import { useWB } from '../state/WordbookContext';
 import { UsageToggle } from '../components/UsagePanel';
+import { MicButton } from '../components/MicButton';
 
 /** Words per round. */
 const ROUND = 10;
@@ -129,10 +130,13 @@ export function WriteSentence() {
         {!res ? (
           <form onSubmit={check} noValidate>
             <label className="label" htmlFor="ws-text">Your sentence with “{w.word}”</label>
-            <textarea id="ws-text" ref={area} className="input ws-text" rows={3} maxLength={200} value={text} disabled={busy}
-              placeholder={'e.g. a sentence about your work with “' + w.word + '”'}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) check(); }} />
+            <div className="mic-wrap">
+              <textarea id="ws-text" ref={area} className="input ws-text" rows={3} maxLength={200} value={text} disabled={busy}
+                placeholder={'e.g. a sentence about your work with “' + w.word + '”'}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) check(); }} />
+              <MicButton value={text} onChange={setText} disabled={busy} onError={setErr} />
+            </div>
             <div className="ws-meta muted xs"><span>Ctrl + Enter to check</span><span>{text.length}/200</span></div>
             {err && <div className="formerr" role="alert"><Icon name="alert" size="sm" />{err}</div>}
             <div className="ws-actions">

@@ -2349,3 +2349,10 @@ button.tmini-row:hover{border-color:var(--primary)}
 .rp-note{font-size:13px;color:var(--warning)}
 .rp-form{display:flex;flex-direction:column;gap:8px}
 .rp-review{display:flex;flex-direction:column;gap:10px;padding-top:6px;border-top:1px solid var(--border)}
+/* 🎤 speak instead of typing */
+.mic-wrap{position:relative;display:flex;flex-direction:column}
+.mic-wrap textarea{padding-right:48px}
+.mic-wrap .mic-btn{position:absolute;right:8px;bottom:8px}
+.mic-btn.on{background:var(--danger);color:#fff;animation:micPulse 1.2s ease-in-out infinite}
+@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--danger) 45%,transparent)}50%{box-shadow:0 0 0 7px color-mix(in srgb,var(--danger) 0%,transparent)}}
+@media (prefers-reduced-motion: reduce){.mic-btn.on{animation:none}}
