@@ -643,6 +643,11 @@ function SentenceRow({ s, onSaved, onDeleted }: { s: AdminSentence; onSaved: (x:
     setBusy(true); setErr('');
     try { onSaved(await api.adminPatchSentence(s.id, f)); setEdit(false); a.showToast('Saved.'); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   };
+  /** Still right for the new meaning: saved as it is, so it's used again. */
+  const keep = async () => {
+    setBusy(true);
+    try { onSaved(await api.adminPatchSentence(s.id, {})); a.showToast('Kept — it’s used again.'); } catch (e) { a.showToast(errText(e), 'bad'); } finally { setBusy(false); }
+  };
   const del = async () => {
     setBusy(true);
     try { await api.adminDeleteSentence(s.id); onDeleted(); a.showToast('Sentence deleted.'); } catch (e) { a.showToast(errText(e), 'bad'); } finally { setBusy(false); }
@@ -655,10 +660,12 @@ function SentenceRow({ s, onSaved, onDeleted }: { s: AdminSentence; onSaved: (x:
         {s.tense ? <span className="badge t-blue">{TENSE_LABEL[s.tense]}</span> : <span className="badge pos">No tense lesson</span>}
         <span className="badge pos">{s.context}</span>
         {s.level && <span className={'badge lv-' + s.level}>{s.level}</span>}
+        {s.stale && <span className="badge t-amber" title="The word's meaning changed after this sentence was written. It isn't used until you keep, edit or delete it.">Meaning changed</span>}
       </div>
       <div className="adm-sent-body">
         <span className="sm">{at < 0 ? s.sentence : <>{s.sentence.slice(0, at)}<mark className="sbk-verb">{s.verb}</mark>{s.sentence.slice(at + s.verb.length)}</>}</span>
         <span className="adm-act">
+          {s.stale && <button className="btn btn-secondary btn-sm" onClick={keep} disabled={busy} title="It still fits the word's meaning: use it again"><Icon name="check" size="sm" />Keep</button>}
           <button className="iconbtn sm" onClick={() => { setF({ sentence: s.sentence, verb: s.verb, base: s.base, tense: s.tense }); setErr(''); setEdit(true); }} aria-label={'Edit: ' + s.sentence} title="Edit"><Icon name="edit" size="sm" /></button>
           <button className="iconbtn sm danger" onClick={del} disabled={busy} aria-label={'Delete: ' + s.sentence} title="Delete"><Icon name="trash" size="sm" /></button>
         </span>
@@ -719,6 +726,7 @@ function SentenceBank() {
           <option value="">All tenses</option>
           {TENSES.map((t) => <option key={t} value={t}>{TENSE_LABEL[t]}</option>)}
           <option value="none">No tense lesson</option>
+          <option value="stale">Meaning changed</option>
         </select>
       </Search>
       {p.err ? <EmptyState icon="alert" tint="t-red" title="Can’t load sentences" text={p.err} /> : !p.data ? <div className="sk" style={{ height: 200 }} /> : (

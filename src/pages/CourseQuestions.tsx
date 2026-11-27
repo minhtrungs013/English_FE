@@ -550,6 +550,7 @@ export function QuestionBank({ c, day, onCounts }: { c: CourseDetail; day: Cours
                       <span className={'badge ' + (q.kind === 'recap' ? 't-indigo' : 'pos')}>{KIND_LABEL[q.kind]}</span>
                       {q.tenseLabel && <span className="badge t-blue">{q.tenseLabel}</span>}
                       {q.word && <span className="badge pos">{q.word}</span>}
+                      {q.stale && <span className="badge t-amber" title="The word's meaning changed after this was written, so it went back to pending. Approve it if it still fits, or edit or reject it.">Meaning changed</span>}
                       <span className="muted xs">{SOURCE_LABEL[q.source]}</span>
                     </div>
                     {editing === q.id ? (

@@ -63,13 +63,19 @@ export interface SentenceResult {
   quota: { used: number; limit: number };
 }
 export interface AdminCourse { id: string; title: string; ownerName: string; visibility: 'private' | 'public'; joinCode: string; totalDays: number; readyDays: number; members: number; pending: number; createdAt: number | null }
-export interface AdminSentence { id: string; wordId: string; word: string; form: string; sentence: string; context: string; level: string; topic: string; tense: Tense | ''; verb: string; base: string }
+export interface AdminSentence {
+  id: string; wordId: string; word: string; form: string; sentence: string; context: string; level: string; topic: string; tense: Tense | ''; verb: string; base: string;
+  /** The word's meaning changed after it was written: not used until kept, edited or deleted. */
+  stale?: boolean;
+}
 export interface AdminLibraryWord {
   id: string; word: string; ipa: string; pos: string; meaning: string; vi: string; ex: string; level: Word['level']; topic: Topic; authorName: string; saves: number;
   /** After a save: the full word and how many learners' saved words were updated with it. */
   syn?: string[]; ant?: string[]; family?: FamilyMember[]; synced?: number;
   /** True when "How to use" is being written again in the background. */
   usageWriting?: boolean;
+  /** The meaning changed: bank sentences and course questions marked "meaning changed" to check again. */
+  stale?: { sentences: number; questions: number };
 }
 /* ---------- phrases ---------- */
 export type PhraseKind = 'slot' | 'fixed';
@@ -338,6 +344,8 @@ export interface BankItem {
   id: string; day: number; kind: BankKind; word: string; tense: Tense | ''; tenseLabel: string;
   prompt: string; choices: string[]; answer: string; accept: string[]; explain: string;
   source: 'ai' | 'template' | 'manual' | 'bank' | 'course'; status: BankStatus;
+  /** The word's meaning changed after it was written: back to pending until approved or edited again. */
+  stale?: boolean;
   /** Dialogues only. */
   data?: Dialogue;
 }
@@ -599,7 +607,8 @@ export const api = {
   adminPatchPlan: (id: string, p: Partial<PlanBody> & { isDefault?: boolean }) => req<AdminPlan[]>('PATCH', '/admin/plans/' + id, p),
   adminDeletePlan: (id: string) => req<AdminPlan[]>('DELETE', '/admin/plans/' + id),
   adminCourses: () => req<AdminCourse[]>('GET', '/admin/courses'),
-  adminSentences: (q: string, tense: string, page: number) => req<Paged<AdminSentence>>('GET', '/admin/sentences?' + query({ q, tense, page })),
+  /** tense 'stale': only sentences whose word's meaning changed. */
+  adminSentences: (q: string, tense: string, page: number) => req<Paged<AdminSentence>>('GET', '/admin/sentences?' + query({ q, tense: tense === 'stale' ? '' : tense, stale: tense === 'stale' ? '1' : '', page })),
   adminPatchSentence: (id: string, patch: Partial<Pick<AdminSentence, 'sentence' | 'tense' | 'verb' | 'base' | 'context'>>) => req<AdminSentence>('PATCH', '/admin/sentences/' + id, patch),
   adminDeleteSentence: (id: string) => req<void>('DELETE', '/admin/sentences/' + id),
   adminLibrary: (q: string, page: number) => req<Paged<AdminLibraryWord>>('GET', '/admin/library?' + query({ q, page })),

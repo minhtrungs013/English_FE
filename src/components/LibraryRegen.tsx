@@ -79,7 +79,11 @@ export function LibraryRegen({ id, word, onClose, onSaved }: { id: string; word:
         })
       }));
       const n = res.synced ?? 0;
-      a.showToast('Updated “' + word + '”' + (n ? ' and ' + n + (n === 1 ? ' learner’s saved word' : ' learners’ saved words') : '') + (res.usageWriting ? '. AI is writing How to use.' : '.'));
+      const st = res.stale;
+      const checks = st && (st.questions || st.sentences)
+        ? ' Meaning changed: ' + [st.questions ? st.questions + (st.questions === 1 ? ' course question' : ' course questions') + ' back to pending' : '', st.sentences ? st.sentences + (st.sentences === 1 ? ' bank sentence' : ' bank sentences') + ' to check' : ''].filter(Boolean).join(', ') + '.'
+        : '';
+      a.showToast('Updated “' + word + '”' + (n ? ' and ' + n + (n === 1 ? ' learner’s saved word' : ' learners’ saved words') : '') + (res.usageWriting ? '. AI is writing How to use.' : '.') + checks);
       onSaved(res);
     } catch (e) { setErr(errText(e)); setBusy(false); }
   };
