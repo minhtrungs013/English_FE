@@ -123,7 +123,14 @@ export function LibraryRegen({ id, word, onClose, onSaved }: { id: string; word:
                 </label>
               ))}
             </div>
-            {changed.length < FIELDS.length && <p className="muted xs">{FIELDS.length - changed.length} other fields are the same.</p>}
+            {changed.length < FIELDS.length && (
+              <p className="muted xs">
+                AI wrote the same as now:{' '}
+                {FIELDS.filter((f) => !changed.includes(f)).map((f, i) => (
+                  <span key={f.key}>{i ? ' · ' : ''}<b>{f.label}</b>{f.key === 'vi' && !blank(data.proposal.vi) ? <> “<span lang="vi">{data.proposal.vi}</span>”</> : f.key === 'pos' ? ' (' + data.proposal.pos + ')' : ''}</span>
+                ))}
+              </p>
+            )}
             <label className="regen-usage">
               <input type="checkbox" checked={usage} onChange={(e) => setUsage(e.target.checked)} />
               <span><b>Write “How to use” again too</b><span className="muted xs">For the saved meaning, right after saving. It replaces the current one, also if it was approved.</span></span>
