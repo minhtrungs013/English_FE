@@ -88,7 +88,7 @@ export function LibraryRegen({ id, word, onClose, onSaved }: { id: string; word:
     <Dialog label={'Regenerate ' + word} onClose={busy ? () => undefined : onClose} className="adm-modal regen-modal">
       <div className="adm-modal-head">
         <h2>Regenerate “{word}” with AI</h2>
-        <p className="muted sm">AI writes the word again, as for a new word. Tick what to keep. Learners who saved it get the new details too, except fields they changed themselves.</p>
+        <p className="muted sm">AI writes the word again, as for a new word. Tick what to keep. Courses with this word show the new details (except what a course changed for itself), and learners who saved it get them too, except fields they changed themselves.</p>
         <button type="button" className="iconbtn sm adm-modal-x" onClick={onClose} disabled={busy} aria-label="Close"><Icon name="x" size="sm" /></button>
       </div>
       <div className="adm-modal-body">
