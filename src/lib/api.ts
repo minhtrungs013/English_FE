@@ -1,7 +1,7 @@
 import type { Category, Data, FamilyMember, Progress, Rating, Settings, Word } from './data';
 
 /** Wordbook API. Defaults to the server on Render; set VITE_API_URL in .env to use another one (e.g. http://localhost:3000/api). */
-export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || 'https://english-be-ys8a.onrender.com/api';
+export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || 'https://english-be-xeqr.onrender.com/api';
 const BASE = API_BASE;
 const TOKEN_KEY = 'wordbook:token';
 

@@ -12,7 +12,7 @@ cp .env.example .env   # optional: only to use a local API instead of the Render
 npm run dev            # http://localhost:5173
 ```
 
-By default the app uses the API on Render (`https://english-be-ys8a.onrender.com/api`). The free plan sleeps
+By default the app uses the API on Render (`https://english-be-xeqr.onrender.com/api`). The free plan sleeps
 after 15 minutes without traffic, so the first load can take up to a minute.
 
 ## Features
