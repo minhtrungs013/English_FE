@@ -150,6 +150,16 @@ function PracticeView({ ansRef }: { ansRef: React.RefObject<HTMLInputElement | n
     return () => clearTimeout(t);
   }, [m, P.done, P.pid, P.i, w.word]);
 
+  // Translation: once the answer is checked (right, wrong or skipped) the English word is read out.
+  const said = useRef('');
+  useEffect(() => {
+    if (m !== 'trans' || !P.checked || P.done) return;
+    const key = P.pid + ':' + P.i;
+    if (said.current === key) return;
+    said.current = key;
+    speak(w.word);
+  }, [m, P.checked, P.done, P.pid, P.i, w.word]);
+
   if (P.done) {
     const acc = Math.round((P.score / first) * 100);
     return (

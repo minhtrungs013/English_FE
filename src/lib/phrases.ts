@@ -27,7 +27,7 @@ export const TENSE_HINT: Record<PhraseTense, { vi: string; form: string }> = {
 };
 
 const PERFECT = new Set(['have', 'has', 'had']);
-const MODAL = new Set(['will', 'would', 'can', 'could', 'should', 'must', 'may', 'might', 'shall', 'to', 'going']);
+const MODAL = new Set(['will', 'would', 'can', 'cannot', 'could', 'should', 'must', 'may', 'might', 'shall', 'to', 'going']);
 const AUX = new Set([...PERFECT, ...MODAL, 'do', 'does', 'did', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being']);
 /** Contractions written out for finding the tense ("I've" → "I have"). */
 function expand(s: string): string {
@@ -47,6 +47,12 @@ export function tenseOf(sentence: string, re: string, base: string, past: string
   if (aux && PERFECT.has(aux) && !(base === 'have' && aux === head)) return 'perfect';
   if (aux && MODAL.has(aux)) return 'modal';
   if (aux === 'did') return 'past';
+  // "The team's handed off", "She's taken over": 's + past participle is has + V3.
+  if (base !== 'be' && head !== base && (past.includes(head) || /en$/.test(head))) {
+    const raw = sentence.toLowerCase().replace(/[’‘`]/g, "'");
+    const r = new RegExp(re, 'i').exec(raw);
+    if (r && /'s\s+$/.test(raw.slice(0, r.index))) return 'perfect';
+  }
   if (base === 'be') return head === 'was' || head === 'were' ? 'past' : 'present';
   return past.includes(head) ? 'past' : 'present';
 }
